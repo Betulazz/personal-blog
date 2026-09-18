@@ -1,13 +1,10 @@
 <script setup lang="ts">
 useSeoMeta({
-  title: 'Personal Blog',
-  description: 'The architecture baseline for the personal blog.',
+  title: '夜航手记',
+  description: '关于技术、生活与缓慢生长的个人记录。',
 })
 </script>
 
 <template>
-  <main>
-    <h1>Personal Blog</h1>
-    <p>The Phase 1 architecture baseline is ready.</p>
-  </main>
+  <VisualFoundationPage />
 </template>
