@@ -1,0 +1,44 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Frontend
+frontend/node_modules/
+frontend/.nuxt/
+frontend/.output/
+frontend/.data/
+frontend/.nitro/
+frontend/.cache/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+
+# Backend
+backend/.venv/
+backend/.pytest_cache/
+backend/pytest-cache-files-*/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.coverage
+backend/htmlcov/
+**/__pycache__/
+*.py[cod]
+
+# Runtime data
+uploads/
+mysql-data/
+
+# Logs and temporary QA artifacts
+*.log
+.playwright-cli/
+screenshots/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
