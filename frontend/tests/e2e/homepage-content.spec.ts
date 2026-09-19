@@ -109,7 +109,7 @@ test('homepage aggregates distinct content domains with accessible metadata', as
 
 test('homepage remains stable and inside every required CSS viewport', async ({
   page,
-}) => {
+}, testInfo) => {
   const consoleProblems: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error' || message.type() === 'warning') {
@@ -135,16 +135,16 @@ test('homepage remains stable and inside every required CSS viewport', async ({
     await expect(page.getByRole('heading', { name: '最新文章' })).toBeVisible()
 
     await page.screenshot({
-      path: `test-results/homepage/viewport-${viewport.width}.png`,
+      path: `test-results/homepage/${testInfo.project.name}-viewport-${viewport.width}.png`,
       fullPage: false,
+      scale: 'css',
+    })
+    await page.screenshot({
+      path: `test-results/homepage/${testInfo.project.name}-full-page-${viewport.width}.png`,
+      fullPage: true,
       scale: 'css',
     })
   }
 
-  await page.screenshot({
-    path: 'test-results/homepage/full-page.png',
-    fullPage: true,
-    scale: 'css',
-  })
   expect(consoleProblems).toEqual([])
 })

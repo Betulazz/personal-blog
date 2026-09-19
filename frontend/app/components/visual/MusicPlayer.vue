@@ -8,12 +8,16 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-vue-next'
+import { motion } from 'motion-v'
 
+import { motionTransitions } from '~/config/motion'
+import { useMotionPreference } from '~/composables/useMotionPreference'
 import { useMusicPlayerStore } from '~/stores/musicPlayer'
 
 const player = useMusicPlayerStore()
 const audioElement = ref<HTMLAudioElement | null>(null)
 const isReady = ref(false)
+const motionEnabled = useMotionPreference({ disableOnMobile: true })
 const previousVolume = ref(player.volume || 0.65)
 const playRequest = ref(0)
 
@@ -188,6 +192,12 @@ watch(
   },
 )
 
+watch(audioElement, (audio) => {
+  if (audio) {
+    syncAudioSource()
+  }
+})
+
 onMounted(() => {
   isReady.value = true
   syncAudioSource()
@@ -208,106 +218,114 @@ onBeforeUnmount(() => {
     :data-player-ready="isReady"
     :data-player-status="player.status"
   >
-    <audio
-      ref="audioElement"
-      class="music-player__audio"
-      :src="player.currentTrack.src"
-      preload="none"
-      aria-hidden="true"
-      tabindex="-1"
-      @ended="handleEnded"
-      @error="handleAudioError"
-      @loadedmetadata="handleLoadedMetadata"
-      @timeupdate="handleTimeUpdate"
-    />
+    <component
+      :is="motionEnabled ? motion.div : 'div'"
+      class="music-player__motion"
+      :initial="motionEnabled ? { y: 8 } : undefined"
+      :animate="motionEnabled ? { y: 0 } : undefined"
+      :transition="motionEnabled ? motionTransitions.entry : undefined"
+    >
+      <audio
+        ref="audioElement"
+        class="music-player__audio"
+        :src="player.currentTrack.src"
+        preload="none"
+        aria-hidden="true"
+        tabindex="-1"
+        @ended="handleEnded"
+        @error.stop="handleAudioError"
+        @loadedmetadata="handleLoadedMetadata"
+        @timeupdate="handleTimeUpdate"
+      />
 
-    <div class="music-player__identity">
-      <span class="music-player__icon" aria-hidden="true">
-        <Music2 :size="18" />
-      </span>
-      <div class="music-player__track">
-        <span class="music-player__eyebrow">NOW PLAYING · AMBIENT</span>
-        <strong>{{ player.currentTrack.title }}</strong>
-        <span>{{ player.currentTrack.artist }}</span>
+      <div class="music-player__identity">
+        <span class="music-player__icon" aria-hidden="true">
+          <Music2 :size="18" />
+        </span>
+        <div class="music-player__track">
+          <span class="music-player__eyebrow">NOW PLAYING · AMBIENT</span>
+          <strong>{{ player.currentTrack.title }}</strong>
+          <span>{{ player.currentTrack.artist }}</span>
+        </div>
       </div>
-    </div>
 
-    <div class="music-player__controls">
-      <button
-        type="button"
-        aria-label="上一首"
-        class="music-player__control"
-        @click="skipPrevious"
-      >
-        <SkipBack :size="18" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="music-player__control music-player__control--primary"
-        :aria-label="player.isPlaying ? '暂停' : '播放'"
-        :aria-busy="player.status === 'loading' || undefined"
-        @click="togglePlayback"
-      >
-        <Pause v-if="player.isPlaying" :size="19" aria-hidden="true" />
-        <Play v-else :size="19" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        aria-label="下一首"
-        class="music-player__control"
-        @click="skipNext"
-      >
-        <SkipForward :size="18" aria-hidden="true" />
-      </button>
-    </div>
+      <div class="music-player__controls">
+        <button
+          type="button"
+          aria-label="上一首"
+          class="music-player__control"
+          @click="skipPrevious"
+        >
+          <SkipBack :size="18" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="music-player__control music-player__control--primary"
+          :aria-label="player.isPlaying ? '暂停' : '播放'"
+          :aria-busy="player.status === 'loading' || undefined"
+          @click="togglePlayback"
+        >
+          <Pause v-if="player.isPlaying" :size="19" aria-hidden="true" />
+          <Play v-else :size="19" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          aria-label="下一首"
+          class="music-player__control"
+          @click="skipNext"
+        >
+          <SkipForward :size="18" aria-hidden="true" />
+        </button>
+      </div>
 
-    <div class="music-player__progress">
-      <label class="visually-hidden" for="music-progress">播放进度</label>
-      <input
-        id="music-progress"
-        class="music-player__range"
-        type="range"
-        min="0"
-        :max="player.duration || 0"
-        step="0.1"
-        :value="progressValue"
-        :disabled="!player.duration || isUnavailable"
-        aria-label="播放进度"
-        :aria-valuetext="`${formattedCurrentTime} / ${formattedDuration}`"
-        @input="seek"
-      />
-      <span class="music-player__time" aria-live="off">
-        {{ formattedCurrentTime }} / {{ formattedDuration }}
-      </span>
-    </div>
+      <div class="music-player__progress">
+        <label class="visually-hidden" for="music-progress">播放进度</label>
+        <input
+          id="music-progress"
+          class="music-player__range"
+          type="range"
+          min="0"
+          :max="player.duration || 0"
+          step="0.1"
+          :value="progressValue"
+          :disabled="!player.duration || isUnavailable"
+          aria-label="播放进度"
+          :aria-valuetext="`${formattedCurrentTime} / ${formattedDuration}`"
+          @input="seek"
+        />
+        <span class="music-player__time" aria-live="off">
+          {{ formattedCurrentTime }} / {{ formattedDuration }}
+        </span>
+      </div>
 
-    <div class="music-player__volume">
-      <button
-        type="button"
-        class="music-player__control"
-        :aria-label="player.volume > 0 ? '静音' : '取消静音'"
-        @click="toggleMute"
-      >
-        <Volume2 v-if="player.volume > 0" :size="17" aria-hidden="true" />
-        <VolumeX v-else :size="17" aria-hidden="true" />
-      </button>
-      <label class="visually-hidden" for="music-volume">音量</label>
-      <input
-        id="music-volume"
-        class="music-player__range music-player__range--volume"
-        type="range"
-        min="0"
-        max="1"
-        step="0.05"
-        :value="player.volume"
-        aria-label="音量"
-        @input="changeVolume"
-      />
-    </div>
+      <div class="music-player__volume">
+        <button
+          type="button"
+          class="music-player__control"
+          :aria-label="player.volume > 0 ? '静音' : '取消静音'"
+          @click="toggleMute"
+        >
+          <Volume2 v-if="player.volume > 0" :size="17" aria-hidden="true" />
+          <VolumeX v-else :size="17" aria-hidden="true" />
+        </button>
+        <label class="visually-hidden" for="music-volume">音量</label>
+        <input
+          id="music-volume"
+          class="music-player__range music-player__range--volume"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          :value="player.volume"
+          aria-label="音量"
+          @input="changeVolume"
+        />
+      </div>
 
-    <div v-if="errorMessage" class="music-player__message" role="status">
-      {{ errorMessage }}
-    </div>
+      <div v-if="errorMessage" class="music-player__message" role="status">
+        {{ errorMessage }}
+      </div>
+    </component>
   </section>
 </template>
 
@@ -334,6 +352,14 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-panel), var(--glass-highlight), var(--shadow-glow);
   backdrop-filter: blur(var(--glass-blur-panel))
     saturate(var(--glass-saturation));
+}
+
+.music-player__motion {
+  display: grid;
+  width: 100%;
+  grid-template-columns: inherit;
+  align-items: inherit;
+  gap: inherit;
 }
 
 .music-player__audio {
@@ -492,7 +518,8 @@ onBeforeUnmount(() => {
 }
 
 @media (width <= 64rem) {
-  .music-player {
+  .music-player,
+  .music-player__motion {
     grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
@@ -509,12 +536,17 @@ onBeforeUnmount(() => {
 @media (width <= 48rem) {
   .music-player {
     right: var(--space-3);
-    bottom: var(--space-3);
+    bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
     left: var(--space-3);
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--space-2) var(--space-3);
     padding: var(--space-3);
     border-radius: var(--radius-medium);
+  }
+
+  .music-player__motion {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2) var(--space-3);
   }
 
   .music-player__controls {
@@ -540,6 +572,17 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .music-player__control {
     transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) and (width > 48rem) {
+  .music-player__icon {
+    transition: transform var(--motion-duration-normal)
+      var(--motion-ease-emphasized);
+  }
+
+  .music-player[data-player-status='playing'] .music-player__icon {
+    transform: translateY(-0.125rem);
   }
 }
 </style>

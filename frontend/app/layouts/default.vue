@@ -17,7 +17,7 @@
   display: flex;
   min-height: 100svh;
   flex-direction: column;
-  padding-bottom: clamp(6.75rem, 12vw, 8rem);
+  padding-bottom: var(--public-shell-safe-bottom);
   isolation: isolate;
 }
 

@@ -44,4 +44,10 @@
     display: none;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-background__glow {
+    display: none;
+  }
+}
 </style>

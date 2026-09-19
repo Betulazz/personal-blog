@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Menu, X } from 'lucide-vue-next'
+import { motion } from 'motion-v'
 import {
   DialogClose,
   DialogContent,
@@ -11,9 +12,12 @@ import {
   VisuallyHidden,
 } from 'reka-ui'
 import { publicNavigation, siteIdentity } from '~/config/siteIdentity'
+import { motionTransitions } from '~/config/motion'
+import { useMotionPreference } from '~/composables/useMotionPreference'
 
 const isMenuOpen = ref(false)
 const isHydrated = ref(false)
+const motionEnabled = useMotionPreference()
 const route = useRoute()
 
 const isCurrentRoute = (href: string) =>
@@ -52,41 +56,56 @@ onMounted(() => {
           type="button"
           aria-label="打开主导航"
           aria-controls="mobile-navigation"
+          :aria-expanded="isMenuOpen"
         >
           <Menu :size="24" aria-hidden="true" />
         </button>
       </DialogTrigger>
 
       <DialogPortal>
-        <DialogOverlay class="mobile-sheet__overlay" />
-        <DialogContent class="mobile-sheet" :aria-describedby="undefined">
-          <VisuallyHidden>
-            <DialogTitle>主导航</DialogTitle>
-          </VisuallyHidden>
-          <DialogClose as-child>
-            <button
-              class="mobile-sheet__close"
-              type="button"
-              aria-label="关闭主导航"
-            >
-              <X :size="24" aria-hidden="true" />
-            </button>
-          </DialogClose>
-          <nav
-            id="mobile-navigation"
-            class="mobile-navigation"
-            aria-label="移动端主导航"
+        <DialogOverlay as-child>
+          <motion.div
+            class="mobile-sheet__overlay"
+            :initial="motionEnabled ? { opacity: 0 } : false"
+            :animate="{ opacity: 1 }"
+            :transition="motionTransitions.menu"
+          />
+        </DialogOverlay>
+        <DialogContent as-child :aria-describedby="undefined">
+          <motion.div
+            class="mobile-sheet"
+            :initial="motionEnabled ? { opacity: 0, x: 12 } : false"
+            :animate="{ opacity: 1, x: 0 }"
+            :transition="motionTransitions.menu"
           >
-            <a
-              v-for="item in publicNavigation"
-              :key="item.label"
-              :href="item.href"
-              :aria-current="isCurrentRoute(item.href) ? 'page' : undefined"
-              @click="isMenuOpen = false"
+            <VisuallyHidden>
+              <DialogTitle>主导航</DialogTitle>
+            </VisuallyHidden>
+            <DialogClose as-child>
+              <button
+                class="mobile-sheet__close"
+                type="button"
+                aria-label="关闭主导航"
+              >
+                <X :size="24" aria-hidden="true" />
+              </button>
+            </DialogClose>
+            <nav
+              id="mobile-navigation"
+              class="mobile-navigation"
+              aria-label="移动端主导航"
             >
-              {{ item.label }}
-            </a>
-          </nav>
+              <a
+                v-for="item in publicNavigation"
+                :key="item.label"
+                :href="item.href"
+                :aria-current="isCurrentRoute(item.href) ? 'page' : undefined"
+                @click="isMenuOpen = false"
+              >
+                {{ item.label }}
+              </a>
+            </nav>
+          </motion.div>
         </DialogContent>
       </DialogPortal>
     </DialogRoot>
@@ -96,6 +115,7 @@ onMounted(() => {
       type="button"
       aria-label="打开主导航"
       disabled
+      aria-expanded="false"
     >
       <Menu :size="24" aria-hidden="true" />
     </button>

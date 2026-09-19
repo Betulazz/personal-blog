@@ -8,19 +8,27 @@ const { content, retry } = useHomepageContent()
       <HomeProfileSection :stats="content.stats" />
 
       <div class="home-content__sections">
-        <HomePostsSection :section="content.posts" @retry="retry('posts')" />
-        <HomeMomentsSection
-          :section="content.moments"
-          @retry="retry('moments')"
-        />
-        <HomeChatterSection
-          :section="content.chatter"
-          @retry="retry('chatter')"
-        />
-        <HomeProjectsSection
-          :section="content.projects"
-          @retry="retry('projects')"
-        />
+        <HomeReveal>
+          <HomePostsSection :section="content.posts" @retry="retry('posts')" />
+        </HomeReveal>
+        <HomeReveal>
+          <HomeMomentsSection
+            :section="content.moments"
+            @retry="retry('moments')"
+          />
+        </HomeReveal>
+        <HomeReveal>
+          <HomeChatterSection
+            :section="content.chatter"
+            @retry="retry('chatter')"
+          />
+        </HomeReveal>
+        <HomeReveal>
+          <HomeProjectsSection
+            :section="content.projects"
+            @retry="retry('projects')"
+          />
+        </HomeReveal>
       </div>
     </UiPageContainer>
   </section>

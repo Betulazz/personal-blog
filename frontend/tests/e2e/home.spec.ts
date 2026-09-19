@@ -67,11 +67,27 @@ test('small screens select an optimized background instead of the full source', 
   expect(loadedImages.some((url) => url.includes('/bg.jpeg'))).toBe(false)
 })
 
-test('decorative layers avoid continuous animation work', async ({ page }) => {
+test('homepage motion is finite and respects reduced-motion preferences', async ({
+  page,
+}) => {
   for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await page.emulateMedia({ reducedMotion })
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/')
+    if (reducedMotion === 'reduce') {
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              document
+                .getAnimations()
+                .filter((animation) => animation.playState === 'running')
+                .length,
+          ),
+        )
+        .toBe(0)
+    }
+    await page.waitForTimeout(700)
 
     await expect
       .poll(() =>
@@ -84,6 +100,98 @@ test('decorative layers avoid continuous animation work', async ({ page }) => {
       )
       .toBe(0)
   }
+})
+
+test('desktop homepage sections reveal after entering the viewport', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/')
+
+  const firstSection = page.locator('[data-homepage-section]').first()
+  await expect(firstSection).not.toHaveAttribute('data-revealed', 'true')
+  await firstSection.scrollIntoViewIfNeeded()
+  await expect(firstSection).toHaveAttribute('data-revealed', 'true')
+
+  await page.waitForTimeout(700)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document
+            .getAnimations()
+            .filter((animation) => animation.playState === 'running').length,
+      ),
+    )
+    .toBe(0)
+})
+
+test('mobile removes nonessential ambient motion and protects the footer from the player', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 430, height: 932 })
+  await page.goto('/')
+
+  const checks = await page.evaluate(() => {
+    const player = document.querySelector('[data-testid="music-player"]')
+    const footer = document.querySelector('footer')
+    const section = document.querySelector('[data-homepage-section]')
+    const playerRect = player?.getBoundingClientRect()
+    const footerRect = footer?.getBoundingClientRect()
+
+    return {
+      ambientGlows: [
+        ...document.querySelectorAll('.ambient-background__glow'),
+      ].map((element) => getComputedStyle(element).display),
+      homepageSectionAnimation: section
+        ? getComputedStyle(section).animationName
+        : 'missing',
+      playerControls: [
+        ...document.querySelectorAll(
+          '[data-testid="music-player"] button, [data-testid="music-player"] input',
+        ),
+      ].map((element) => {
+        const rect = element.getBoundingClientRect()
+        return { height: rect.height, width: rect.width }
+      }),
+      playerFooterGap:
+        playerRect && footerRect
+          ? Math.max(0, playerRect.top - footerRect.bottom)
+          : -1,
+    }
+  })
+
+  expect(checks.ambientGlows).toEqual(['none', 'none'])
+  expect(checks.homepageSectionAnimation).toBe('none')
+  expect(checks.playerControls).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        height: expect.any(Number),
+        width: expect.any(Number),
+      }),
+    ]),
+  )
+  expect(
+    checks.playerControls.every(
+      ({ height, width }) => height >= 44 && width >= 44,
+    ),
+  ).toBe(true)
+
+  await page.evaluate(() =>
+    window.scrollTo(0, document.documentElement.scrollHeight),
+  )
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const player = document
+          .querySelector('[data-testid="music-player"]')
+          ?.getBoundingClientRect()
+        const footer = document.querySelector('footer')?.getBoundingClientRect()
+        return player && footer ? footer.bottom <= player.top : false
+      }),
+    )
+    .toBe(true)
 })
 
 test('required visual widths do not overflow horizontally', async ({

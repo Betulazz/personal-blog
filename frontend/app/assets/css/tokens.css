@@ -125,6 +125,7 @@
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-distance-small: 0.25rem;
+  --public-shell-safe-bottom: calc(8rem + env(safe-area-inset-bottom));
   --breakpoint-phone: 23.4375rem;
   --breakpoint-phone-wide: 26.875rem;
   --breakpoint-tablet: 48rem;
@@ -164,6 +165,7 @@
     --blur-ambient: 2.5rem;
     --glow-accent: rgb(99 102 241 / 18%);
     --glow-secondary: rgb(192 132 252 / 12%);
+    --public-shell-safe-bottom: calc(12.5rem + env(safe-area-inset-bottom));
   }
 }
 
