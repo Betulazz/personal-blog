@@ -1,4 +1,10 @@
+import { fileURLToPath } from 'node:url'
+
 import tailwindcss from '@tailwindcss/vite'
+
+const displayPrimitivesFixture = fileURLToPath(
+  new URL('./tests/fixtures/DisplayPrimitivesPage.vue', import.meta.url),
+)
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -20,4 +26,16 @@ export default defineNuxtConfig({
   vite: {
     plugins: [tailwindcss()],
   },
+  hooks:
+    process.env.NUXT_DISPLAY_PRIMITIVES_FIXTURE === 'true'
+      ? {
+          'pages:extend'(pages) {
+            pages.push({
+              file: displayPrimitivesFixture,
+              name: 'display-primitives-acceptance',
+              path: '/__acceptance/display-primitives',
+            })
+          },
+        }
+      : {},
 })

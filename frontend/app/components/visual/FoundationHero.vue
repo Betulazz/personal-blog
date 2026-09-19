@@ -3,11 +3,16 @@ import { ArrowDown, ArrowRight } from 'lucide-vue-next'
 </script>
 
 <template>
-  <main id="main-content" class="hero">
+  <UiPageContainer id="main-content" as="main" class="hero" width="wide">
     <section class="hero__content" aria-labelledby="hero-title">
       <div class="hero__copy">
-        <h1 id="hero-title">在夜色里，<br />写下仍然发光的事</h1>
-        <p>关于技术、生活与缓慢生长的个人记录。</p>
+        <UiSectionHeader
+          class="hero__heading"
+          title="在夜色里，写下仍然发光的事"
+          description="关于技术、生活与缓慢生长的个人记录。"
+          :heading-level="1"
+          title-id="hero-title"
+        />
 
         <div class="hero__actions">
           <a class="action action--primary" href="/posts">
@@ -17,21 +22,29 @@ import { ArrowDown, ArrowRight } from 'lucide-vue-next'
           <a class="action action--secondary" href="/about">了解我</a>
         </div>
 
-        <p class="hero__meta">WRITING · BUILDING · LIVING</p>
+        <UiBadge class="hero__meta">WRITING · BUILDING · LIVING</UiBadge>
       </div>
 
-      <div class="hero__window" aria-hidden="true">
-        <VisualResponsiveBackgroundMedia
-          sizes="(max-width: 767px) calc(100vw - 32px), 42vw"
-        />
-      </div>
+      <UiGlassCard
+        class="hero__window"
+        padding="none"
+        media
+        hoverable
+        aria-hidden="true"
+      >
+        <template #media>
+          <VisualResponsiveBackgroundMedia
+            sizes="(max-width: 767px) calc(100vw - 32px), 42vw"
+          />
+        </template>
+      </UiGlassCard>
     </section>
 
     <a class="scroll-cue" href="#reading" aria-label="继续浏览">
       <span />
       <ArrowDown :size="22" aria-hidden="true" />
     </a>
-  </main>
+  </UiPageContainer>
 </template>
 
 <style scoped>
@@ -40,7 +53,8 @@ import { ArrowDown, ArrowRight } from 'lucide-vue-next'
   display: grid;
   min-height: 100svh;
   align-items: center;
-  padding: 8rem var(--gutter-page) var(--space-16);
+  padding-top: 8rem;
+  padding-bottom: var(--space-16);
 }
 
 .hero__content {
@@ -56,23 +70,16 @@ import { ArrowDown, ArrowRight } from 'lucide-vue-next'
   max-width: 48rem;
 }
 
-.hero h1 {
-  margin: 0;
-  font-family: var(--font-display);
+.hero__heading :deep(h1) {
   font-size: var(--text-display);
   font-weight: 800;
   letter-spacing: -0.045em;
-  line-height: var(--leading-display);
-  text-wrap: balance;
   text-shadow: 0 0.125rem 1.5rem rgb(0 5 23 / 55%);
 }
 
-.hero__copy > p:not(.hero__meta) {
-  margin: var(--space-8) 0 0;
-  color: var(--color-text-muted);
-  font-family: var(--font-body);
+.hero__heading :deep(.section-header__description) {
+  margin-top: var(--space-4);
   font-size: clamp(1rem, 1.5vw, 1.25rem);
-  line-height: var(--leading-body);
 }
 
 .hero__actions {
@@ -128,29 +135,13 @@ import { ArrowDown, ArrowRight } from 'lucide-vue-next'
 }
 
 .hero__meta {
-  margin: var(--space-10) 0 0;
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-subtle);
-  font-family: var(--font-ui);
-  font-size: var(--text-caption);
+  margin-top: var(--space-10);
   letter-spacing: 0.32em;
 }
 
 .hero__window {
   overflow: hidden;
-  border: 1px solid var(--glass-border-strong);
-  border-radius: var(--radius-large);
-  background: var(--glass-panel-bg);
-  box-shadow: var(--glass-shadow), var(--glass-highlight);
-  transition:
-    transform var(--motion-duration-normal) var(--motion-ease-emphasized),
-    border-color var(--motion-duration-normal) var(--motion-ease-standard);
-}
-
-.hero__window:hover {
-  border-color: var(--glass-border-hover);
-  transform: translateY(calc(var(--motion-distance-small) * -1));
+  border-color: var(--glass-border-strong);
 }
 
 .hero__window :deep(.responsive-background-media),
@@ -206,13 +197,12 @@ import { ArrowDown, ArrowRight } from 'lucide-vue-next'
     gap: var(--space-12);
   }
 
-  .hero h1 {
+  .hero__heading :deep(h1) {
     font-size: clamp(2.65rem, 11vw, 3.3rem);
     letter-spacing: -0.04em;
   }
 
-  .hero__copy > p:not(.hero__meta) {
-    margin-top: var(--space-6);
+  .hero__heading :deep(.section-header__description) {
     font-size: 1rem;
   }
 
@@ -254,8 +244,7 @@ import { ArrowDown, ArrowRight } from 'lucide-vue-next'
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .action:hover,
-  .hero__window:hover {
+  .action:hover {
     transform: none;
   }
 }

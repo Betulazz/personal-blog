@@ -26,6 +26,7 @@ test('mobile navigation exposes a clear open and close state', async ({
   await page.goto('/')
 
   const menuButton = page.getByRole('button', { name: '打开主导航' })
+  await expect(menuButton).toBeEnabled({ timeout: 15_000 })
   await expect(menuButton).toHaveAttribute('aria-expanded', 'false')
   await menuButton.click()
 
@@ -66,49 +67,23 @@ test('small screens select an optimized background instead of the full source', 
   expect(loadedImages.some((url) => url.includes('/bg.jpeg'))).toBe(false)
 })
 
-test('reduced motion removes ambient animation', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/')
+test('decorative layers avoid continuous animation work', async ({ page }) => {
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    await page.emulateMedia({ reducedMotion })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/')
 
-  await expect(page.locator('.ambient-background__glow').first()).toHaveCSS(
-    'animation-name',
-    'none',
-  )
-})
-
-test('hidden documents pause ambient animation', async ({ page }) => {
-  await page.addInitScript(() => {
-    let visibility: DocumentVisibilityState = 'visible'
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      get: () => visibility,
-    })
-    Object.defineProperty(window, '__setDocumentVisibility', {
-      value: (nextVisibility: DocumentVisibilityState) => {
-        visibility = nextVisibility
-        document.dispatchEvent(new Event('visibilitychange'))
-      },
-    })
-  })
-  await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/')
-
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const visibilityWindow = window as typeof window & {
-          __setDocumentVisibility: (visibility: DocumentVisibilityState) => void
-        }
-        visibilityWindow.__setDocumentVisibility('hidden')
-        return document.querySelector('.ambient-background')?.className
-      }),
-    )
-    .toContain('ambient-background--paused')
-  await expect(page.locator('.ambient-background__glow').first()).toHaveCSS(
-    'animation-play-state',
-    'paused',
-  )
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document
+              .getAnimations()
+              .filter((animation) => animation.playState === 'running').length,
+        ),
+      )
+      .toBe(0)
+  }
 })
 
 test('required visual widths do not overflow horizontally', async ({

@@ -27,7 +27,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <header class="site-header">
+  <UiGlassPanel as="header" class="site-header" tone="subtle" padding="compact">
     <NuxtLink class="site-brand" to="/" aria-label="夜航手记首页">
       夜航手记
     </NuxtLink>
@@ -96,7 +96,7 @@ onMounted(() => {
     >
       <Menu :size="24" aria-hidden="true" />
     </button>
-  </header>
+  </UiGlassPanel>
 </template>
 
 <style scoped>
@@ -112,13 +112,8 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   margin-inline: auto;
-  padding: var(--space-3) var(--space-6);
-  border: 1px solid var(--glass-border);
   border-radius: var(--radius-medium);
-  background: var(--glass-subtle-bg);
-  box-shadow: var(--shadow-card), var(--glass-highlight);
-  backdrop-filter: blur(var(--glass-blur-subtle))
-    saturate(var(--glass-saturation));
+  padding-inline: var(--space-6);
 }
 
 .site-brand {

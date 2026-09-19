@@ -35,6 +35,10 @@
   --text-caption: 0.75rem;
   --leading-display: 1.16;
   --leading-body: 1.8;
+  --font-weight-semibold: 650;
+  --font-weight-bold: 700;
+  --tracking-label: 0.08em;
+  --tracking-eyebrow: 0.2em;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -50,6 +54,9 @@
   --space-section: clamp(4rem, 9vw, 7rem);
   --gutter-page: clamp(1rem, 4vw, 3rem);
   --container-wide: 80rem;
+  --container-reading: 48rem;
+  --measure-copy: 68ch;
+  --border-hairline: 0.0625rem;
   --radius-small: 0.625rem;
   --radius-medium: 1rem;
   --radius-large: 1.5rem;
@@ -76,6 +83,32 @@
   --blur-ambient: 4rem;
   --glow-accent: rgb(99 102 241 / 28%);
   --glow-secondary: rgb(192 132 252 / 18%);
+  --glow-size: min(52rem, 72vw);
+  --glow-opacity-subtle: 0.24;
+  --glow-opacity-default: 0.46;
+  --glow-opacity-strong: 0.62;
+  --glow-fade-stop: 68%;
+  --glow-top-offset: -42%;
+  --glow-end-offset: -16%;
+  --glow-bottom-offset: -54%;
+  --glow-start-offset: -20%;
+  --media-fallback-height: 12rem;
+  --badge-accent-bg: rgb(124 131 255 / 18%);
+  --badge-success-bg: rgb(94 234 212 / 12%);
+  --badge-success-border: rgb(94 234 212 / 42%);
+  --background-veil:
+    linear-gradient(180deg, rgb(5 10 25 / 70%), rgb(5 9 22 / 88%)),
+    linear-gradient(
+      90deg,
+      rgb(4 8 21 / 76%),
+      rgb(7 12 28 / 38%) 55%,
+      rgb(5 9 22 / 72%) 100%
+    );
+  --background-veil-mobile: linear-gradient(
+    180deg,
+    rgb(5 10 25 / 76%),
+    rgb(5 9 22 / 94%)
+  );
   --motion-duration-fast: 140ms;
   --motion-duration-normal: 220ms;
   --motion-duration-slow: 480ms;
