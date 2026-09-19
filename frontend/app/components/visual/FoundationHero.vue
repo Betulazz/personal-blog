@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { ArrowDown, ArrowRight } from 'lucide-vue-next'
+import { siteIdentity } from '~/config/siteIdentity'
 </script>
 
 <template>
-  <UiPageContainer id="main-content" as="main" class="hero" width="wide">
+  <UiPageContainer as="section" class="hero" width="wide">
     <section class="hero__content" aria-labelledby="hero-title">
       <div class="hero__copy">
         <UiSectionHeader
           class="hero__heading"
-          title="在夜色里，写下仍然发光的事"
-          description="关于技术、生活与缓慢生长的个人记录。"
+          :title="siteIdentity.tagline"
+          :description="siteIdentity.description"
           :heading-level="1"
           title-id="hero-title"
         />

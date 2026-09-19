@@ -10,16 +10,14 @@ import {
   DialogTrigger,
   VisuallyHidden,
 } from 'reka-ui'
+import { publicNavigation, siteIdentity } from '~/config/siteIdentity'
 
 const isMenuOpen = ref(false)
 const isHydrated = ref(false)
-const navigation = [
-  { label: '首页', href: '/', current: true },
-  { label: '文章', href: '/posts', current: false },
-  { label: '动态', href: '/moments', current: false },
-  { label: '项目', href: '/projects', current: false },
-  { label: '关于', href: '/about', current: false },
-]
+const route = useRoute()
+
+const isCurrentRoute = (href: string) =>
+  route.path === href || (href !== '/' && route.path.startsWith(`${href}/`))
 
 onMounted(() => {
   isHydrated.value = true
@@ -28,16 +26,20 @@ onMounted(() => {
 
 <template>
   <UiGlassPanel as="header" class="site-header" tone="subtle" padding="compact">
-    <NuxtLink class="site-brand" to="/" aria-label="夜航手记首页">
-      夜航手记
+    <NuxtLink
+      class="site-brand"
+      to="/"
+      :aria-label="`${siteIdentity.name}首页`"
+    >
+      {{ siteIdentity.name }}
     </NuxtLink>
 
     <nav class="desktop-navigation" aria-label="主导航">
       <a
-        v-for="item in navigation"
+        v-for="item in publicNavigation"
         :key="item.label"
         :href="item.href"
-        :aria-current="item.current ? 'page' : undefined"
+        :aria-current="isCurrentRoute(item.href) ? 'page' : undefined"
       >
         {{ item.label }}
       </a>
@@ -76,10 +78,11 @@ onMounted(() => {
             aria-label="移动端主导航"
           >
             <a
-              v-for="item in navigation"
+              v-for="item in publicNavigation"
               :key="item.label"
               :href="item.href"
-              :aria-current="item.current ? 'page' : undefined"
+              :aria-current="isCurrentRoute(item.href) ? 'page' : undefined"
+              @click="isMenuOpen = false"
             >
               {{ item.label }}
             </a>

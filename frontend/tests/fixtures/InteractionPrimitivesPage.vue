@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: false })
+
 const name = ref('')
 const bio = ref('')
 const category = ref<string>()

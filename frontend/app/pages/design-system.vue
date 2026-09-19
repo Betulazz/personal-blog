@@ -206,9 +206,7 @@ onMounted(() => {
 
 <template>
   <div class="design-system-page" :data-hydrated="hydrated">
-    <a class="skip-link" href="#main-content">跳到主要内容</a>
-
-    <UiPageContainer id="main-content" as="main" width="wide" class="gallery">
+    <UiPageContainer as="div" width="wide" class="gallery">
       <section class="gallery__hero" aria-labelledby="gallery-title">
         <UiGlowLayer
           class="gallery__hero-glow"
@@ -549,27 +547,9 @@ onMounted(() => {
 <style scoped>
 .design-system-page {
   position: relative;
-  z-index: var(--z-base);
   min-height: 100svh;
   isolation: isolate;
-  padding-block: var(--space-16) var(--space-24);
-}
-
-.skip-link {
-  position: fixed;
-  z-index: var(--z-toast);
-  top: var(--space-4);
-  left: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-medium);
-  background: var(--glass-elevated-bg);
-  color: var(--color-text);
-  transform: translateY(-180%);
-  transition: transform var(--motion-duration-fast) var(--motion-ease-standard);
-}
-
-.skip-link:focus {
-  transform: translateY(0);
+  padding-block: calc(var(--space-16) + var(--space-10)) var(--space-24);
 }
 
 .gallery {
@@ -988,7 +968,7 @@ code,
 
 @media (width <= 48rem) {
   .design-system-page {
-    padding-block: var(--space-8) var(--space-16);
+    padding-block: calc(var(--space-8) + var(--space-12)) var(--space-16);
   }
 
   .gallery {

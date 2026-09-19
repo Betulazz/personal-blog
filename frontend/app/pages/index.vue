@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { siteIdentity } from '~/config/siteIdentity'
+
 useSeoMeta({
-  title: '夜航手记',
-  description: '关于技术、生活与缓慢生长的个人记录。',
+  title: siteIdentity.name,
+  description: siteIdentity.description,
 })
 </script>
 

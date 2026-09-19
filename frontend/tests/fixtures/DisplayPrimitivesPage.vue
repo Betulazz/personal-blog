@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: false })
+
 const route = useRoute()
 const treatment = computed(() =>
   route.query.treatment === 'plain' ? 'plain' : 'atmospheric',

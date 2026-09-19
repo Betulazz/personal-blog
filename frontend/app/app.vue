@@ -1,5 +1,7 @@
 <template>
   <NuxtRouteAnnouncer />
   <VisualAmbientBackground />
-  <NuxtPage />
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
 </template>
