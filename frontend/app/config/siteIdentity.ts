@@ -26,6 +26,9 @@ export const siteIdentity: SiteIdentity = {
 export const publicNavigation = [
   { label: '首页', href: '/' },
   { label: '文章', href: '/posts' },
+  { label: '分类', href: '/categories' },
+  { label: '标签', href: '/tags' },
+  { label: '搜索', href: '/search' },
   { label: '动态', href: '/moments' },
   { label: '项目', href: '/projects' },
   { label: '关于', href: '/about' },
