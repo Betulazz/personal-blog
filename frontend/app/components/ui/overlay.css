@@ -1,0 +1,95 @@
+.overlay__backdrop {
+  position: fixed;
+  z-index: var(--z-overlay);
+  inset: 0;
+  background: rgb(2 6 23 / 72%);
+  backdrop-filter: blur(var(--blur-soft));
+  animation: overlay-fade var(--motion-duration-normal)
+    var(--motion-ease-standard);
+}
+
+.overlay__content {
+  position: fixed;
+  z-index: calc(var(--z-overlay) + 1);
+  top: 50%;
+  left: 50%;
+  overflow: auto;
+  padding: var(--space-8);
+  border: var(--border-hairline) solid var(--glass-border-hover);
+  background: var(--glass-elevated-bg);
+  box-shadow: var(--shadow-panel), var(--glass-highlight);
+  backdrop-filter: blur(var(--glass-blur-panel))
+    saturate(var(--glass-saturation));
+  transform: translate(-50%, -50%);
+  animation: overlay-content-enter var(--motion-duration-normal)
+    var(--motion-ease-emphasized);
+}
+
+.overlay__close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: inline-grid;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: var(--border-hairline) solid var(--glass-border);
+  border-radius: var(--radius-round);
+  background: var(--glass-subtle-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.overlay__header {
+  display: grid;
+  gap: var(--space-2);
+  padding-right: var(--space-12);
+}
+
+.overlay__title,
+.overlay__description {
+  margin: 0;
+}
+
+.overlay__title {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  line-height: var(--leading-display);
+}
+
+.overlay__description {
+  color: var(--color-text-muted);
+  line-height: var(--leading-body);
+}
+
+.overlay__body {
+  margin-top: var(--space-6);
+  color: var(--color-text-muted);
+  line-height: var(--leading-body);
+}
+
+.overlay__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+}
+
+@keyframes overlay-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes overlay-content-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 0.5rem));
+  }
+}
+
+@media (width <= 26.875rem) {
+  .overlay__content {
+    padding: var(--space-6);
+  }
+}

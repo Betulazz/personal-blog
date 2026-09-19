@@ -5,6 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 const displayPrimitivesFixture = fileURLToPath(
   new URL('./tests/fixtures/DisplayPrimitivesPage.vue', import.meta.url),
 )
+const interactionPrimitivesFixture = fileURLToPath(
+  new URL('./tests/fixtures/InteractionPrimitivesPage.vue', import.meta.url),
+)
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -27,13 +30,18 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
   },
   hooks:
-    process.env.NUXT_DISPLAY_PRIMITIVES_FIXTURE === 'true'
+    process.env.NUXT_DESIGN_SYSTEM_FIXTURES === 'true'
       ? {
           'pages:extend'(pages) {
             pages.push({
               file: displayPrimitivesFixture,
               name: 'display-primitives-acceptance',
               path: '/__acceptance/display-primitives',
+            })
+            pages.push({
+              file: interactionPrimitivesFixture,
+              name: 'interaction-primitives-acceptance',
+              path: '/__acceptance/interaction-primitives',
             })
           },
         }

@@ -17,7 +17,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1',
     env: {
-      NUXT_DISPLAY_PRIMITIVES_FIXTURE: 'true',
+      NUXT_DESIGN_SYSTEM_FIXTURES: 'true',
     },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
