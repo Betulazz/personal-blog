@@ -6,6 +6,7 @@
       <slot />
     </main>
     <VisualPublicFooter />
+    <VisualMusicPlayer />
   </div>
 </template>
 
@@ -16,6 +17,7 @@
   display: flex;
   min-height: 100svh;
   flex-direction: column;
+  padding-bottom: clamp(6.75rem, 12vw, 8rem);
   isolation: isolate;
 }
 
