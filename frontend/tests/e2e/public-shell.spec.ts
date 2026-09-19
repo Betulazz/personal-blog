@@ -29,7 +29,7 @@ test('renders a complete public shell with semantic landmarks and identity', asy
     page.locator('nav[aria-label="主导航"] a[href="/"]'),
   ).toHaveAttribute('aria-current', 'page')
 
-  const externalLink = page.getByRole('link', { name: 'GitHub' })
+  const externalLink = page.getByRole('link', { name: 'GitHub', exact: true })
   await expect(externalLink).toHaveAttribute('target', '_blank')
   await expect(externalLink).toHaveAttribute('rel', /noopener(?:\s|$)/)
   await expect(externalLink).toHaveAttribute('rel', /noreferrer(?:\s|$)/)

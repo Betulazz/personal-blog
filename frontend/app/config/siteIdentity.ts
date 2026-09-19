@@ -1,5 +1,6 @@
 export interface SiteSocialLink {
   href: string
+  kind: 'code' | 'social'
   label: string
 }
 
@@ -17,8 +18,8 @@ export const siteIdentity: SiteIdentity = {
   description: '关于技术、生活与缓慢生长的个人记录。',
   footerNote: '一个安静的个人出版空间。',
   socialLinks: [
-    { label: 'GitHub', href: 'https://github.com/' },
-    { label: 'Mastodon', href: 'https://mastodon.social/' },
+    { href: 'https://github.com/', kind: 'code', label: 'GitHub' },
+    { href: 'https://mastodon.social/', kind: 'social', label: 'Mastodon' },
   ],
 }
 

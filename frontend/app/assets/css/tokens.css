@@ -16,6 +16,15 @@
   --color-accent-soft: #a3a8ff;
   --color-secondary: #b58bdc;
   --color-danger: #fb7185;
+  --color-danger-border: rgb(251 113 133 / 44%);
+  --color-danger-border-soft: rgb(251 113 133 / 36%);
+  --color-danger-surface: rgb(104 24 54 / 30%);
+  --color-divider-subtle: rgb(191 205 255 / 8%);
+  --homepage-content-background: linear-gradient(
+    180deg,
+    rgb(5 9 22 / 24%),
+    rgb(5 9 22 / 78%)
+  );
   --color-success: #5eead4;
   --color-focus: #c8d1ff;
   --font-display:
@@ -66,6 +75,7 @@
   --shadow-panel: 0 2rem 6rem rgb(0 3 18 / 44%);
   --shadow-focus: 0 0 0 0.1875rem rgb(124 131 255 / 32%);
   --shadow-glow: 0 0 2.5rem rgb(99 102 241 / 24%);
+  --shadow-success-glow: 0 0 1rem rgb(94 234 212 / 64%);
   --glass-subtle-bg: rgb(10 18 39 / 64%);
   --glass-card-bg: rgb(16 25 49 / 72%);
   --glass-panel-bg: rgb(12 20 42 / 78%);
