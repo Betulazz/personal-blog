@@ -30,6 +30,8 @@ export const publicNavigation = [
   { label: '标签', href: '/tags' },
   { label: '搜索', href: '/search' },
   { label: '动态', href: '/moments' },
+  { label: '杂谈', href: '/chatter' },
   { label: '项目', href: '/projects' },
+  { label: '友链', href: '/friends' },
   { label: '关于', href: '/about' },
 ] as const

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 type PublicCollectionStatus =
-  'empty' | 'error' | 'loading' | 'out-of-range' | 'ready'
+  'empty' | 'error' | 'loading' | 'offline' | 'out-of-range' | 'ready'
 
 const props = withDefaults(
   defineProps<{
@@ -67,6 +67,17 @@ const emit = defineEmits<{
     <NuxtLink class="public-collection-state__action" :to="props.recoveryHref">
       返回可用页面
     </NuxtLink>
+  </div>
+
+  <div
+    v-else-if="props.status === 'offline'"
+    class="public-collection-state public-collection-state--error"
+    role="alert"
+  >
+    <span class="public-collection-state__symbol" aria-hidden="true">⌁</span>
+    <strong>当前处于离线状态</strong>
+    <p>网络恢复后可以重新加载{{ props.label }}，已经看到的内容不会被改写。</p>
+    <UiButton variant="secondary" @click="emit('retry')">重新加载</UiButton>
   </div>
 
   <div

@@ -8,6 +8,9 @@ const displayPrimitivesFixture = fileURLToPath(
 const interactionPrimitivesFixture = fileURLToPath(
   new URL('./tests/fixtures/InteractionPrimitivesPage.vue', import.meta.url),
 )
+const unexpectedErrorFixture = fileURLToPath(
+  new URL('./tests/fixtures/UnexpectedErrorPage.vue', import.meta.url),
+)
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -42,6 +45,11 @@ export default defineNuxtConfig({
               file: interactionPrimitivesFixture,
               name: 'interaction-primitives-acceptance',
               path: '/__acceptance/interaction-primitives',
+            })
+            pages.push({
+              file: unexpectedErrorFixture,
+              name: 'unexpected-error-acceptance',
+              path: '/__acceptance/unexpected-error',
             })
           },
         }
