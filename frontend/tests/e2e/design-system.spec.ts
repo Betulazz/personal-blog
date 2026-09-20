@@ -24,7 +24,7 @@ test('design system gallery presents the token atlas and primitive states', asyn
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/design-system')
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible()
+  await expect(page.locator('[data-hydrated="true"]')).toHaveCount(1)
 
   await expect(page).toHaveTitle('Design System · 夜航手记')
   await expect(

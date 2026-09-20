@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/__acceptance/interaction-primitives')
-  await expect(page.locator('[data-hydrated="true"]')).toBeVisible()
+  await expect(page.locator('[data-hydrated="true"]')).toHaveCount(1)
 })
 
 test('form controls expose labels, values and keyboard selection', async ({

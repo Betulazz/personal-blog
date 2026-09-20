@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { motion } from 'motion-v'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { motionTransitions } from '~/config/motion'
 import { useMotionPreference } from '~/composables/useMotionPreference'
 
@@ -15,33 +16,42 @@ function reveal() {
   }
 }
 
-onMounted(() => {
-  if (!motionEnabled.value || !revealTarget.value) {
+const setupRevealObserver = async () => {
+  await nextTick()
+
+  const target = revealTarget.value
+  if (!target) {
+    return
+  }
+
+  revealObserver?.disconnect()
+  revealObserver = undefined
+
+  if (!motionEnabled.value) {
     reveal()
     return
   }
 
-  nextTick(() => {
-    const target = revealTarget.value
-    if (!target) {
-      return
-    }
+  if (!('IntersectionObserver' in window)) {
+    reveal()
+    return
+  }
 
-    if (!('IntersectionObserver' in window)) {
-      reveal()
-      return
-    }
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        reveal()
+      }
+    },
+    { rootMargin: '0px 0px -10% 0px', threshold: 0.05 },
+  )
+  revealObserver.observe(target)
+}
 
-    revealObserver = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          reveal()
-        }
-      },
-      { rootMargin: '0px 0px -10% 0px', threshold: 0.05 },
-    )
-    revealObserver.observe(target)
-  })
+onMounted(setupRevealObserver)
+
+watch(motionEnabled, () => {
+  void setupRevealObserver()
 })
 
 onBeforeUnmount(() => {

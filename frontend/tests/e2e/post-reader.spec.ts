@@ -1,15 +1,27 @@
 import { expect, test, type Page } from '@playwright/test'
 
 const collectBrowserProblems = (page: Page) => {
-  const problems: string[] = []
+  const problems: Array<{ message: string; url: string }> = []
   page.on('console', (message) => {
     if (message.type() === 'error' || message.type() === 'warning') {
-      problems.push(`${message.type()}: ${message.text()}`)
+      problems.push({
+        message: `${message.type()}: ${message.text()}`,
+        url: message.location().url,
+      })
     }
   })
-  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
+  page.on('pageerror', (error) =>
+    problems.push({ message: `pageerror: ${error.message}`, url: '' }),
+  )
   return problems
 }
+
+const unexpectedBrowserProblems = (
+  problems: Array<{ message: string; url: string }>,
+) =>
+  problems.filter(
+    ({ url }) => !url.includes('/media/missing-markdown-image.webp'),
+  )
 
 test.describe('Post reading experience', () => {
   test('renders the technical Markdown reading surface on desktop', async ({
@@ -70,11 +82,7 @@ test.describe('Post reading experience', () => {
       .poll(() => page.evaluate(() => window.scrollY))
       .toBeLessThan(40)
 
-    expect(
-      problems.filter(
-        (problem) => !problem.includes('/media/missing-markdown-image.webp'),
-      ),
-    ).toEqual([])
+    expect(unexpectedBrowserProblems(problems)).toEqual([])
   })
 
   test('keeps the TOC accessible in a mobile sheet and recovers missing media', async ({
@@ -110,10 +118,6 @@ test.describe('Post reading experience', () => {
     await expect(sheet).toBeHidden()
     expect(page.url()).toContain(encodeURIComponent('一种更长寿的写作格式'))
 
-    expect(
-      problems.filter(
-        (problem) => !problem.includes('/media/missing-markdown-image.webp'),
-      ),
-    ).toEqual([])
+    expect(unexpectedBrowserProblems(problems)).toEqual([])
   })
 })
