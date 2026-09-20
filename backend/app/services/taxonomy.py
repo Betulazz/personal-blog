@@ -93,10 +93,10 @@ class TaxonomyService:
         tag = await self._repository.find_tag_by_id(tag_id)
         if tag is None:
             raise _not_found("tag")
-        if await self._repository.tag_has_posts(tag.id):
+        if await self._repository.tag_has_content(tag.id):
             raise AppError(
                 code="tag_in_use",
-                message="The Tag is still assigned to Posts",
+                message="The Tag is still assigned to content",
                 status_code=409,
             )
         await self._repository.delete_tag(tag)

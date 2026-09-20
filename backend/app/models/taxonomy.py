@@ -1,9 +1,14 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, DateTime, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.chatter import Chatter
+    from app.models.moment import Moment
 
 
 class Category(Base):
@@ -50,6 +55,10 @@ class Tag(Base):
     )
 
     posts: Mapped[list["Post"]] = relationship(secondary="post_tags", back_populates="tags")
+    moments: Mapped[list["Moment"]] = relationship(secondary="moment_tags", back_populates="tags")
+    chatters: Mapped[list["Chatter"]] = relationship(
+        secondary="chatter_tags", back_populates="tags"
+    )
 
 
 from app.models.post import Post  # noqa: E402  # imported after taxonomy declarations

@@ -50,7 +50,7 @@ async def test_native_mysql_migration_records_the_explicit_head(
     async with mysql_engine.connect() as connection:
         result = await connection.execute(text("SELECT version_num FROM alembic_version"))
 
-    assert result.scalar_one() == "0003_post_taxonomy"
+    assert result.scalar_one() == "0004_moment_chatter"
 
 
 @pytest.mark.asyncio

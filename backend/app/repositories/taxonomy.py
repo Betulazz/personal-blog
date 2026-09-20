@@ -1,9 +1,11 @@
 from collections.abc import Sequence
 from typing import cast
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.chatter import chatter_tags
+from app.models.moment import moment_tags
 from app.models.post import Post, post_tags
 from app.models.taxonomy import Category, Tag
 
@@ -188,9 +190,19 @@ class TaxonomyRepository:
             )
         )
 
-    async def tag_has_posts(self, tag_id: int) -> bool:
+    async def tag_has_content(self, tag_id: int) -> bool:
+        post_usage = select(post_tags.c.post_id).where(post_tags.c.tag_id == tag_id).exists()
+        moment_usage = (
+            select(moment_tags.c.moment_id).where(moment_tags.c.tag_id == tag_id).exists()
+        )
+        chatter_usage = (
+            select(chatter_tags.c.chatter_id).where(chatter_tags.c.tag_id == tag_id).exists()
+        )
         return bool(
             await self._session.scalar(
-                select(post_tags.c.post_id).where(post_tags.c.tag_id == tag_id).limit(1)
+                select(Tag.id).where(
+                    Tag.id == tag_id,
+                    or_(post_usage, moment_usage, chatter_usage),
+                )
             )
         )
