@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.20,<2",
   "asyncmy>=0.2.14,<0.3",
+  "cryptography>=44,<47",
   "fastapi>=0.141.1,<0.142",
   "pydantic>=2.13.5,<3",
   "pydantic-settings>=2.10,<3",
