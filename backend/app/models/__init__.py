@@ -4,6 +4,7 @@ from app.db.base import Base
 from app.models.auth import RefreshToken, User
 from app.models.chatter import Chatter, ChatterStatus, chatter_tags
 from app.models.moment import Moment, MomentImage, MomentStatus, moment_tags
+from app.models.music import MusicTrack
 from app.models.portfolio import FriendLink, Project, ProjectStatus, SiteSettings
 from app.models.post import Post, PostStatus, post_tags
 from app.models.taxonomy import Category, Tag
@@ -16,6 +17,7 @@ __all__ = [
     "Moment",
     "MomentImage",
     "MomentStatus",
+    "MusicTrack",
     "Post",
     "PostStatus",
     "FriendLink",
