@@ -30,6 +30,24 @@ Pop-Location
 Application startup only opens a connection when a request needs one; it never
 creates or upgrades schema implicitly.
 
+## Administrator authentication
+
+After applying migrations, create the first Administrator interactively. There
+is no default account and no password bootstrap through environment variables:
+
+```powershell
+Push-Location backend
+python -m app.cli create-admin
+Pop-Location
+```
+
+Authentication is exposed under `/api/v1/auth`: `GET /csrf`, `POST /login`,
+`POST /refresh`, `POST /logout`, and `GET /me`. Access and refresh JWTs are
+HttpOnly cookies. Login, refresh, and logout require the non-HttpOnly CSRF token
+from `/csrf` in the `X-CSRF-Token` header. Refresh tokens are rotated and stored
+server-side only as SHA-256 digests; reusing a rotated token revokes the user's
+remaining refresh sessions.
+
 ## Backend checks
 
 ```powershell

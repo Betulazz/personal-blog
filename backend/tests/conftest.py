@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import delete, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
@@ -16,6 +16,9 @@ from app.api.dependencies import get_db_session
 from app.core.config import get_settings
 from app.db.session import create_database_engine, create_session_factory
 from app.main import create_app
+from app.models.auth import RefreshToken, User
+from app.schemas.auth import CreateAdminRequest
+from app.services.auth import AuthService
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 TEST_PROBE_TABLE = "_native_mysql_session_probe"
@@ -163,3 +166,18 @@ async def mysql_client(
             yield client
     finally:
         application.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def auth_admin(isolated_mysql_session: AsyncSession) -> AsyncIterator[None]:
+    await AuthService(isolated_mysql_session, get_settings()).create_first_admin(
+        CreateAdminRequest(
+            username="owner",
+            email="owner@example.com",
+            password="a sufficiently long password",
+        )
+    )
+    yield
+    await isolated_mysql_session.execute(delete(RefreshToken))
+    await isolated_mysql_session.execute(delete(User))
+    await isolated_mysql_session.commit()
