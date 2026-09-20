@@ -1,12 +1,17 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 
 import { postFixtureProvider } from '~/composables/postFixtures'
-import { buildPostQuery, type PostQueryContext } from '~/utils/post-discovery'
+import {
+  buildPostQuery,
+  POST_MAX_PAGE_SIZE,
+  type PostQueryContext,
+} from '~/utils/post-discovery'
 import type {
   PostCategory,
   PostCollectionResponse,
   PostDetail,
   PostDiscoveryProvider,
+  PostSummary,
   PostTag,
   TaxonomyCollectionResponse,
 } from '~/types/posts'
@@ -91,6 +96,45 @@ export async function usePostDetail(
   const result = await useAsyncData<PostDetail | null>(
     () => `post-detail:${normalizedSlug.value}`,
     () => provider.getPostBySlug(normalizedSlug.value),
+    {
+      deep: false,
+      watch: [normalizedSlug],
+    },
+  )
+
+  return { ...result, slug: normalizedSlug }
+}
+
+export interface PostNeighbors {
+  next: PostSummary | null
+  previous: PostSummary | null
+}
+
+export async function usePostNeighbors(
+  slug: MaybeRefOrGetter<string>,
+  provider: PostDiscoveryProvider = postFixtureProvider,
+) {
+  const normalizedSlug = computed(() => toValue(slug))
+  const result = await useAsyncData<PostNeighbors | null>(
+    () => `post-neighbors:${normalizedSlug.value}`,
+    async () => {
+      const response = await provider.listPosts({
+        page: 1,
+        pageSize: POST_MAX_PAGE_SIZE,
+      })
+      const index = response.data.findIndex(
+        (post) => post.slug === normalizedSlug.value,
+      )
+
+      if (index === -1) {
+        return null
+      }
+
+      return {
+        next: response.data[index + 1] ?? null,
+        previous: response.data[index - 1] ?? null,
+      }
+    },
     {
       deep: false,
       watch: [normalizedSlug],

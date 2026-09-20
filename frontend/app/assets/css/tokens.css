@@ -40,6 +40,7 @@
   --text-h2: clamp(2rem, 3vw, 3.5rem);
   --text-h3: clamp(1.4rem, 2vw, 2rem);
   --text-body: 1rem;
+  --text-body-large: clamp(1.05rem, 1.4vw, 1.2rem);
   --text-small: 0.875rem;
   --text-caption: 0.75rem;
   --leading-display: 1.16;
