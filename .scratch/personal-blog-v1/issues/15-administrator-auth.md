@@ -11,7 +11,7 @@
 - [x] Login, current-user, refresh rotation/revocation, logout, expired access, reused refresh, and invalid credentials have stable HTTP behavior.
 - [x] Access and refresh credentials use HttpOnly cookies with explicit development and production attributes plus an appropriate CSRF strategy.
 - [x] Expected errors use safe envelopes and unexpected failures reveal no secrets, SQL, internal paths, or tracebacks.
-- [ ] Real-MySQL HTTP tests, CLI tests, Ruff, Mypy, Pytest, secret scan, and diff review pass.
+- [x] Real-MySQL HTTP tests, CLI tests, Ruff, Mypy, Pytest, secret scan, and diff review pass.
 
 ## Comments
 
@@ -23,3 +23,9 @@
 - Browser verification passed in Edge against the running API: Swagger exposed all five auth routes; `/api/v1/auth/csrf` returned HTTP 200, set the `/api/v1` CSRF cookie, and produced no console warnings/errors.
 - The nine real-MySQL tests (five authentication plus four existing foundation tests) were skipped because this workspace has no configured `TEST_DATABASE_URL` or available local MySQL login. They remain enabled in the existing isolated-MySQL fixture and must be rerun with the untracked credentials before final acceptance.
 - Standards and spec review found no remaining hard code/spec violations after the final fixes; the only unresolved acceptance item is the external MySQL credential prerequisite.
+
+### 2026-09-20 (MySQL configured)
+
+- Configured the local MySQL80 service with `personal_blog` and isolated `personal_blog_test` databases, a dedicated `blog` user, and an untracked `backend/.env`; production secrets remain outside the repository.
+- Upgraded the development database to Alembic head `0002_administrator_auth` and ran the isolated real-MySQL suite successfully.
+- Final backend result: 19 passed, including all authentication HTTP flows and the existing MySQL foundation checks. The test database was recreated and dropped by the fixture.

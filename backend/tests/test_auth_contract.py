@@ -101,6 +101,7 @@ async def test_invalid_login_and_validation_use_safe_envelopes(
 
     malformed = await mysql_client.post(
         "/api/v1/auth/login",
+        headers={"X-CSRF-Token": csrf_token},
         json={"identifier": "owner", "password": "short"},
     )
     assert malformed.status_code == 422
