@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase, declared_attr
 
@@ -20,7 +22,7 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
     @declared_attr.directive
-    def __table_args__(cls) -> dict[str, str]:
+    def __table_args__(cls) -> Any:
         """Apply the project's MySQL storage defaults to every mapped table."""
 
         return MYSQL_TABLE_ARGS.copy()

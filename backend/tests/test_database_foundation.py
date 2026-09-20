@@ -50,7 +50,21 @@ async def test_native_mysql_migration_records_the_explicit_head(
     async with mysql_engine.connect() as connection:
         result = await connection.execute(text("SELECT version_num FROM alembic_version"))
 
-    assert result.scalar_one() == "0002_administrator_auth"
+    assert result.scalar_one() == "0003_post_taxonomy"
+
+
+@pytest.mark.asyncio
+async def test_post_body_is_native_mysql_longtext(
+    isolated_mysql_session: AsyncSession,
+) -> None:
+    result = await isolated_mysql_session.execute(
+        text(
+            "SELECT DATA_TYPE FROM information_schema.columns "
+            "WHERE table_schema = DATABASE() AND table_name = 'posts' AND column_name = 'body'"
+        )
+    )
+
+    assert result.scalar_one() == "longtext"
 
 
 @pytest.mark.asyncio
