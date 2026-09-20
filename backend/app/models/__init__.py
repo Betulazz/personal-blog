@@ -3,6 +3,7 @@
 from app.db.base import Base
 from app.models.auth import RefreshToken, User
 from app.models.chatter import Chatter, ChatterStatus, chatter_tags
+from app.models.media import MediaAsset
 from app.models.moment import Moment, MomentImage, MomentStatus, moment_tags
 from app.models.music import MusicTrack
 from app.models.portfolio import FriendLink, Project, ProjectStatus, SiteSettings
@@ -18,6 +19,7 @@ __all__ = [
     "MomentImage",
     "MomentStatus",
     "MusicTrack",
+    "MediaAsset",
     "Post",
     "PostStatus",
     "FriendLink",

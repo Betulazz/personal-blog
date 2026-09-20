@@ -1,9 +1,12 @@
 import secrets
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import AnyHttpUrl, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.types.media import MediaStorageStrategy
 
 
 class Settings(BaseSettings):
@@ -32,6 +35,13 @@ class Settings(BaseSettings):
     refresh_cookie_name: str = "refresh_token"
     csrf_cookie_name: str = "csrf_token"
     csrf_header_name: str = "X-CSRF-Token"
+    media_root: Path = Path("uploads")
+    media_public_prefix: str = "/uploads"
+    media_storage_strategy: MediaStorageStrategy = MediaStorageStrategy.LOCAL
+    media_max_upload_bytes: int = Field(default=50 * 1024 * 1024, ge=1)
+    image_max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1)
+    image_max_pixels: int = Field(default=25_000_000, ge=1)
+    image_max_dimension: int = Field(default=10_000, ge=1)
     cors_origins: list[AnyHttpUrl] = Field(
         default_factory=lambda: [AnyHttpUrl("http://127.0.0.1:3000")]
     )

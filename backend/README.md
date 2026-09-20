@@ -48,6 +48,26 @@ from `/csrf` in the `X-CSRF-Token` header. Refresh tokens are rotated and stored
 server-side only as SHA-256 digests; reusing a rotated token revokes the user's
 remaining refresh sessions.
 
+## Media Assets
+
+The local Media Asset API is available to an authenticated Administrator at
+`/api/v1/admin/media`. Uploads use multipart field `file`; mutating requests
+require the same CSRF header as other administration APIs. Validated image and
+audio bytes receive generated logical keys and are delivered at `/uploads/<key>`.
+Responses expose the logical key and public URL, never the configured
+filesystem root. The local adapter writes atomically and never overwrites an
+existing key.
+
+Configure `MEDIA_ROOT` for the persistent local upload directory. The default
+is `uploads` relative to the backend process. `MEDIA_MAX_UPLOAD_BYTES`,
+`IMAGE_MAX_UPLOAD_BYTES`, `IMAGE_MAX_PIXELS`, and `IMAGE_MAX_DIMENSION` enforce
+the upload and image-processing limits. Deletion refuses referenced assets and
+reports missing-byte or partial-cleanup states instead of silently discarding
+metadata. If an upload fails after bytes are written but before metadata is
+committed, retry cleanup through the protected
+`DELETE /api/v1/admin/media/orphans/<key>` endpoint using the key in the safe
+error details.
+
 ## Backend checks
 
 ```powershell

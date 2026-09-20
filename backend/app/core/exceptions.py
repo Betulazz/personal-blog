@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -13,6 +14,7 @@ class AppError(Exception):
     code: str
     message: str
     status_code: int = status.HTTP_400_BAD_REQUEST
+    details: Any | None = None
 
 
 class DependencyUnavailableError(AppError):
@@ -27,9 +29,12 @@ class DependencyUnavailableError(AppError):
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
+        error: dict[str, Any] = {"code": exc.code, "message": exc.message}
+        if exc.details is not None:
+            error["details"] = exc.details
         return JSONResponse(
             status_code=exc.status_code,
-            content={"error": {"code": exc.code, "message": exc.message}},
+            content={"error": error},
         )
 
     @app.exception_handler(RequestValidationError)

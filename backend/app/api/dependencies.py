@@ -10,11 +10,20 @@ from app.core.exceptions import AppError
 from app.db.session import get_session
 from app.models.auth import User
 from app.services.auth import AuthService
+from app.services.media import MediaAssetService
+from app.storage.factory import create_storage_adapter
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
     async for session in get_session():
         yield session
+
+
+def get_media_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> MediaAssetService:
+    settings = get_settings()
+    return MediaAssetService(session, settings, create_storage_adapter(settings))
 
 
 async def get_current_user(
