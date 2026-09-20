@@ -22,6 +22,12 @@ docs/       Research, architecture, ADRs, and plans
 - Node.js 22.22.2 or newer active LTS
 - Python 3.12 or newer
 - MySQL 8 with `utf8mb4`
-- Docker Compose for the containerized workflow
+- Docker Compose for the later containerized deployment workflow
 
-Copy `.env.example` to `.env` and replace every placeholder secret before starting a full local stack.
+For native development, copy `backend/.env.example` to `backend/.env` and
+`frontend/.env.example` to `frontend/.env`, then replace the local database
+placeholder. The root `.env.example` remains the Docker deployment template;
+Docker is not required for local development.
+
+Native database setup and migration commands are documented in
+[`docs/native-mysql-development.md`](docs/native-mysql-development.md).
