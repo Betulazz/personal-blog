@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import getpass
+import subprocess
 import sys
 from collections.abc import Sequence
 
@@ -8,8 +9,9 @@ from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.core.exceptions import AppError
-from app.db.session import async_session_factory
+from app.db.session import async_session_factory, dispose_engine
 from app.schemas.auth import CreateAdminRequest
+from app.seed import seed_public_data
 from app.services.auth import AuthService
 
 
@@ -20,10 +22,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         "create-admin",
         help="Interactively create the first Administrator after migrations have run",
     )
+    subparsers.add_parser(
+        "seed-public",
+        help="Seed idempotent public acceptance content without creating an Administrator",
+    )
+    serve_live = subparsers.add_parser(
+        "serve-live",
+        help="Migrate, seed public acceptance content, and serve the native API",
+    )
+    serve_live.add_argument("--host", default="127.0.0.1")
+    serve_live.add_argument("--port", default=8000, type=int)
     args = parser.parse_args(argv)
 
     if args.command == "create-admin":
         return asyncio.run(_create_admin())
+    if args.command == "seed-public":
+        return asyncio.run(_seed_public())
+    if args.command == "serve-live":
+        return _serve_live(args.host, args.port)
     return 2
 
 
@@ -45,6 +61,31 @@ async def _create_admin() -> int:
             return 1
 
     print(f"Administrator '{payload.username.strip().casefold()}' created.")
+    return 0
+
+
+async def _seed_public() -> int:
+    try:
+        async with async_session_factory() as session:
+            summary = await seed_public_data(session)
+    finally:
+        await dispose_engine()
+    print(
+        "Seeded public acceptance content: "
+        f"{summary.posts} Posts, {summary.moments} Moments, "
+        f"{summary.chatters} Chatter entries, {summary.projects} Projects, "
+        f"{summary.friends} Friend Links, {summary.music_tracks} Music Tracks."
+    )
+    print("No Administrator was created or changed.")
+    return 0
+
+
+def _serve_live(host: str, port: int) -> int:
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
+    subprocess.run([sys.executable, "-m", "app.cli", "seed-public"], check=True)
+    import uvicorn
+
+    uvicorn.run("app.main:app", host=host, port=port, log_level="warning")
     return 0
 
 

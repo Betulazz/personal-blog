@@ -3,8 +3,9 @@
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.sql.elements import conv
+
+from alembic import op
 
 revision: str = "0009_media_assets"
 down_revision: str | None = "0008_music_tracks"

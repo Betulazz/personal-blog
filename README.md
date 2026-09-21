@@ -6,7 +6,8 @@ An independent Nuxt 4 + FastAPI personal blog inspired by the visual language of
 
 - Phase 0 reference analysis: complete
 - Phase 1 architecture: complete
-- UI pages: intentionally not started until the design system is approved
+- Public design system, pages, APIs, and native live acceptance: complete
+- Administration UI and later deployment phases: not started
 
 ## Repository layout
 

@@ -49,6 +49,23 @@ python -m alembic current
 Pop-Location
 ```
 
+To populate the native development database with the public content used by
+the live browser acceptance run, apply migrations first and then run the
+idempotent seed command:
+
+```powershell
+Push-Location backend
+python -m alembic upgrade head
+python -m app.cli seed-public
+Pop-Location
+```
+
+The seed command only upserts its fixed public acceptance records, creates the
+Site Identity when it is absent, and never creates or changes an Administrator.
+Selected sample audio and image records intentionally point at unavailable
+local media so the public recovery states are exercised without scraping or
+proxying any third-party catalog.
+
 The FastAPI lifespan disposes the async engine when the process exits but does
 not call `create_all`, Alembic, or any other schema-mutating operation. A fresh
 database therefore remains untouched until the explicit `upgrade` command is

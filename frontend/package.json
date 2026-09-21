@@ -16,6 +16,7 @@
     "postinstall": "nuxt prepare",
     "test": "npm run test:unit",
     "test:e2e": "playwright test",
+    "test:e2e:live": "playwright test --config playwright.live.config.ts",
     "test:unit": "vitest run --configLoader native --pool=vmThreads",
     "typecheck": "nuxt typecheck"
   },
