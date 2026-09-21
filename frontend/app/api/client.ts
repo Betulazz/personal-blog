@@ -1,3 +1,10 @@
+import type {
+  AdminChatter,
+  AdminChatterInput,
+  AdminMoment,
+  AdminMomentInput,
+  AdminResourceApi,
+} from '~/types/admin-notes'
 import type { Chatter, ChatterCollectionResponse } from '~/types/chatter'
 import type {
   AdminDashboard,
@@ -10,6 +17,18 @@ import type {
   AdminTaxonomyInput,
   AdminUser,
 } from '~/types/admin'
+import type {
+  AdminFriendLink,
+  AdminFriendLinkCollection,
+  AdminFriendLinkInput,
+  AdminFriendLinkQuery,
+  AdminProject,
+  AdminProjectCollection,
+  AdminProjectInput,
+  AdminProjectQuery,
+  AdminSiteSettings,
+  AdminSiteSettingsInput,
+} from '~/types/admin-portfolio'
 import type {
   HomepageChatter,
   HomepageCollectionResponse,
@@ -138,6 +157,11 @@ interface RawProject {
   time_span: string
 }
 
+interface RawAdminProject extends RawProject {
+  created_at: string
+  updated_at: string
+}
+
 interface RawFriend {
   avatar_alt: string | null
   avatar_url: string | null
@@ -147,6 +171,11 @@ interface RawFriend {
   is_active: boolean
   name: string
   url: string
+}
+
+interface RawAdminFriend extends RawFriend {
+  created_at: string
+  updated_at: string
 }
 
 interface RawSiteSettings {
@@ -186,6 +215,12 @@ interface RawSiteSettings {
     label: string
   }>
   tagline: string
+}
+
+interface RawAdminSiteSettings extends RawSiteSettings {
+  created_at: string
+  id: number
+  updated_at: string
 }
 
 interface RawMusicTrack {
@@ -246,7 +281,14 @@ export class BlogApiError extends Error {
 }
 
 export interface BlogApiClient {
+  createAdminFriend: (input: AdminFriendLinkInput) => Promise<AdminFriendLink>
+  createAdminProject: (input: AdminProjectInput) => Promise<AdminProject>
+  adminMoments: AdminResourceApi<AdminMoment, AdminMomentInput>
+  adminChatter: AdminResourceApi<AdminChatter, AdminChatterInput>
   getAdminDashboard: (signal?: AbortSignal) => Promise<AdminDashboard>
+  getAdminFriend: (id: string, signal?: AbortSignal) => Promise<AdminFriendLink>
+  getAdminProject: (id: string, signal?: AbortSignal) => Promise<AdminProject>
+  getAdminSettings: (signal?: AbortSignal) => Promise<AdminSiteSettings>
   getAdminPost: (id: string, signal?: AbortSignal) => Promise<AdminPost>
   getCurrentUser: () => Promise<AdminUser>
   getPostBySlug: (
@@ -273,6 +315,14 @@ export interface BlogApiClient {
     query: AdminPostQuery,
     signal?: AbortSignal,
   ) => Promise<AdminPostCollection>
+  listAdminFriends: (
+    query: AdminFriendLinkQuery,
+    signal?: AbortSignal,
+  ) => Promise<AdminFriendLinkCollection>
+  listAdminProjects: (
+    query: AdminProjectQuery,
+    signal?: AbortSignal,
+  ) => Promise<AdminProjectCollection>
   listAdminCategories: (signal?: AbortSignal) => Promise<AdminTaxonomy[]>
   listAdminTags: (signal?: AbortSignal) => Promise<AdminTaxonomy[]>
   createAdminCategory: (input: AdminTaxonomyInput) => Promise<AdminTaxonomy>
@@ -324,7 +374,20 @@ export interface BlogApiClient {
   listTags: (
     signal?: AbortSignal,
   ) => Promise<TaxonomyCollectionResponse<PostTag>>
+  deleteAdminFriend: (id: string) => Promise<void>
+  deleteAdminProject: (id: string) => Promise<void>
   refreshSession: () => Promise<AdminUser>
+  updateAdminFriend: (
+    id: string,
+    input: Partial<AdminFriendLinkInput>,
+  ) => Promise<AdminFriendLink>
+  updateAdminProject: (
+    id: string,
+    input: Partial<AdminProjectInput>,
+  ) => Promise<AdminProject>
+  updateAdminSettings: (
+    input: Partial<AdminSiteSettingsInput>,
+  ) => Promise<AdminSiteSettings>
 }
 
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '')
@@ -454,6 +517,36 @@ const toProject = (
   timeSpan: value.time_span,
 })
 
+const toAdminProject = (value: RawAdminProject): AdminProject => ({
+  createdAt: value.created_at,
+  demoUrl: value.demo_url,
+  description: value.description,
+  displayOrder: value.display_order,
+  featured: value.featured,
+  id: String(value.id),
+  logoAlt: value.logo_alt,
+  logoUrl: value.logo_url,
+  name: value.name,
+  sourceUrl: value.source_url,
+  stack: value.technology,
+  status: value.status,
+  timeSpan: value.time_span,
+  updatedAt: value.updated_at,
+})
+
+const toAdminFriend = (value: RawAdminFriend): AdminFriendLink => ({
+  avatarAlt: value.avatar_alt,
+  avatarUrl: value.avatar_url,
+  createdAt: value.created_at,
+  description: value.description,
+  displayOrder: value.display_order,
+  id: String(value.id),
+  isActive: value.is_active,
+  name: value.name,
+  updatedAt: value.updated_at,
+  url: value.url,
+})
+
 const toPublicTag = (value: { name: string; slug: string }): PublicTag => ({
   name: value.name,
   slug: value.slug,
@@ -521,6 +614,15 @@ const toSiteSettings = (
   },
   socialLinks: value.social_links,
   tagline: value.tagline,
+})
+
+const toAdminSiteSettings = (
+  value: RawAdminSiteSettings,
+): AdminSiteSettings => ({
+  ...toSiteSettings(value, (url) => url),
+  createdAt: value.created_at,
+  id: String(value.id),
+  updatedAt: value.updated_at,
 })
 
 const toIdentity = (value: PublicSiteSettings): SiteIdentityView => ({
@@ -702,6 +804,214 @@ export function useApiClient(): BlogApiClient {
     )
   }
 
+  const adminResource = <T, Input extends object>(
+    resource: 'moments' | 'chatter',
+  ): AdminResourceApi<T, Input> => {
+    const path = `/admin/${resource}`
+    const mutate = async (
+      suffix: string,
+      method: 'POST' | 'PATCH',
+      input?: Input,
+    ) => {
+      const response = await mutateWithCsrf<RawApiResponse<T>>(
+        `${path}${suffix}`,
+        method,
+        input ? Object.fromEntries(Object.entries(input)) : undefined,
+      )
+      clearNuxtData(
+        (key) =>
+          key.startsWith(`${resource}:`) ||
+          key === `${resource}-tags` ||
+          key === `homepage-${resource}`,
+      )
+      return response.data
+    }
+    return {
+      list: async (query, signal) => {
+        const response = await request<RawCollection<T>>(path, {
+          query: { ...query, page_size: 10 },
+          signal,
+        })
+        return {
+          data: response.data,
+          pagination: pagination(response.pagination),
+        }
+      },
+      get: async (id, signal) =>
+        (
+          await request<RawApiResponse<T>>(
+            `${path}/${encodeURIComponent(id)}`,
+            { signal },
+          )
+        ).data,
+      create: (input) => mutate('', 'POST', input),
+      update: (id, input) =>
+        mutate(`/${encodeURIComponent(id)}`, 'PATCH', input),
+      publish: (id) => mutate(`/${encodeURIComponent(id)}/publish`, 'POST'),
+      unpublish: (id) => mutate(`/${encodeURIComponent(id)}/unpublish`, 'POST'),
+      delete: async (id) => {
+        await mutateWithCsrf(`${path}/${encodeURIComponent(id)}`, 'DELETE')
+        clearNuxtData(
+          (key) =>
+            key.startsWith(`${resource}:`) ||
+            key === `${resource}-tags` ||
+            key === `homepage-${resource}`,
+        )
+      },
+    }
+  }
+
+  const clearPortfolioData = (...keys: string[]) => {
+    clearNuxtData((key) => keys.includes(key))
+  }
+
+  const listAdminProjects = async (
+    query: AdminProjectQuery,
+    signal?: AbortSignal,
+  ): Promise<AdminProjectCollection> => {
+    const response = await request<RawCollection<RawAdminProject>>(
+      '/admin/projects',
+      {
+        query: {
+          page: query.page,
+          page_size: query.pageSize,
+          q: query.q,
+          status: query.status,
+        },
+        signal,
+      },
+    )
+    return {
+      data: response.data.map(toAdminProject),
+      pagination: pagination(response.pagination),
+    }
+  }
+
+  const getAdminProject = async (id: string, signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawAdminProject>>(
+      `/admin/projects/${encodeURIComponent(id)}`,
+      { signal },
+    )
+    return toAdminProject(response.data)
+  }
+
+  const createAdminProject = async (input: AdminProjectInput) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminProject>>(
+      '/admin/projects',
+      'POST',
+      Object.fromEntries(Object.entries(input)),
+    )
+    clearPortfolioData('public-projects', 'homepage-projects')
+    return toAdminProject(response.data)
+  }
+
+  const updateAdminProject = async (
+    id: string,
+    input: Partial<AdminProjectInput>,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminProject>>(
+      `/admin/projects/${encodeURIComponent(id)}`,
+      'PATCH',
+      Object.fromEntries(Object.entries(input)),
+    )
+    clearPortfolioData('public-projects', 'homepage-projects')
+    return toAdminProject(response.data)
+  }
+
+  const deleteAdminProject = async (id: string) => {
+    await mutateWithCsrf<RawApiResponse<{ deleted: boolean }>>(
+      `/admin/projects/${encodeURIComponent(id)}`,
+      'DELETE',
+    )
+    clearPortfolioData('public-projects', 'homepage-projects')
+  }
+
+  const listAdminFriends = async (
+    query: AdminFriendLinkQuery,
+    signal?: AbortSignal,
+  ): Promise<AdminFriendLinkCollection> => {
+    const response = await request<RawCollection<RawAdminFriend>>(
+      '/admin/friends',
+      {
+        query: {
+          active:
+            query.active === 'all'
+              ? undefined
+              : query.active === 'active'
+                ? 'true'
+                : 'false',
+          page: query.page,
+          page_size: query.pageSize,
+          q: query.q,
+        },
+        signal,
+      },
+    )
+    return {
+      data: response.data.map(toAdminFriend),
+      pagination: pagination(response.pagination),
+    }
+  }
+
+  const getAdminFriend = async (id: string, signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawAdminFriend>>(
+      `/admin/friends/${encodeURIComponent(id)}`,
+      { signal },
+    )
+    return toAdminFriend(response.data)
+  }
+
+  const createAdminFriend = async (input: AdminFriendLinkInput) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminFriend>>(
+      '/admin/friends',
+      'POST',
+      Object.fromEntries(Object.entries(input)),
+    )
+    clearPortfolioData('public-friends')
+    return toAdminFriend(response.data)
+  }
+
+  const updateAdminFriend = async (
+    id: string,
+    input: Partial<AdminFriendLinkInput>,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminFriend>>(
+      `/admin/friends/${encodeURIComponent(id)}`,
+      'PATCH',
+      Object.fromEntries(Object.entries(input)),
+    )
+    clearPortfolioData('public-friends')
+    return toAdminFriend(response.data)
+  }
+
+  const deleteAdminFriend = async (id: string) => {
+    await mutateWithCsrf<RawApiResponse<{ deleted: boolean }>>(
+      `/admin/friends/${encodeURIComponent(id)}`,
+      'DELETE',
+    )
+    clearPortfolioData('public-friends')
+  }
+
+  const getAdminSettings = async (signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawAdminSiteSettings>>(
+      '/admin/settings',
+      { signal },
+    )
+    return toAdminSiteSettings(response.data)
+  }
+
+  const updateAdminSettings = async (
+    input: Partial<AdminSiteSettingsInput>,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminSiteSettings>>(
+      '/admin/settings',
+      'PATCH',
+      Object.fromEntries(Object.entries(input)),
+    )
+    clearPortfolioData('public-site-settings', 'public-about')
+    return toAdminSiteSettings(response.data)
+  }
+
   const getAdminDashboard = async (signal?: AbortSignal) => {
     const response = await request<RawApiResponse<RawAdminDashboard>>(
       '/admin/dashboard',
@@ -767,7 +1077,7 @@ export function useApiClient(): BlogApiClient {
     const response = await mutateWithCsrf<RawApiResponse<RawPost>>(
       `/admin/posts/${encodeURIComponent(id)}/preview`,
       'POST',
-      input ? { ...input } : undefined,
+      input ? Object.fromEntries(Object.entries(input)) : undefined,
     )
     return toAdminPost(response.data, resolveMediaUrl)
   }
@@ -1163,14 +1473,23 @@ export function useApiClient(): BlogApiClient {
   }
 
   return {
+    adminMoments: adminResource<AdminMoment, AdminMomentInput>('moments'),
+    adminChatter: adminResource<AdminChatter, AdminChatterInput>('chatter'),
+    createAdminFriend,
+    createAdminProject,
     createAdminCategory,
     createAdminPost,
     createAdminTag,
     deleteAdminCategory,
+    deleteAdminFriend,
     deleteAdminPost,
+    deleteAdminProject,
     deleteAdminTag,
-    getAdminPost,
     getAdminDashboard,
+    getAdminFriend,
+    getAdminPost,
+    getAdminProject,
+    getAdminSettings,
     getCurrentUser,
     getAbout,
     getPostBySlug,
@@ -1179,7 +1498,9 @@ export function useApiClient(): BlogApiClient {
     logout,
     listCategories,
     listAdminCategories,
+    listAdminFriends,
     listAdminPosts,
+    listAdminProjects,
     listAdminTags,
     listChatter,
     listChatterTags,
@@ -1199,7 +1520,10 @@ export function useApiClient(): BlogApiClient {
     refreshSession,
     unpublishAdminPost,
     updateAdminCategory,
+    updateAdminFriend,
     updateAdminPost,
+    updateAdminProject,
+    updateAdminSettings,
     updateAdminTag,
   }
 }

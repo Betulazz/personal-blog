@@ -62,7 +62,7 @@ class MomentRepository:
             statement = statement.where(Moment.status == status)
         if search:
             statement = statement.where(self._search_clause(search))
-        statement = statement.order_by(Moment.updated_at.desc(), Moment.id.desc())
+        statement = statement.order_by(Moment.created_at.desc(), Moment.id.desc())
         return list(
             (await self._session.scalars(statement.offset(offset).limit(limit))).unique().all()
         )

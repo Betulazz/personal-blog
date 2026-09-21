@@ -127,6 +127,16 @@ async def test_moment_lifecycle_keeps_optional_metadata_and_public_visibility_se
     assert (await mysql_client.get("/api/v1/moments/tags")).json()["data"] == [
         {"id": tag_id, "name": "生活 🌌", "slug": "life", "content_count": 1}
     ]
+
+    edited_older = await mysql_client.patch(
+        f"/api/v1/admin/moments/{moment_id}",
+        headers=headers,
+        json={"body": "编辑后的旧动态"},
+    )
+    assert edited_older.status_code == 200
+    admin_ordered = await mysql_client.get("/api/v1/admin/moments", headers=headers)
+    assert [item["id"] for item in admin_ordered.json()["data"]] == [later_id, moment_id]
+
     tag_in_use = await mysql_client.delete(f"/api/v1/admin/tags/{tag_id}", headers=headers)
     assert tag_in_use.status_code == 409
     assert tag_in_use.json()["error"]["code"] == "tag_in_use"

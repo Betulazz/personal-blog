@@ -496,6 +496,32 @@ const authState = { forbidden: false }
 const initialPosts = structuredClone(posts)
 const initialTaxonomy = structuredClone(taxonomy)
 const initialTags = structuredClone(tags)
+const initialProjects = structuredClone(projects)
+const initialFriends = structuredClone(friends)
+const initialSettings = structuredClone(settings)
+const settingsMeta = {
+  created_at: '2026-09-01T08:00:00.000Z',
+  updated_at: '2026-09-20T08:00:00.000Z',
+}
+
+const withAdminDates = (item) => ({
+  ...item,
+  created_at: item.created_at || '2026-09-01T08:00:00.000Z',
+  updated_at: item.updated_at || '2026-09-20T08:00:00.000Z',
+})
+
+const adminSettings = () => ({
+  ...settings,
+  ...settingsMeta,
+  id: 1,
+})
+
+const publicPortfolioItem = (item) =>
+  Object.fromEntries(
+    Object.entries(item).filter(
+      ([key]) => key !== 'created_at' && key !== 'updated_at',
+    ),
+  )
 
 const restoreMap = (target, source) => {
   Object.keys(target).forEach((key) => delete target[key])
@@ -690,6 +716,9 @@ const tinyPng = Buffer.from(
   'base64',
 )
 
+const adminMoments = []
+const adminChatters = []
+
 const server = createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     json(response, {})
@@ -722,10 +751,17 @@ const server = createServer(async (request, response) => {
   }
   if (path === '/__control/reset') {
     failures.clear()
+    adminMoments.length = 0
+    adminChatters.length = 0
     authState.forbidden = false
     posts.splice(0, posts.length, ...structuredClone(initialPosts))
     restoreMap(taxonomy, initialTaxonomy)
     restoreMap(tags, initialTags)
+    projects.splice(0, projects.length, ...structuredClone(initialProjects))
+    friends.splice(0, friends.length, ...structuredClone(initialFriends))
+    Object.keys(settings).forEach((key) => delete settings[key])
+    Object.assign(settings, structuredClone(initialSettings))
+    settingsMeta.updated_at = settingsMeta.created_at
     json(response, { failures: [] }, 200, {
       'Set-Cookie': [
         'access_token=; Max-Age=0; Path=/api/v1',
@@ -871,8 +907,13 @@ const server = createServer(async (request, response) => {
     return
   }
   const isAdminPostOrTaxonomyPath =
+    path.startsWith('/admin/chatter') ||
+    path.startsWith('/admin/friends') ||
+    path.startsWith('/admin/moments') ||
     path.startsWith('/admin/posts') ||
+    path.startsWith('/admin/projects') ||
     path.startsWith('/admin/categories') ||
+    path.startsWith('/admin/settings') ||
     path.startsWith('/admin/tags')
   if (isAdminPostOrTaxonomyPath && cookies.access_token !== 'mock-access') {
     json(
@@ -886,6 +927,203 @@ const server = createServer(async (request, response) => {
       401,
     )
     return
+  }
+  const noteMatch = path.match(
+    /^\/admin\/(moments|chatter)(?:\/(\d+)(?:\/(publish|unpublish))?)?$/,
+  )
+  if (noteMatch) {
+    const [, resource, id, action] = noteMatch
+    const collection = resource === 'moments' ? adminMoments : adminChatters
+    if (!id && request.method === 'GET') {
+      const filtered = collection.filter(
+        (item) =>
+          (!query.status || item.status === query.status) &&
+          (!query.q ||
+            [
+              item.title,
+              item.lead,
+              item.body,
+              ...item.tags.map((tag) => tag.name),
+            ]
+              .join(' ')
+              .includes(query.q)),
+      )
+      json(
+        response,
+        paginate(
+          [...filtered].sort(
+            (a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id,
+          ),
+          query.page,
+          size,
+        ),
+      )
+      return
+    }
+    let item = collection.find((item) => item.id === Number(id))
+    if (!id && request.method === 'POST') {
+      const payload = await readJson(request)
+      item = {
+        ...payload,
+        id: Math.max(0, ...collection.map((item) => item.id)) + 1,
+        status: 'draft',
+        published_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        tags: Object.values(tags).filter((tag) =>
+          payload.tag_ids?.includes(tag.id),
+        ),
+      }
+      collection.push(item)
+      json(response, { data: item }, 201)
+      return
+    }
+    if (!item) {
+      json(
+        response,
+        {
+          error: {
+            code: `${resource === 'moments' ? 'moment' : 'chatter'}_not_found`,
+            message: 'Not found',
+          },
+        },
+        404,
+      )
+      return
+    }
+    if (request.method === 'DELETE') {
+      collection.splice(collection.indexOf(item), 1)
+      json(response, { data: { deleted: true } })
+      return
+    }
+    if (request.method === 'PATCH') {
+      const payload = await readJson(request)
+      Object.assign(item, payload, {
+        tags: Object.values(tags).filter((tag) =>
+          payload.tag_ids?.includes(tag.id),
+        ),
+        updated_at: new Date().toISOString(),
+      })
+    }
+    if (action) {
+      item.status = action === 'publish' ? 'published' : 'draft'
+      item.published_at = action === 'publish' ? new Date().toISOString() : null
+    }
+    json(response, { data: item })
+    return
+  }
+  const adminPortfolioMatch = path.match(
+    /^\/admin\/(projects|friends)(?:\/(\d+))?$/,
+  )
+  if (adminPortfolioMatch) {
+    const [, resource, id] = adminPortfolioMatch
+    const collection = resource === 'projects' ? projects : friends
+    const isProject = resource === 'projects'
+    if (!id && request.method === 'GET') {
+      const search = (query.q || '').toLocaleLowerCase()
+      const filtered = collection.filter((item) => {
+        const searchable = [item.name, item.description, item.url]
+          .filter(Boolean)
+          .join(' ')
+          .toLocaleLowerCase()
+        return (
+          (!search || searchable.includes(search)) &&
+          (isProject
+            ? !query.status || item.status === query.status
+            : query.active === undefined ||
+              item.is_active === (query.active === 'true'))
+        )
+      })
+      const ordered = [...filtered].sort((left, right) =>
+        isProject
+          ? Number(right.featured) - Number(left.featured) ||
+            left.display_order - right.display_order ||
+            right.id - left.id
+          : left.display_order - right.display_order || right.id - left.id,
+      )
+      json(response, paginate(ordered.map(withAdminDates), query.page, size))
+      return
+    }
+    if (!id && request.method === 'POST') {
+      const payload = await readJson(request)
+      const created = {
+        ...payload,
+        ...(isProject
+          ? {
+              technology: payload.technology || [],
+              logo_url: payload.logo_url ?? null,
+              logo_alt: payload.logo_alt ?? null,
+              source_url: payload.source_url ?? null,
+              demo_url: payload.demo_url ?? null,
+            }
+          : {
+              avatar_url: payload.avatar_url ?? null,
+              avatar_alt: payload.avatar_alt ?? null,
+            }),
+        id: Math.max(0, ...collection.map((item) => item.id)) + 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      collection.push(created)
+      json(response, { data: withAdminDates(created) }, 201)
+      return
+    }
+    const item = collection.find((candidate) => candidate.id === Number(id))
+    if (!item) {
+      json(
+        response,
+        {
+          error: {
+            code: `${isProject ? 'project' : 'friend_link'}_not_found`,
+            message: 'The requested resource does not exist',
+          },
+        },
+        404,
+      )
+      return
+    }
+    if (request.method === 'GET') {
+      json(response, { data: withAdminDates(item) })
+      return
+    }
+    if (request.method === 'PATCH') {
+      const payload = await readJson(request)
+      Object.assign(item, payload, { updated_at: new Date().toISOString() })
+      json(response, { data: withAdminDates(item) })
+      return
+    }
+    if (request.method === 'DELETE') {
+      collection.splice(collection.indexOf(item), 1)
+      json(response, { data: { deleted: true } })
+      return
+    }
+  }
+  if (path === '/admin/settings') {
+    if (request.method === 'GET') {
+      json(response, { data: adminSettings() })
+      return
+    }
+    if (request.method === 'PATCH') {
+      const payload = await readJson(request)
+      for (const [key, value] of Object.entries(payload)) {
+        if (
+          [
+            'about',
+            'seo_defaults',
+            'footer',
+            'contact',
+            'homepage_visibility',
+          ].includes(key)
+        ) {
+          settings[key] = { ...settings[key], ...value }
+        } else {
+          settings[key] = value
+        }
+      }
+      settingsMeta.updated_at = new Date().toISOString()
+      json(response, { data: adminSettings() })
+      return
+    }
   }
   if (path === '/admin/posts' && request.method === 'GET') {
     const filtered = posts.filter((post) => {
@@ -1192,11 +1430,15 @@ const server = createServer(async (request, response) => {
     return
   }
   if (path === '/projects') {
-    json(response, { ...paginate(projects, query.page, size) })
+    json(response, {
+      ...paginate(projects.map(publicPortfolioItem), query.page, size),
+    })
     return
   }
   if (path === '/friends') {
-    json(response, { ...paginate(friends, query.page, size) })
+    json(response, {
+      ...paginate(friends.map(publicPortfolioItem), query.page, size),
+    })
     return
   }
   if (path === '/moments/tags') {
