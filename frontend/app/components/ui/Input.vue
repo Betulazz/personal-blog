@@ -72,7 +72,7 @@ const describedBy = computed(
         emit('update:modelValue', ($event.target as HTMLInputElement).value)
       "
     />
-    <p v-if="error" :id="`${inputId}-error`" class="field__error">
+    <p v-if="error" :id="`${inputId}-error`" class="field__error" role="alert">
       {{ error }}
     </p>
   </div>

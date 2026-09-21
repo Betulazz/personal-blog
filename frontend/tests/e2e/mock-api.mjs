@@ -479,6 +479,7 @@ const tracks = [
 ]
 
 const failures = new Set()
+const authState = { forbidden: false }
 
 const publicPost = (post) =>
   Object.fromEntries(Object.entries(post).filter(([key]) => key !== 'body'))
@@ -526,15 +527,79 @@ const publicTags = (items) => [
   ).values(),
 ]
 
-const json = (response, payload, status = 200) => {
+const json = (response, payload, status = 200, extraHeaders = {}) => {
   response.writeHead(status, {
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Headers': 'Accept, Content-Type, X-CSRF-Token',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Origin': 'http://127.0.0.1:3000',
     'Content-Type': 'application/json',
+    ...extraHeaders,
   })
   response.end(JSON.stringify(payload))
+}
+
+const parseCookies = (value = '') =>
+  Object.fromEntries(
+    value
+      .split(';')
+      .map((part) => part.trim().split('='))
+      .filter(([key, cookieValue]) => key && cookieValue)
+      .map(([key, cookieValue]) => [key, decodeURIComponent(cookieValue)]),
+  )
+
+const readJson = async (request) => {
+  let body = ''
+  for await (const chunk of request) body += chunk
+  try {
+    return JSON.parse(body || '{}')
+  } catch {
+    return {}
+  }
+}
+
+const authUser = {
+  created_at: '2026-01-01T00:00:00.000Z',
+  email: 'owner@example.com',
+  id: 1,
+  is_active: true,
+  username: 'owner',
+}
+
+const dashboard = {
+  counts: {
+    chatter: 13,
+    draft_posts: 2,
+    friends: 3,
+    moments: 14,
+    posts: 10,
+    projects: 3,
+    published_posts: 8,
+    total_reading_count: 388,
+  },
+  recent_activity: [
+    {
+      id: 1,
+      status: 'published',
+      title: '后台状态示例文章',
+      type: 'post',
+      updated_at: '2026-09-20T08:00:00.000Z',
+    },
+    {
+      id: 1,
+      status: 'draft',
+      title: '让界面先学会呼吸',
+      type: 'chatter',
+      updated_at: '2026-09-19T08:00:00.000Z',
+    },
+    {
+      id: 1,
+      status: 'published',
+      title: '今天把首页的第一道光调得更柔和了。',
+      type: 'moment',
+      updated_at: '2026-09-17T13:30:00.000Z',
+    },
+  ],
 }
 
 const tinyPng = Buffer.from(
@@ -542,7 +607,7 @@ const tinyPng = Buffer.from(
   'base64',
 )
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     json(response, {})
     return
@@ -551,6 +616,7 @@ const server = createServer((request, response) => {
   const path = url.pathname.replace(/^\/api\/v1/, '')
   const query = Object.fromEntries(url.searchParams.entries())
   const size = pageSize(query.page_size)
+  const cookies = parseCookies(request.headers.cookie)
 
   if (path.startsWith('/uploads/')) {
     response.writeHead(200, {
@@ -573,7 +639,25 @@ const server = createServer((request, response) => {
   }
   if (path === '/__control/reset') {
     failures.clear()
-    json(response, { failures: [] })
+    authState.forbidden = false
+    json(response, { failures: [] }, 200, {
+      'Set-Cookie': [
+        'access_token=; Max-Age=0; Path=/api/v1',
+        'refresh_token=; Max-Age=0; Path=/api/v1/auth',
+        'csrf_token=; Max-Age=0; Path=/api/v1',
+      ],
+    })
+    return
+  }
+  if (path === '/__control/expire-access') {
+    json(response, { expired: true }, 200, {
+      'Set-Cookie': ['access_token=; Max-Age=0; Path=/api/v1'],
+    })
+    return
+  }
+  if (path === '/__control/forbid') {
+    authState.forbidden = true
+    json(response, { forbidden: true })
     return
   }
   if (failures.has(path.split('/')[1])) {
@@ -588,6 +672,116 @@ const server = createServer((request, response) => {
       },
       503,
     )
+    return
+  }
+  if (path === '/auth/csrf') {
+    const token = cookies.csrf_token || 'mock-csrf'
+    json(response, { data: { token } }, 200, {
+      'Set-Cookie': [`csrf_token=${token}; Path=/api/v1`],
+    })
+    return
+  }
+  if (path === '/auth/login' && request.method === 'POST') {
+    const payload = await readJson(request)
+    if (
+      payload.identifier !== 'owner' ||
+      payload.password !== 'a sufficiently long password'
+    ) {
+      json(
+        response,
+        {
+          error: {
+            code: 'invalid_credentials',
+            message: 'The supplied credentials are invalid',
+          },
+        },
+        401,
+      )
+      return
+    }
+    json(response, { data: { user: authUser } }, 200, {
+      'Set-Cookie': [
+        'access_token=mock-access; HttpOnly; Path=/api/v1',
+        'refresh_token=mock-refresh; HttpOnly; Path=/api/v1/auth',
+        'csrf_token=mock-csrf; Path=/api/v1',
+      ],
+    })
+    return
+  }
+  if (path === '/auth/refresh' && request.method === 'POST') {
+    if (cookies.refresh_token !== 'mock-refresh') {
+      json(
+        response,
+        {
+          error: {
+            code: 'invalid_refresh_token',
+            message: 'The refresh session is invalid',
+          },
+        },
+        401,
+      )
+      return
+    }
+    json(response, { data: { user: authUser } }, 200, {
+      'Set-Cookie': [
+        'access_token=mock-access; HttpOnly; Path=/api/v1',
+        'refresh_token=mock-refresh; HttpOnly; Path=/api/v1/auth',
+        'csrf_token=mock-csrf; Path=/api/v1',
+      ],
+    })
+    return
+  }
+  if (path === '/auth/logout' && request.method === 'POST') {
+    json(response, { data: { logged_out: true } }, 200, {
+      'Set-Cookie': [
+        'access_token=; Max-Age=0; Path=/api/v1',
+        'refresh_token=; Max-Age=0; Path=/api/v1/auth',
+      ],
+    })
+    return
+  }
+  if (path === '/auth/me') {
+    if (authState.forbidden) {
+      json(
+        response,
+        {
+          error: { code: 'forbidden', message: 'You cannot access this area' },
+        },
+        403,
+      )
+      return
+    }
+    if (cookies.access_token !== 'mock-access') {
+      json(
+        response,
+        {
+          error: {
+            code: 'access_token_expired',
+            message: 'Authentication is required',
+          },
+        },
+        401,
+      )
+      return
+    }
+    json(response, { data: authUser })
+    return
+  }
+  if (path === '/admin/dashboard') {
+    if (cookies.access_token !== 'mock-access') {
+      json(
+        response,
+        {
+          error: {
+            code: 'authentication_required',
+            message: 'Authentication is required',
+          },
+        },
+        401,
+      )
+      return
+    }
+    json(response, { data: dashboard })
     return
   }
   if (path === '/settings') {

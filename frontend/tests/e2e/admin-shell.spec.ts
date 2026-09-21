@@ -1,0 +1,117 @@
+import { expect, test, type Page } from '@playwright/test'
+
+const mockControl = 'http://127.0.0.1:8787/__control'
+
+test.beforeEach(async ({ page }) => {
+  await page.request.get(`${mockControl}/reset`)
+})
+
+test('login exposes accessible validation and safe credential feedback', async ({
+  page,
+}) => {
+  await page.goto('/admin/login')
+  await expect(page.locator('[data-admin-ready="true"]')).toBeVisible()
+
+  await page.getByRole('button', { name: '登录后台' }).click()
+  await expect(
+    page.getByText('请输入用户名或邮箱。', { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByLabel('用户名或邮箱')).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  )
+
+  await page.getByLabel('用户名或邮箱').fill('owner')
+  await page.getByLabel('密码').fill('a wrong password')
+  await page.getByRole('button', { name: '登录后台' }).click()
+
+  await expect(page.getByRole('alert')).toContainText('账号或密码不正确')
+  await expect(page.getByRole('alert')).not.toContainText('invalid_credentials')
+  await expect(page.getByRole('alert')).not.toContainText('password')
+})
+
+test('authenticated administrator sees protected dashboard without browser storage tokens', async ({
+  page,
+}) => {
+  await login(page)
+
+  await expect(page).toHaveURL(/\/admin$/)
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByText('站点状态')).toBeVisible()
+  await expect(page.getByText('最近编辑')).toBeVisible()
+  await expect(page.getByText('后台状态示例文章')).toBeVisible()
+
+  const localStorageKeys = await page.evaluate(() => Object.keys(localStorage))
+  expect(localStorageKeys).toEqual([])
+})
+
+test('expired access session refreshes and preserves the protected route', async ({
+  page,
+}) => {
+  await login(page)
+  await page.evaluate(async (controlUrl) => {
+    await fetch(`${controlUrl}/expire-access`)
+  }, mockControl)
+
+  await page.reload()
+
+  await expect(page).toHaveURL(/\/admin$/)
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByText('正在恢复后台会话')).toBeHidden()
+})
+
+test('mobile administration navigation manages focus and logout', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 430, height: 932 })
+  await login(page)
+
+  const menuButton = page.getByRole('button', { name: '打开后台导航' })
+  await expect(menuButton).toBeVisible()
+  await menuButton.click()
+  await expect(
+    page.getByRole('navigation', { name: '移动端后台导航' }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: '关闭后台导航' })).toBeFocused()
+
+  await page.keyboard.press('Escape')
+  await expect(
+    page.getByRole('navigation', { name: '移动端后台导航' }),
+  ).toBeHidden()
+  await expect(menuButton).toBeFocused()
+
+  await page.getByRole('button', { name: '退出后台' }).click()
+  await expect(page).toHaveURL(/\/admin\/login$/)
+  await expect(page.getByRole('heading', { name: '进入后台' })).toBeVisible()
+})
+
+test('protected routes expose forbidden and backend-unavailable states', async ({
+  page,
+}) => {
+  await page.request.get(`${mockControl}/forbid`)
+  await page.goto('/admin')
+
+  await expect(
+    page.getByRole('heading', { name: '暂时无法访问后台' }),
+  ).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('没有访问后台的权限')
+  await expect(page.getByRole('link', { name: '返回公开站点' })).toBeVisible()
+
+  await page.request.get(`${mockControl}/reset`)
+  await page.request.get(`${mockControl}/failure?resource=auth`)
+  await page.reload()
+
+  await expect(
+    page.getByRole('heading', { name: '后台服务暂时不可用' }),
+  ).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('暂时无法响应')
+})
+
+async function login(page: Page) {
+  await page.goto('/admin/login')
+  await expect(page.locator('[data-admin-ready="true"]')).toBeVisible()
+  await page.getByLabel('用户名或邮箱').fill('owner')
+  await page.getByLabel('密码').fill('a sufficiently long password')
+  await page.getByRole('button', { name: '登录后台' }).click()
+  await expect(page).toHaveURL(/\/admin$/)
+}

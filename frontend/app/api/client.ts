@@ -1,5 +1,10 @@
 import type { Chatter, ChatterCollectionResponse } from '~/types/chatter'
 import type {
+  AdminDashboard,
+  AdminRecentActivity,
+  AdminUser,
+} from '~/types/admin'
+import type {
   HomepageChatter,
   HomepageCollectionResponse,
   HomepageMoment,
@@ -46,6 +51,34 @@ interface RawCollection<T> {
 
 interface RawApiResponse<T> {
   data: T
+}
+
+interface RawAdminUser {
+  created_at: string
+  email: string | null
+  id: number
+  is_active: boolean
+  username: string
+}
+
+interface RawAdminDashboard {
+  counts: {
+    chatter: number
+    draft_posts: number
+    friends: number
+    moments: number
+    posts: number
+    projects: number
+    published_posts: number
+    total_reading_count: number
+  }
+  recent_activity: Array<{
+    id: number
+    status: string
+    title: string
+    type: AdminRecentActivity['type']
+    updated_at: string
+  }>
 }
 
 interface RawTaxonomy {
@@ -201,12 +234,16 @@ export class BlogApiError extends Error {
 }
 
 export interface BlogApiClient {
+  getAdminDashboard: (signal?: AbortSignal) => Promise<AdminDashboard>
+  getCurrentUser: () => Promise<AdminUser>
   getPostBySlug: (
     slug: string,
     signal?: AbortSignal,
   ) => Promise<PostDetail | null>
   getAbout: (signal?: AbortSignal) => Promise<AboutProfile>
   getSettings: (signal?: AbortSignal) => Promise<PublicSiteSettings>
+  login: (identifier: string, password: string) => Promise<AdminUser>
+  logout: () => Promise<void>
   listCategories: (
     signal?: AbortSignal,
   ) => Promise<TaxonomyCollectionResponse<PostCategory>>
@@ -244,6 +281,7 @@ export interface BlogApiClient {
   listTags: (
     signal?: AbortSignal,
   ) => Promise<TaxonomyCollectionResponse<PostTag>>
+  refreshSession: () => Promise<AdminUser>
 }
 
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '')
@@ -444,6 +482,34 @@ const toTrack = (
   title: value.title,
 })
 
+const toAdminUser = (value: RawAdminUser): AdminUser => ({
+  createdAt: value.created_at,
+  ...(value.email ? { email: value.email } : {}),
+  id: String(value.id),
+  isActive: value.is_active,
+  username: value.username,
+})
+
+const toAdminDashboard = (value: RawAdminDashboard): AdminDashboard => ({
+  counts: {
+    chatter: value.counts.chatter,
+    draftPosts: value.counts.draft_posts,
+    friends: value.counts.friends,
+    moments: value.counts.moments,
+    posts: value.counts.posts,
+    projects: value.counts.projects,
+    publishedPosts: value.counts.published_posts,
+    totalReadingCount: value.counts.total_reading_count,
+  },
+  recentActivity: value.recent_activity.map((activity) => ({
+    id: String(activity.id),
+    status: activity.status,
+    title: activity.title,
+    type: activity.type,
+    updatedAt: activity.updated_at,
+  })),
+})
+
 export const toPublicSiteIdentity = toIdentity
 export const toPublicAbout = toAbout
 
@@ -484,6 +550,9 @@ export function useApiClient(): BlogApiClient {
   const request = async <T>(
     path: string,
     options: {
+      body?: Record<string, unknown>
+      headers?: Record<string, string>
+      method?: 'GET' | 'POST'
       query?: Record<string, string | number | undefined>
       signal?: AbortSignal
     } = {},
@@ -491,8 +560,10 @@ export function useApiClient(): BlogApiClient {
     try {
       return await $fetch<T>(path, {
         baseURL,
+        body: options.body,
         credentials: 'include',
-        headers: serverHeaders,
+        headers: { ...serverHeaders, ...options.headers },
+        method: options.method,
         query: options.query,
         signal: options.signal,
       })
@@ -502,6 +573,57 @@ export function useApiClient(): BlogApiClient {
       }
       throw normalizeApiError(error)
     }
+  }
+
+  const csrfToken = async () => {
+    const response =
+      await request<RawApiResponse<{ token: string }>>('/auth/csrf')
+    return response.data.token
+  }
+
+  const postWithCsrf = async <T>(
+    path: string,
+    body?: Record<string, unknown>,
+  ) => {
+    const token = await csrfToken()
+    return request<T>(path, {
+      body,
+      headers: { 'X-CSRF-Token': token },
+      method: 'POST',
+    })
+  }
+
+  const getCurrentUser = async () => {
+    const response = await request<RawApiResponse<RawAdminUser>>('/auth/me')
+    return toAdminUser(response.data)
+  }
+
+  const login = async (identifier: string, password: string) => {
+    const response = await postWithCsrf<RawApiResponse<{ user: RawAdminUser }>>(
+      '/auth/login',
+      { identifier, password },
+    )
+    return toAdminUser(response.data.user)
+  }
+
+  const refreshSession = async () => {
+    const response =
+      await postWithCsrf<RawApiResponse<{ user: RawAdminUser }>>(
+        '/auth/refresh',
+      )
+    return toAdminUser(response.data.user)
+  }
+
+  const logout = async () => {
+    await postWithCsrf<RawApiResponse<{ logged_out: boolean }>>('/auth/logout')
+  }
+
+  const getAdminDashboard = async (signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawAdminDashboard>>(
+      '/admin/dashboard',
+      { signal },
+    )
+    return toAdminDashboard(response.data)
   }
 
   const listPosts = async (query: PostQuery, signal?: AbortSignal) => {
@@ -797,9 +919,13 @@ export function useApiClient(): BlogApiClient {
   }
 
   return {
+    getAdminDashboard,
+    getCurrentUser,
     getAbout,
     getPostBySlug,
     getSettings,
+    login,
+    logout,
     listCategories,
     listChatter,
     listChatterTags,
@@ -814,6 +940,7 @@ export function useApiClient(): BlogApiClient {
     listPosts,
     listProjects,
     listTags,
+    refreshSession,
   }
 }
 
