@@ -12,14 +12,44 @@ import { motion } from 'motion-v'
 
 import { motionTransitions } from '~/config/motion'
 import { useMotionPreference } from '~/composables/useMotionPreference'
+import { useMusicTracks } from '~/composables/useMusicTracks'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import { useMusicPlayerStore } from '~/stores/musicPlayer'
 
 const player = useMusicPlayerStore()
+const {
+  data: trackResponse,
+  error: trackError,
+  pending: tracksPending,
+  refresh: refreshTracks,
+} = await useMusicTracks()
+const { settings } = await usePublicSiteSettings()
+const musicVisible = computed(() => settings.value.homepageVisibility.music)
+const musicStateMessage = computed(() => {
+  if (tracksPending.value) {
+    return '正在加载音乐…'
+  }
+
+  if (trackError.value) {
+    return '音乐暂时无法加载，请稍后重试。'
+  }
+
+  return '暂时没有可播放的音乐。'
+})
 const audioElement = ref<HTMLAudioElement | null>(null)
 const isReady = ref(false)
+const isHydrated = ref(false)
 const motionEnabled = useMotionPreference({ disableOnMobile: true })
 const previousVolume = ref(player.volume || 0.65)
 const playRequest = ref(0)
+
+watch(
+  trackResponse,
+  (response) => {
+    player.setTracks(response?.data ?? [])
+  },
+  { immediate: true },
+)
 
 const errorMessage = computed(() => {
   if (player.error === 'source-unavailable') {
@@ -200,6 +230,7 @@ watch(audioElement, (audio) => {
 
 onMounted(() => {
   isReady.value = true
+  isHydrated.value = true
   syncAudioSource()
 })
 
@@ -211,7 +242,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    v-if="player.currentTrack"
+    v-if="musicVisible && (player.currentTrack || isHydrated)"
     class="music-player"
     data-testid="music-player"
     aria-label="音乐播放器"
@@ -220,6 +251,7 @@ onBeforeUnmount(() => {
   >
     <component
       :is="motionEnabled ? motion.div : 'div'"
+      v-if="player.currentTrack"
       class="music-player__motion"
       :initial="motionEnabled ? { y: 8 } : undefined"
       :animate="motionEnabled ? { y: 0 } : undefined"
@@ -326,6 +358,24 @@ onBeforeUnmount(() => {
         {{ errorMessage }}
       </div>
     </component>
+
+    <div
+      v-else
+      class="music-player__state"
+      :role="trackError ? 'alert' : 'status'"
+      :aria-busy="tracksPending"
+    >
+      <Music2 :size="18" aria-hidden="true" />
+      <span>{{ musicStateMessage }}</span>
+      <button
+        v-if="trackError"
+        type="button"
+        class="music-player__retry"
+        @click="() => refreshTracks()"
+      >
+        重新加载
+      </button>
+    </div>
   </section>
 </template>
 
@@ -504,6 +554,25 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--color-accent-soft);
   font-size: var(--text-caption);
+}
+
+.music-player__state {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+}
+
+.music-player__retry {
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hairline) solid var(--glass-border-hover);
+  border-radius: var(--radius-small);
+  background: var(--glass-card-bg);
+  color: var(--color-text);
 }
 
 .visually-hidden {

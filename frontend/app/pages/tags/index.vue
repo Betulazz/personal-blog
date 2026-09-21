@@ -1,20 +1,22 @@
 <script setup lang="ts">
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+
+const { identity } = await usePublicSiteSettings()
 
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
 const { error, pending, refresh, tags } = await usePostTaxonomy()
 
 useSeoMeta({
-  title: `标签 · ${siteIdentity.name}`,
+  title: `标签 · ${identity.value.name}`,
   description: '沿着可复用的主题线索，找到相互关联的文章。',
   ogDescription: '沿着可复用的主题线索，找到相互关联的文章。',
-  ogTitle: `标签 · ${siteIdentity.name}`,
+  ogTitle: `标签 · ${identity.value.name}`,
   ogType: 'website',
   ogUrl: `${siteUrl}/tags`,
   twitterCard: 'summary',
   twitterDescription: '沿着可复用的主题线索，找到相互关联的文章。',
-  twitterTitle: `标签 · ${siteIdentity.name}`,
+  twitterTitle: `标签 · ${identity.value.name}`,
 })
 
 useHead({

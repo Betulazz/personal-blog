@@ -1,6 +1,6 @@
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 
-import { postFixtureProvider } from '~/composables/postFixtures'
+import { useApiClient } from '~/api/client'
 import {
   buildPostQuery,
   POST_MAX_PAGE_SIZE,
@@ -15,6 +15,16 @@ import type {
   PostTag,
   TaxonomyCollectionResponse,
 } from '~/types/posts'
+
+const createPostApiProvider = (): PostDiscoveryProvider => {
+  const client = useApiClient()
+  return {
+    getPostBySlug: client.getPostBySlug,
+    listCategories: client.listCategories,
+    listPosts: client.listPosts,
+    listTags: client.listTags,
+  }
+}
 
 export interface UsePostDiscoveryOptions {
   categorySlug?: MaybeRefOrGetter<string | undefined>
@@ -33,8 +43,9 @@ const emptyResponse = (
 
 export async function usePostDiscovery(
   options: UsePostDiscoveryOptions = {},
-  provider: PostDiscoveryProvider = postFixtureProvider,
+  provider?: PostDiscoveryProvider,
 ) {
+  const activeProvider = provider ?? createPostApiProvider()
   const route = useRoute()
   const context = computed<PostQueryContext>(() => ({
     categorySlug: toValue(options.categorySlug),
@@ -48,9 +59,9 @@ export async function usePostDiscovery(
 
   const result = await useAsyncData<PostCollectionResponse | null>(
     key,
-    () =>
+    (_nuxtApp, { signal }) =>
       enabled.value
-        ? provider.listPosts(query.value)
+        ? activeProvider.listPosts(query.value, signal)
         : Promise.resolve(
             emptyResponse(query.value.page, query.value.pageSize),
           ),
@@ -64,20 +75,23 @@ export async function usePostDiscovery(
   return { ...result, query }
 }
 
-export async function usePostTaxonomy(
-  provider: PostDiscoveryProvider = postFixtureProvider,
-) {
+export async function usePostTaxonomy(provider?: PostDiscoveryProvider) {
+  const activeProvider = provider ?? createPostApiProvider()
   const result = await useAsyncData<{
     categories: TaxonomyCollectionResponse<PostCategory>
     tags: TaxonomyCollectionResponse<PostTag>
-  }>('post-taxonomy', async () => {
-    const [categories, tags] = await Promise.all([
-      provider.listCategories(),
-      provider.listTags(),
-    ])
+  }>(
+    'post-taxonomy',
+    async (_nuxtApp, { signal }) => {
+      const [categories, tags] = await Promise.all([
+        activeProvider.listCategories(signal),
+        activeProvider.listTags(signal),
+      ])
 
-    return { categories, tags }
-  })
+      return { categories, tags }
+    },
+    { deep: false },
+  )
 
   return {
     categories: computed(() => result.data.value?.categories.data ?? []),
@@ -90,14 +104,17 @@ export async function usePostTaxonomy(
 
 export async function usePostDetail(
   slug: MaybeRefOrGetter<string>,
-  provider: PostDiscoveryProvider = postFixtureProvider,
+  provider?: PostDiscoveryProvider,
 ) {
+  const activeProvider = provider ?? createPostApiProvider()
   const normalizedSlug = computed(() => toValue(slug))
   const result = await useAsyncData<PostDetail | null>(
     () => `post-detail:${normalizedSlug.value}`,
-    () => provider.getPostBySlug(normalizedSlug.value),
+    (_nuxtApp, { signal }) =>
+      activeProvider.getPostBySlug(normalizedSlug.value, signal),
     {
       deep: false,
+      default: () => null,
       watch: [normalizedSlug],
     },
   )
@@ -112,16 +129,17 @@ export interface PostNeighbors {
 
 export async function usePostNeighbors(
   slug: MaybeRefOrGetter<string>,
-  provider: PostDiscoveryProvider = postFixtureProvider,
+  provider?: PostDiscoveryProvider,
 ) {
+  const activeProvider = provider ?? createPostApiProvider()
   const normalizedSlug = computed(() => toValue(slug))
   const result = await useAsyncData<PostNeighbors | null>(
     () => `post-neighbors:${normalizedSlug.value}`,
-    async () => {
-      const response = await provider.listPosts({
-        page: 1,
-        pageSize: POST_MAX_PAGE_SIZE,
-      })
+    async (_nuxtApp, { signal }) => {
+      const response = await activeProvider.listPosts(
+        { page: 1, pageSize: POST_MAX_PAGE_SIZE },
+        signal,
+      )
       const index = response.data.findIndex(
         (post) => post.slug === normalizedSlug.value,
       )
@@ -137,6 +155,7 @@ export async function usePostNeighbors(
     },
     {
       deep: false,
+      default: () => null,
       watch: [normalizedSlug],
     },
   )

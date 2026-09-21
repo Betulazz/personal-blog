@@ -107,6 +107,10 @@ test('desktop homepage sections reveal after entering the viewport', async ({
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
+  await expect(page.locator('[data-testid="music-player"]')).toHaveAttribute(
+    'data-player-ready',
+    'true',
+  )
 
   const firstSection = page.locator('[data-homepage-section]').first()
   await expect(firstSection).not.toHaveAttribute('data-revealed', 'true')

@@ -18,13 +18,23 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
   ],
-  webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
-    env: {
-      NUXT_DESIGN_SYSTEM_FIXTURES: 'true',
+  webServer: [
+    {
+      command: 'node tests/e2e/mock-api.mjs',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      url: 'http://127.0.0.1:8787/health',
     },
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    url: 'http://127.0.0.1:3000',
-  },
+    {
+      command: 'npm run dev -- --host 127.0.0.1',
+      env: {
+        NUXT_API_BASE: 'http://127.0.0.1:8787/api/v1',
+        NUXT_DESIGN_SYSTEM_FIXTURES: 'true',
+        NUXT_PUBLIC_API_BASE: 'http://127.0.0.1:8787/api/v1',
+      },
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      url: 'http://127.0.0.1:3000',
+    },
+  ],
 })

@@ -1,5 +1,11 @@
 <script setup lang="ts">
-const { content, retry } = useHomepageContent()
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+import type { HomepageVisibility } from '~/types/site'
+
+const { content, retry } = await useHomepageContent()
+const { settings } = await usePublicSiteSettings()
+const isVisible = (section: keyof HomepageVisibility) =>
+  settings.value.homepageVisibility[section]
 </script>
 
 <template>
@@ -8,22 +14,22 @@ const { content, retry } = useHomepageContent()
       <HomeProfileSection :stats="content.stats" />
 
       <div class="home-content__sections">
-        <HomeReveal>
+        <HomeReveal v-if="isVisible('posts')">
           <HomePostsSection :section="content.posts" @retry="retry('posts')" />
         </HomeReveal>
-        <HomeReveal>
+        <HomeReveal v-if="isVisible('moments')">
           <HomeMomentsSection
             :section="content.moments"
             @retry="retry('moments')"
           />
         </HomeReveal>
-        <HomeReveal>
+        <HomeReveal v-if="isVisible('chatter')">
           <HomeChatterSection
             :section="content.chatter"
             @retry="retry('chatter')"
           />
         </HomeReveal>
-        <HomeReveal>
+        <HomeReveal v-if="isVisible('projects')">
           <HomeProjectsSection
             :section="content.projects"
             @retry="retry('projects')"

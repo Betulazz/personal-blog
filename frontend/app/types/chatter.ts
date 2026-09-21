@@ -8,6 +8,7 @@ import type {
 export interface Chatter {
   body: string
   id: string
+  lead?: string
   mood?: string
   publishedAt: string
   tags: PublicTag[]

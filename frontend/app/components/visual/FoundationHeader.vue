@@ -11,14 +11,16 @@ import {
   DialogTrigger,
   VisuallyHidden,
 } from 'reka-ui'
-import { publicNavigation, siteIdentity } from '~/config/siteIdentity'
+import { publicNavigation } from '~/config/siteIdentity'
 import { motionTransitions } from '~/config/motion'
 import { useMotionPreference } from '~/composables/useMotionPreference'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 
 const isMenuOpen = ref(false)
 const isHydrated = ref(false)
 const motionEnabled = useMotionPreference()
 const route = useRoute()
+const { identity } = await usePublicSiteSettings()
 
 const isCurrentRoute = (href: string) =>
   route.path === href || (href !== '/' && route.path.startsWith(`${href}/`))
@@ -30,12 +32,8 @@ onMounted(() => {
 
 <template>
   <UiGlassPanel as="header" class="site-header" tone="subtle" padding="compact">
-    <NuxtLink
-      class="site-brand"
-      to="/"
-      :aria-label="`${siteIdentity.name}首页`"
-    >
-      {{ siteIdentity.name }}
+    <NuxtLink class="site-brand" to="/" :aria-label="`${identity.name}首页`">
+      {{ identity.name }}
     </NuxtLink>
 
     <nav class="desktop-navigation" aria-label="主导航">

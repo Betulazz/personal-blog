@@ -1,25 +1,32 @@
-import { homepageFixtures } from '~/composables/homepageFixtures'
+import type { BlogApiClient } from '~/api/client'
 import type {
   HomepageChatter,
   HomepageCollectionResponse,
   HomepageMoment,
   HomepagePost,
   HomepageProject,
-  HomepageStat,
 } from '~/types/homepage'
 
 export interface HomepageContentProvider {
-  getChatter: () => Promise<HomepageCollectionResponse<HomepageChatter>>
-  getMoments: () => Promise<HomepageCollectionResponse<HomepageMoment>>
-  getPosts: () => Promise<HomepageCollectionResponse<HomepagePost>>
-  getProjects: () => Promise<HomepageCollectionResponse<HomepageProject>>
-  getStats: () => HomepageStat[]
+  getChatter: (
+    signal?: AbortSignal,
+  ) => Promise<HomepageCollectionResponse<HomepageChatter>>
+  getMoments: (
+    signal?: AbortSignal,
+  ) => Promise<HomepageCollectionResponse<HomepageMoment>>
+  getPosts: (
+    signal?: AbortSignal,
+  ) => Promise<HomepageCollectionResponse<HomepagePost>>
+  getProjects: (
+    signal?: AbortSignal,
+  ) => Promise<HomepageCollectionResponse<HomepageProject>>
 }
 
-export const homepageFixtureProvider: HomepageContentProvider = {
-  getChatter: () => Promise.resolve(homepageFixtures.chatter),
-  getMoments: () => Promise.resolve(homepageFixtures.moments),
-  getPosts: () => Promise.resolve(homepageFixtures.posts),
-  getProjects: () => Promise.resolve(homepageFixtures.projects),
-  getStats: () => homepageFixtures.stats,
-}
+export const createHomepageContentProvider = (
+  client: BlogApiClient,
+): HomepageContentProvider => ({
+  getChatter: client.listHomepageChatter,
+  getMoments: client.listHomepageMoments,
+  getPosts: client.listHomepagePosts,
+  getProjects: client.listHomepageProjects,
+})

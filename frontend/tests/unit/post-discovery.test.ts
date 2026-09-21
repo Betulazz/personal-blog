@@ -10,7 +10,6 @@ import {
   isPostQueryPageOutOfRange,
 } from '../../app/utils/post-discovery'
 import { renderPostMarkdown } from '../../app/utils/post-markdown'
-import { postFixtureProvider } from '../../app/composables/postFixtures'
 
 describe('post discovery query contract', () => {
   it('normalizes unsafe and empty URL values to a safe first page', () => {
@@ -192,105 +191,7 @@ describe('post discovery pagination contract', () => {
   })
 })
 
-describe('fixture-backed Post collection contract', () => {
-  it('returns API-shaped summaries with stable pagination and taxonomy', async () => {
-    const response = await postFixtureProvider.listPosts({
-      page: 1,
-      pageSize: 4,
-    })
-
-    expect(response.data).toHaveLength(4)
-    expect(response.pagination).toMatchObject({
-      page: 1,
-      pageSize: 4,
-      total: 8,
-      totalPages: 2,
-    })
-    expect(response.data[0]).toMatchObject({
-      category: {
-        name: expect.any(String),
-        postCount: expect.any(Number),
-        slug: expect.any(String),
-      },
-      pinned: true,
-      publishedAt: expect.any(String),
-      readingCount: expect.any(Number),
-      readingTimeMinutes: expect.any(Number),
-      slug: expect.any(String),
-      summary: expect.any(String),
-      tags: expect.arrayContaining([
-        expect.objectContaining({
-          name: expect.any(String),
-          postCount: expect.any(Number),
-          slug: expect.any(String),
-        }),
-      ]),
-      title: expect.any(String),
-    })
-  })
-
-  it('filters search across body, Category, and Tag while preserving page state', async () => {
-    const response = await postFixtureProvider.listPosts({
-      page: 1,
-      pageSize: 4,
-      q: 'SSR',
-    })
-
-    expect(response.filters).toEqual({ q: 'SSR' })
-    expect(response.data.map((post) => post.slug)).toEqual(['ssr-first-paint'])
-
-    const filtered = await postFixtureProvider.listPosts({
-      category: 'engineering',
-      page: 2,
-      pageSize: 4,
-      tag: 'nuxt',
-    })
-    expect(filtered.filters).toEqual({ category: 'engineering', tag: 'nuxt' })
-    expect(filtered.pagination.page).toBe(2)
-    expect(filtered.data).toEqual([])
-  })
-
-  it('exposes normalized Category and Tag collections for linkable pages', async () => {
-    const [categories, tags] = await Promise.all([
-      postFixtureProvider.listCategories(),
-      postFixtureProvider.listTags(),
-    ])
-
-    expect(categories.data).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: '工程实践', postCount: 3 }),
-      ]),
-    )
-    expect(tags.data).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: 'Nuxt', postCount: 2 }),
-      ]),
-    )
-  })
-
-  it('keeps fixture pagination within the public page-size bound', async () => {
-    const response = await postFixtureProvider.listPosts({
-      page: 1,
-      pageSize: 999,
-    })
-
-    expect(response.pagination.pageSize).toBe(20)
-    expect(response.data).toHaveLength(8)
-  })
-
-  it('resolves a stable public slug to a detail contract', async () => {
-    const post = await postFixtureProvider.getPostBySlug('markdown-first')
-
-    expect(post).toMatchObject({
-      body: expect.stringContaining('Markdown'),
-      slug: 'markdown-first',
-      title: 'Markdown 是一条可迁移的路',
-    })
-    await expect(
-      postFixtureProvider.getPostBySlug('not-a-real-post'),
-    ).resolves.toBeNull()
-  })
-
+describe('Post collection contracts', () => {
   it('renders Markdown without raw HTML or unsafe links', () => {
     const html = renderPostMarkdown(
       '<script>alert(1)</script>\n\n[unsafe](javascript:alert(1))\n\n**safe**',

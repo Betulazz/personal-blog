@@ -1,18 +1,33 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { musicFixtures } from '../../app/config/musicFixtures'
 import { useMusicPlayerStore } from '../../app/stores/musicPlayer'
+
+const configuredTracks = [
+  {
+    artist: '本地示例音源',
+    id: 'ambient-example',
+    src: '/audio/ambient-example.mp3',
+    title: '月光落在窗边',
+  },
+  {
+    artist: '本地示例音源',
+    id: 'quiet-example',
+    src: '/audio/quiet-example.mp3',
+    title: '雨落在玻璃上',
+  },
+]
 
 describe('music player store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    useMusicPlayerStore().setTracks(configuredTracks)
   })
 
-  it('starts with a paused SSR-safe track selection', () => {
+  it('starts with a paused SSR-safe track selection after API injection', () => {
     const player = useMusicPlayerStore()
 
-    expect(player.currentTrack).toEqual(musicFixtures[0])
+    expect(player.currentTrack).toEqual(configuredTracks[0])
     expect(player.isPlaying).toBe(false)
     expect(player.currentTime).toBe(0)
     expect(player.duration).toBe(0)
@@ -35,7 +50,7 @@ describe('music player store', () => {
     expect(player.error).toBeUndefined()
   })
 
-  it('wraps previous and next actions around the fixture playlist', () => {
+  it('wraps previous and next actions around the configured playlist', () => {
     const player = useMusicPlayerStore()
 
     expect(player.previousTrack()).toBe(true)
@@ -73,7 +88,7 @@ describe('music player store', () => {
 
   it('uses only local example media sources', () => {
     expect(
-      musicFixtures.every((track) => track.src.startsWith('/audio/')),
+      configuredTracks.every((track) => track.src.startsWith('/audio/')),
     ).toBe(true)
   })
 })

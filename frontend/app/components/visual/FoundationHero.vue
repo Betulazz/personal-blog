@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ArrowDown, ArrowRight } from 'lucide-vue-next'
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+
+const { identity } = await usePublicSiteSettings()
 </script>
 
 <template>
@@ -9,8 +11,8 @@ import { siteIdentity } from '~/config/siteIdentity'
       <div class="hero__copy">
         <UiSectionHeader
           class="hero__heading"
-          :title="siteIdentity.tagline"
-          :description="siteIdentity.description"
+          :title="identity.tagline"
+          :description="identity.description"
           :heading-level="1"
           title-id="hero-title"
         />

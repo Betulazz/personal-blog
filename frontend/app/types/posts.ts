@@ -67,8 +67,18 @@ export interface TaxonomyCollectionResponse<T> {
 }
 
 export interface PostDiscoveryProvider {
-  getPostBySlug: (slug: string) => Promise<PostDetail | null>
-  listCategories: () => Promise<TaxonomyCollectionResponse<PostCategory>>
-  listPosts: (query: PostQuery) => Promise<PostCollectionResponse>
-  listTags: () => Promise<TaxonomyCollectionResponse<PostTag>>
+  getPostBySlug: (
+    slug: string,
+    signal?: AbortSignal,
+  ) => Promise<PostDetail | null>
+  listCategories: (
+    signal?: AbortSignal,
+  ) => Promise<TaxonomyCollectionResponse<PostCategory>>
+  listPosts: (
+    query: PostQuery,
+    signal?: AbortSignal,
+  ) => Promise<PostCollectionResponse>
+  listTags: (
+    signal?: AbortSignal,
+  ) => Promise<TaxonomyCollectionResponse<PostTag>>
 }

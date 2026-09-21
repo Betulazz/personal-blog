@@ -90,14 +90,6 @@ export interface HomepageContent {
   stats: HomepageStat[]
 }
 
-export interface HomepageFixtureContent {
-  chatter: HomepageCollectionResponse<HomepageChatter>
-  moments: HomepageCollectionResponse<HomepageMoment>
-  posts: HomepageCollectionResponse<HomepagePost>
-  projects: HomepageCollectionResponse<HomepageProject>
-  stats: HomepageStat[]
-}
-
 export type HomepageSectionKey = keyof Pick<
   HomepageContent,
   'chatter' | 'moments' | 'posts' | 'projects'

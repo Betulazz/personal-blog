@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { musicFixtures } from '../config/musicFixtures'
-import type { MusicPlaybackError } from '../types/music'
+import type { MusicPlaybackError, MusicTrack } from '../types/music'
 
 export type MusicPlayerStatus = 'idle' | 'loading' | 'paused' | 'playing'
 
@@ -10,7 +9,7 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
 
 export const useMusicPlayerStore = defineStore('music-player', () => {
-  const tracks = musicFixtures
+  const tracks = ref<MusicTrack[]>([])
   const currentTrackIndex = ref(0)
   const currentTime = ref(0)
   const duration = ref(0)
@@ -19,7 +18,7 @@ export const useMusicPlayerStore = defineStore('music-player', () => {
   const status = ref<MusicPlayerStatus>('idle')
   const error = ref<MusicPlaybackError>()
 
-  const currentTrack = computed(() => tracks[currentTrackIndex.value])
+  const currentTrack = computed(() => tracks.value[currentTrackIndex.value])
   const progress = computed(() =>
     duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0,
   )
@@ -33,7 +32,7 @@ export const useMusicPlayerStore = defineStore('music-player', () => {
   }
 
   function selectTrack(index: number) {
-    if (!tracks[index] || index === currentTrackIndex.value) {
+    if (!tracks.value[index] || index === currentTrackIndex.value) {
       return false
     }
 
@@ -43,12 +42,18 @@ export const useMusicPlayerStore = defineStore('music-player', () => {
   }
 
   function nextTrack() {
-    return selectTrack((currentTrackIndex.value + 1) % tracks.length)
+    if (!tracks.value.length) {
+      return false
+    }
+    return selectTrack((currentTrackIndex.value + 1) % tracks.value.length)
   }
 
   function previousTrack() {
+    if (!tracks.value.length) {
+      return false
+    }
     return selectTrack(
-      (currentTrackIndex.value - 1 + tracks.length) % tracks.length,
+      (currentTrackIndex.value - 1 + tracks.value.length) % tracks.value.length,
     )
   }
 
@@ -92,6 +97,16 @@ export const useMusicPlayerStore = defineStore('music-player', () => {
     error.value = undefined
   }
 
+  function setTracks(nextTracks: MusicTrack[]) {
+    const currentId = currentTrack.value?.id
+    tracks.value = nextTracks
+    const nextIndex = nextTracks.findIndex((track) => track.id === currentId)
+    currentTrackIndex.value = nextIndex >= 0 ? nextIndex : 0
+    if (!currentTrack.value || currentTrack.value.id !== currentId) {
+      resetTrackState()
+    }
+  }
+
   return {
     clearError,
     currentTime,
@@ -104,6 +119,7 @@ export const useMusicPlayerStore = defineStore('music-player', () => {
     previousTrack,
     progress,
     selectTrack,
+    setTracks,
     setCurrentTime,
     setDuration,
     setError,

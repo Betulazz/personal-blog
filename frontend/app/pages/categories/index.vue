@@ -1,20 +1,22 @@
 <script setup lang="ts">
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+
+const { identity } = await usePublicSiteSettings()
 
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
 const { categories, error, pending, refresh } = await usePostTaxonomy()
 
 useSeoMeta({
-  title: `分类 · ${siteIdentity.name}`,
+  title: `分类 · ${identity.value.name}`,
   description: '按主要编辑主题浏览公开文章。',
   ogDescription: '按主要编辑主题浏览公开文章。',
-  ogTitle: `分类 · ${siteIdentity.name}`,
+  ogTitle: `分类 · ${identity.value.name}`,
   ogType: 'website',
   ogUrl: `${siteUrl}/categories`,
   twitterCard: 'summary',
   twitterDescription: '按主要编辑主题浏览公开文章。',
-  twitterTitle: `分类 · ${siteIdentity.name}`,
+  twitterTitle: `分类 · ${identity.value.name}`,
 })
 
 useHead({

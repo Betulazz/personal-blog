@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { MapPin } from 'lucide-vue-next'
 
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import { formatHomepageDate } from '~/utils/homepage'
 import type { HomepageMoment, HomepageSection } from '~/types/homepage'
 
@@ -13,7 +13,8 @@ defineEmits<{
   retry: []
 }>()
 
-const monogram = siteIdentity.name.slice(0, 1)
+const { identity } = await usePublicSiteSettings()
+const monogram = computed(() => identity.value.name.slice(0, 1))
 </script>
 
 <template>
@@ -46,7 +47,7 @@ const monogram = siteIdentity.name.slice(0, 1)
             <div class="home-moment-card__content">
               <header class="home-moment-card__header">
                 <div>
-                  <strong>{{ siteIdentity.name }}</strong>
+                  <strong>{{ identity.name }}</strong>
                   <time :datetime="moment.publishedAt">{{
                     formatHomepageDate(moment.publishedAt)
                   }}</time>

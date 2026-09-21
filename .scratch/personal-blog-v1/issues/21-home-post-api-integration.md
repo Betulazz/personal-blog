@@ -4,12 +4,19 @@
 
 **Blocked by:** 16: Post, Category, and Tag lifecycle API; 18: Project, Friend Link, and Site Identity API; 19: Music Track configuration API; 20: Media Asset local-storage lifecycle.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] A centralized typed client normalizes base URLs, SSR/client behavior, cookies where required, cancellation, and safe error envelopes.
-- [ ] Homepage Site Identity, Posts, selected Projects, social links, visibility settings, and Music Tracks use live responses.
-- [ ] Post listing, detail, Category, Tag, search, pagination, metadata, and not-found behavior use live responses.
-- [ ] SSR provides meaningful initial content and hydration does not repeat already completed reads.
-- [ ] Loading, empty, partial-error, full-error, stale navigation, and aborted-request behavior remain visually complete.
-- [ ] Fixture removal requires no component redesign; HTTP/browser tests, fixed-view screenshots, console review, lint, types, and diff review pass.
+- [x] A centralized typed client normalizes base URLs, SSR/client behavior, cookies where required, cancellation, and safe error envelopes.
+- [x] Homepage Site Identity, Posts, selected Projects, social links, visibility settings, and Music Tracks use live responses.
+- [x] Post listing, detail, Category, Tag, search, pagination, metadata, and not-found behavior use live responses.
+- [x] SSR provides meaningful initial content and hydration does not repeat already completed reads.
+- [x] Loading, empty, partial-error, full-error, stale navigation, and aborted-request behavior remain visually complete.
+- [x] Fixture removal requires no component redesign; HTTP/browser tests, fixed-view screenshots, console review, lint, types, and diff review pass.
 
+## Verification
+
+- Implemented the centralized SSR-safe typed API client and removed the runtime homepage/Post/music fixtures.
+- Backend: `pytest` 44 passed; Ruff and mypy passed.
+- Frontend: unit tests 45 passed; format, lint, typecheck, and production build passed.
+- Browser: API integration 8 passed; focused homepage/post checks passed; the full suite reached 97 passed with one existing design-system focus-outline timing flake, which passed when isolated and rerun.
+- Code review: Standards PASS; Spec PASS after making homepage SEO defaults reactive to settings retries.

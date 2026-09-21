@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+
+const { identity } = await usePublicSiteSettings()
 
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
@@ -46,15 +48,15 @@ const description = computed(() =>
 )
 
 useSeoMeta({
-  title: computed(() => `${title.value} · ${siteIdentity.name}`),
+  title: computed(() => `${title.value} · ${identity.value.name}`),
   description,
   ogDescription: description,
-  ogTitle: computed(() => `${title.value} · ${siteIdentity.name}`),
+  ogTitle: computed(() => `${title.value} · ${identity.value.name}`),
   ogType: 'website',
   ogUrl: computed(() => `${siteUrl}${basePath.value}`),
   twitterCard: 'summary',
   twitterDescription: description,
-  twitterTitle: computed(() => `${title.value} · ${siteIdentity.name}`),
+  twitterTitle: computed(() => `${title.value} · ${identity.value.name}`),
 })
 
 useHead({

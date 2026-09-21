@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import HomeSectionState from '../../app/components/home/HomeSectionState.vue'
 import { toHomepageSection } from '../../app/utils/homepage'
-import { homepageFixtures } from '../../app/composables/homepageFixtures'
+import type { HomepageCollectionResponse } from '../../app/types/homepage'
 
 describe('homepage content state', () => {
   it('keeps a stable loading state for a section', () => {
@@ -64,37 +64,12 @@ describe('homepage content state', () => {
   })
 })
 
-describe('homepage fixtures', () => {
-  it('preserves separate domain sections and future API-shaped fields', () => {
-    expect(homepageFixtures.posts.data[0]).toMatchObject({
-      category: { name: expect.any(String), slug: expect.any(String) },
-      publishedAt: expect.any(String),
-      slug: expect.any(String),
-      summary: expect.any(String),
-      tags: expect.any(Array),
-      title: expect.any(String),
-    })
-    expect(homepageFixtures.moments.data[0]).toMatchObject({
-      body: expect.any(String),
-      publishedAt: expect.any(String),
-    })
-    expect(homepageFixtures.chatter.data[0]).toMatchObject({
-      lead: expect.any(String),
-      publishedAt: expect.any(String),
-      title: expect.any(String),
-    })
-    expect(homepageFixtures.projects.data[0]).toMatchObject({
-      description: expect.any(String),
-      selected: true,
-      stack: expect.any(Array),
-      status: expect.any(String),
-    })
-  })
-})
-
 describe('homepage provider state mapping', () => {
   it('maps complete, empty, loading, and recoverable error responses', () => {
-    const response = homepageFixtures.posts
+    const response: HomepageCollectionResponse<{ title: string }> = {
+      data: [{ title: '来自 API 的文章' }],
+      pagination: { page: 1, pageSize: 1, total: 1, totalPages: 1 },
+    }
     const emptyResponse = {
       ...response,
       data: [],

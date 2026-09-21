@@ -1,36 +1,54 @@
 <script setup lang="ts">
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+
+const { identity, settings } = await usePublicSiteSettings()
 
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
+const seoDefaults = computed(() => settings.value.seoDefaults)
+const canonicalUrl = computed(
+  () => seoDefaults.value.canonicalUrl || `${siteUrl}/`,
+)
+const openGraphUrl = computed(() => seoDefaults.value.canonicalUrl || siteUrl)
 
 useSeoMeta({
-  title: siteIdentity.name,
-  description: siteIdentity.description,
-  ogDescription: siteIdentity.description,
-  ogTitle: siteIdentity.name,
+  title: () => seoDefaults.value.title || identity.value.name,
+  description: () =>
+    seoDefaults.value.description || identity.value.description,
+  ogDescription: () =>
+    seoDefaults.value.description || identity.value.description,
+  ogImage: () => seoDefaults.value.ogImageUrl,
+  ogTitle: () => seoDefaults.value.title || identity.value.name,
   ogType: 'website',
-  ogUrl: siteUrl,
-  twitterCard: 'summary',
-  twitterDescription: siteIdentity.description,
-  twitterTitle: siteIdentity.name,
+  ogUrl: () => openGraphUrl.value,
+  twitterCard: () => seoDefaults.value.twitterCard,
+  twitterDescription: () =>
+    seoDefaults.value.description || identity.value.description,
+  twitterTitle: () => seoDefaults.value.title || identity.value.name,
 })
 
-useHead({
-  link: [{ href: `${siteUrl}/`, rel: 'canonical' }],
+useHead(() => ({
+  meta: [
+    {
+      content: seoDefaults.value.keywords.join(', '),
+      name: 'keywords',
+    },
+  ],
+  link: [{ href: canonicalUrl.value, rel: 'canonical' }],
   script: [
     {
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebSite',
-        description: siteIdentity.description,
-        name: siteIdentity.name,
-        url: `${siteUrl}/`,
+        description:
+          seoDefaults.value.description || identity.value.description,
+        name: identity.value.name,
+        url: canonicalUrl.value,
       }),
       type: 'application/ld+json' as 'application/json',
     },
   ],
-})
+}))
 </script>
 
 <template>

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ArrowUpRight, Github, Globe2 } from 'lucide-vue-next'
 
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import type { HomepageStat } from '~/types/homepage'
 
 defineProps<{
   stats: HomepageStat[]
 }>()
 
-const monogram = siteIdentity.name.slice(0, 1)
+const { identity } = await usePublicSiteSettings()
+const monogram = computed(() => identity.value.name.slice(0, 1))
 const socialIcons = { code: Github, social: Globe2 } as const
 </script>
 
@@ -36,7 +37,7 @@ const socialIcons = { code: Github, social: Globe2 } as const
         </div>
       </div>
 
-      <p class="home-profile__description">{{ siteIdentity.description }}</p>
+      <p class="home-profile__description">{{ identity.description }}</p>
 
       <dl class="home-profile__stats" aria-label="网站统计">
         <div v-for="stat in stats" :key="stat.label" class="home-profile__stat">
@@ -51,7 +52,7 @@ const socialIcons = { code: Github, social: Globe2 } as const
       <div class="home-profile__social" data-homepage-social-links>
         <span class="home-profile__social-label">找到我</span>
         <ul>
-          <li v-for="social in siteIdentity.socialLinks" :key="social.href">
+          <li v-for="social in identity.socialLinks" :key="social.href">
             <a
               :href="social.href"
               :aria-label="`${social.label}（外部链接）`"

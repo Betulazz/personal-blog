@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+
+const { identity } = await usePublicSiteSettings()
 
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
@@ -41,15 +43,15 @@ const title = computed(() =>
 )
 
 useSeoMeta({
-  title: computed(() => `${title.value} · ${siteIdentity.name}`),
+  title: computed(() => `${title.value} · ${identity.value.name}`),
   description: '搜索文章标题、摘要、正文和标签。',
   ogDescription: '搜索文章标题、摘要、正文和标签。',
-  ogTitle: computed(() => `${title.value} · ${siteIdentity.name}`),
+  ogTitle: computed(() => `${title.value} · ${identity.value.name}`),
   ogType: 'website',
   ogUrl: `${siteUrl}/search`,
   twitterCard: 'summary',
   twitterDescription: '搜索文章标题、摘要、正文和标签。',
-  twitterTitle: computed(() => `${title.value} · ${siteIdentity.name}`),
+  twitterTitle: computed(() => `${title.value} · ${identity.value.name}`),
 })
 
 useHead({

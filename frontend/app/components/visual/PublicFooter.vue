@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { siteIdentity, publicNavigation } from '~/config/siteIdentity'
+import { publicNavigation } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 
-const monogram = siteIdentity.name.slice(0, 1)
+const { identity, settings } = await usePublicSiteSettings()
+const monogram = computed(() => identity.value.name.slice(0, 1))
 </script>
 
 <template>
@@ -12,16 +14,16 @@ const monogram = siteIdentity.name.slice(0, 1)
           <NuxtLink
             class="site-footer__brand"
             to="/"
-            :aria-label="`${siteIdentity.name}首页`"
+            :aria-label="`${identity.name}首页`"
           >
             <span class="site-footer__monogram" aria-hidden="true">{{
               monogram
             }}</span>
-            <span>{{ siteIdentity.name }}</span>
+            <span>{{ identity.name }}</span>
           </NuxtLink>
-          <p class="site-footer__note">{{ siteIdentity.footerNote }}</p>
+          <p class="site-footer__note">{{ identity.footerNote }}</p>
           <p class="site-footer__description">
-            {{ siteIdentity.description }}
+            {{ identity.description }}
           </p>
         </div>
 
@@ -37,7 +39,7 @@ const monogram = siteIdentity.name.slice(0, 1)
         <div class="site-footer__social">
           <h2>保持联系</h2>
           <ul>
-            <li v-for="social in siteIdentity.socialLinks" :key="social.href">
+            <li v-for="social in identity.socialLinks" :key="social.href">
               <a
                 :href="social.href"
                 target="_blank"
@@ -53,7 +55,9 @@ const monogram = siteIdentity.name.slice(0, 1)
       </div>
 
       <div class="site-footer__bottom">
-        <span>© 2026 {{ siteIdentity.name }}</span>
+        <span>
+          {{ settings.footer.copyright || `© 2026 ${identity.name}` }}
+        </span>
         <span>Built with care · Dark by design</span>
       </div>
     </UiPageContainer>

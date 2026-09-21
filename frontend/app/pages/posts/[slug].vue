@@ -2,8 +2,8 @@
 import { ArrowUp, List } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { siteIdentity } from '~/config/siteIdentity'
 import { usePostDetail, usePostNeighbors } from '~/composables/usePostDiscovery'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import {
   renderPostMarkdownDocument,
   type PostTocItem,
@@ -14,6 +14,7 @@ import 'katex/dist/katex.min.css'
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
+const { identity } = await usePublicSiteSettings()
 const slug = computed(() =>
   typeof route.params.slug === 'string' ? route.params.slug : '',
 )
@@ -112,15 +113,15 @@ onBeforeUnmount(() => {
 })
 
 useSeoMeta({
-  title: computed(() => `${title.value} · ${siteIdentity.name}`),
+  title: computed(() => `${title.value} · ${identity.value.name}`),
   description,
   ogDescription: description,
-  ogTitle: computed(() => `${title.value} · ${siteIdentity.name}`),
+  ogTitle: computed(() => `${title.value} · ${identity.value.name}`),
   ogType: 'article',
   ogUrl: computed(() => `${siteUrl}/posts/${slug.value}`),
   twitterCard: 'summary',
   twitterDescription: description,
-  twitterTitle: computed(() => `${title.value} · ${siteIdentity.name}`),
+  twitterTitle: computed(() => `${title.value} · ${identity.value.name}`),
 })
 
 useHead({

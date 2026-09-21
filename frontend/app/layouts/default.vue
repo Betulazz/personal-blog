@@ -1,7 +1,43 @@
+<script setup lang="ts">
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+
+const {
+  error: settingsError,
+  pending: settingsPending,
+  refresh: refreshSettings,
+} = await usePublicSiteSettings()
+const isHydrated = ref(false)
+
+onMounted(() => {
+  isHydrated.value = true
+})
+</script>
+
 <template>
   <div class="public-shell">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <VisualFoundationHeader />
+    <div
+      v-if="isHydrated && (settingsPending || settingsError)"
+      class="public-shell__settings-status"
+      :role="settingsError ? 'alert' : 'status'"
+      :aria-busy="settingsPending"
+    >
+      <span>
+        {{
+          settingsPending
+            ? '正在加载站点设置…'
+            : '站点设置暂时无法加载，当前显示基础信息。'
+        }}
+      </span>
+      <button
+        v-if="settingsError"
+        type="button"
+        @click="() => refreshSettings()"
+      >
+        重新加载
+      </button>
+    </div>
     <main id="main-content" class="public-main" tabindex="-1">
       <slot />
     </main>
@@ -24,6 +60,35 @@
 .public-main {
   flex: 1 0 auto;
   min-width: 0;
+}
+
+.public-shell__settings-status {
+  position: fixed;
+  z-index: var(--z-toast);
+  top: var(--space-5);
+  left: 50%;
+  display: flex;
+  max-width: min(36rem, calc(100vw - 2rem));
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-hairline) solid var(--glass-border-hover);
+  border-radius: var(--radius-medium);
+  background: var(--glass-elevated-bg);
+  box-shadow: var(--shadow-card), var(--glass-highlight);
+  color: var(--color-text);
+  font-size: var(--text-small);
+  transform: translateX(-50%);
+}
+
+.public-shell__settings-status button {
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hairline) solid var(--glass-border-hover);
+  border-radius: var(--radius-small);
+  background: var(--glass-card-bg);
+  color: var(--color-text);
 }
 
 .public-main:focus {

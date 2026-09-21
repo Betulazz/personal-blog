@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+
+const { identity } = await usePublicSiteSettings()
 
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
@@ -25,15 +27,15 @@ const refreshAll = async () => {
 }
 
 useSeoMeta({
-  title: `文章 · ${siteIdentity.name}`,
+  title: `文章 · ${identity.value.name}`,
   description: '按时间、分类、标签和关键词发现这里的公开文章。',
   ogDescription: '按时间、分类、标签和关键词发现这里的公开文章。',
-  ogTitle: `文章 · ${siteIdentity.name}`,
+  ogTitle: `文章 · ${identity.value.name}`,
   ogType: 'website',
   ogUrl: `${siteUrl}/posts`,
   twitterCard: 'summary',
   twitterDescription: '按时间、分类、标签和关键词发现这里的公开文章。',
-  twitterTitle: `文章 · ${siteIdentity.name}`,
+  twitterTitle: `文章 · ${identity.value.name}`,
 })
 
 useHead({

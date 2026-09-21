@@ -1,18 +1,8 @@
-export interface SiteSocialLink {
-  href: string
-  kind: 'code' | 'social'
-  label: string
-}
+import type { SiteIdentityView, SiteSocialLink } from '~/types/site'
 
-export interface SiteIdentity {
-  description: string
-  footerNote: string
-  name: string
-  socialLinks: SiteSocialLink[]
-  tagline: string
-}
+export type { SiteIdentityView as SiteIdentity, SiteSocialLink }
 
-export const siteIdentity: SiteIdentity = {
+export const siteIdentity: SiteIdentityView = {
   name: '夜航手记',
   tagline: '在夜色里，写下仍然发光的事',
   description: '关于技术、生活与缓慢生长的个人记录。',
