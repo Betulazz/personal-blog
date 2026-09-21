@@ -11,6 +11,7 @@ from app.repositories.portfolio import (
     SiteSettingsRepository,
 )
 from app.schemas.portfolio import (
+    AboutSettings,
     FriendLinkCreateRequest,
     FriendLinkUpdateRequest,
     ProjectCreateRequest,
@@ -128,6 +129,7 @@ DEFAULT_SITE_SETTINGS: dict[str, Any] = {
     "tagline": "",
     "description": "",
     "profile": "",
+    "about": AboutSettings().model_dump(mode="json"),
     "avatar_url": None,
     "avatar_alt": None,
     "favicon_url": None,
@@ -172,7 +174,7 @@ class SiteSettingsService:
             settings = _default_site_settings()
             await self._repository.add(settings)
         for field, value in request.model_dump(exclude_unset=True, mode="json").items():
-            if field in {"seo_defaults", "footer", "contact", "homepage_visibility"}:
+            if field in {"seo_defaults", "footer", "contact", "homepage_visibility", "about"}:
                 merged = dict(getattr(settings, field) or {})
                 merged.update(value)
                 setattr(settings, field, merged)

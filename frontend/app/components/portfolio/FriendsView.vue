@@ -2,13 +2,14 @@
 import { computed } from 'vue'
 import { useOnline } from '@vueuse/core'
 
-import { siteIdentity } from '~/config/siteIdentity'
 import type { FriendCollectionResponse } from '~/types/portfolio'
+import type { PublicSiteSettings } from '~/types/site'
 
 const props = defineProps<{
   error?: unknown
   pending: boolean
   response: FriendCollectionResponse | null
+  settings: PublicSiteSettings
 }>()
 
 const emit = defineEmits<{
@@ -77,16 +78,22 @@ const status = computed(() => {
         <dl>
           <div>
             <dt>本站名称</dt>
-            <dd>{{ siteIdentity.name }}</dd>
+            <dd>{{ settings.name }}</dd>
           </div>
           <div>
             <dt>本站介绍</dt>
-            <dd>{{ siteIdentity.description }}</dd>
+            <dd>{{ settings.description }}</dd>
           </div>
           <div>
             <dt>联系入口</dt>
             <dd>
-              <a href="mailto:hello@example.com">hello@example.com</a>
+              <a
+                v-if="settings.contact.email"
+                :href="`mailto:${settings.contact.email}`"
+              >
+                {{ settings.contact.email || '暂未公开' }}
+              </a>
+              <span v-else>暂未公开</span>
             </dd>
           </div>
         </dl>

@@ -1,11 +1,24 @@
 import { computed } from 'vue'
 
-import { momentFixtureProvider } from '~/composables/momentFixtures'
+import { useApiClient } from '~/api/client'
 import type { MomentCollectionResponse, MomentProvider } from '~/types/moments'
 import type { PublicFeedQuery, PublicTag } from '~/types/public-content'
 import { buildPublicFeedQuery } from '~/utils/public-content'
 
-export function useMoments(provider: MomentProvider = momentFixtureProvider) {
+export function createMomentProvider(
+  client: Pick<
+    ReturnType<typeof useApiClient>,
+    'listMomentTags' | 'listMoments'
+  >,
+): MomentProvider {
+  return {
+    listMoments: client.listMoments,
+    listTags: client.listMomentTags,
+  }
+}
+
+export function useMoments(provider?: MomentProvider) {
+  const activeProvider = provider ?? createMomentProvider(useApiClient())
   const route = useRoute()
   const query = computed<PublicFeedQuery>(() =>
     buildPublicFeedQuery(route.query),
@@ -13,7 +26,7 @@ export function useMoments(provider: MomentProvider = momentFixtureProvider) {
 
   const collection = useAsyncData<MomentCollectionResponse | null>(
     () => `moments:${JSON.stringify(query.value)}`,
-    () => provider.listMoments(query.value),
+    (_nuxtApp, { signal }) => activeProvider.listMoments(query.value, signal),
     {
       deep: false,
       default: () => null,
@@ -22,7 +35,7 @@ export function useMoments(provider: MomentProvider = momentFixtureProvider) {
   )
   const taxonomy = useAsyncData<PublicTag[]>(
     'moments-tags',
-    () => provider.listTags(),
+    (_nuxtApp, { signal }) => activeProvider.listTags(signal),
     { deep: false, default: () => [] },
   )
 

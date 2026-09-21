@@ -3,7 +3,10 @@ import { computed } from 'vue'
 
 import type { ChatterCollectionResponse } from '~/types/chatter'
 import type { PublicFeedQuery, PublicTag } from '~/types/public-content'
-import { isPublicFeedPageOutOfRange } from '~/utils/public-content'
+import {
+  buildPublicFeedRouteQuery,
+  isPublicFeedPageOutOfRange,
+} from '~/utils/public-content'
 
 const props = defineProps<{
   error?: unknown
@@ -16,6 +19,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   retry: []
 }>()
+
+const router = useRouter()
+
+const pageHref = (page: number) =>
+  router.resolve({
+    path: '/chatter',
+    query: buildPublicFeedRouteQuery({ ...props.query, page }),
+  }).href
 
 const status = computed(() => {
   if (props.pending) {
@@ -92,6 +103,11 @@ const resultDescription = computed(() => {
             :chatter="chatter"
           />
         </div>
+        <PublicFeedPagination
+          label="杂谈分页"
+          :page-href="pageHref"
+          :pagination="response!.pagination"
+        />
       </PublicCollectionState>
     </UiPageContainer>
   </div>

@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 
-import { chatterFixtureProvider } from '~/composables/chatterFixtures'
+import { useApiClient } from '~/api/client'
 import type {
   ChatterCollectionResponse,
   ChatterProvider,
@@ -8,7 +8,20 @@ import type {
 import type { PublicFeedQuery, PublicTag } from '~/types/public-content'
 import { buildPublicFeedQuery } from '~/utils/public-content'
 
-export function useChatter(provider: ChatterProvider = chatterFixtureProvider) {
+export function createChatterProvider(
+  client: Pick<
+    ReturnType<typeof useApiClient>,
+    'listChatter' | 'listChatterTags'
+  >,
+): ChatterProvider {
+  return {
+    listChatter: client.listChatter,
+    listTags: client.listChatterTags,
+  }
+}
+
+export function useChatter(provider?: ChatterProvider) {
+  const activeProvider = provider ?? createChatterProvider(useApiClient())
   const route = useRoute()
   const query = computed<PublicFeedQuery>(() =>
     buildPublicFeedQuery(route.query),
@@ -16,7 +29,7 @@ export function useChatter(provider: ChatterProvider = chatterFixtureProvider) {
 
   const collection = useAsyncData<ChatterCollectionResponse | null>(
     () => `chatter:${JSON.stringify(query.value)}`,
-    () => provider.listChatter(query.value),
+    (_nuxtApp, { signal }) => activeProvider.listChatter(query.value, signal),
     {
       deep: false,
       default: () => null,
@@ -25,7 +38,7 @@ export function useChatter(provider: ChatterProvider = chatterFixtureProvider) {
   )
   const taxonomy = useAsyncData<PublicTag[]>(
     'chatter-tags',
-    () => provider.listTags(),
+    (_nuxtApp, { signal }) => activeProvider.listTags(signal),
     { deep: false, default: () => [] },
   )
 

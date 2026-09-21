@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ArrowUpRight, Github, Globe2, Mail } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
-import { siteIdentity } from '~/config/siteIdentity'
 import type { AboutProfile } from '~/types/portfolio'
 import { getSafeExternalUrl } from '~/utils/external-links'
 
@@ -24,15 +23,20 @@ const status = computed(() => {
 })
 
 const socialIcons = { code: Github, social: Globe2 } as const
+const avatarUnavailable = ref(false)
+
+const markAvatarUnavailable = () => {
+  avatarUnavailable.value = true
+}
 </script>
 
 <template>
   <div class="about-page" data-about-page>
     <UiPageContainer as="section" class="about-page__intro" width="wide">
       <UiSectionHeader
-        :description="profile?.profile ?? siteIdentity.description"
+        :description="profile?.profile ?? '关于这个公开记录空间。'"
         eyebrow="A LITTLE CONTEXT"
-        :title="profile?.tagline ?? siteIdentity.tagline"
+        :title="profile?.tagline ?? '关于这个公开记录空间'"
         :heading-level="1"
       />
     </UiPageContainer>
@@ -55,9 +59,27 @@ const socialIcons = { code: Github, social: Globe2 } as const
                 <div
                   class="about-page__avatar"
                   role="img"
-                  :aria-label="`${profile.name}头像`"
+                  :aria-label="`${profile.name}${avatarUnavailable ? '：头像暂不可用' : '头像'}`"
                 >
-                  <span aria-hidden="true">{{ profile.name.slice(0, 1) }}</span>
+                  <img
+                    v-if="profile.avatar && !avatarUnavailable"
+                    :src="profile.avatar.src"
+                    :alt="profile.avatar.alt"
+                    :width="profile.avatar.width"
+                    :height="profile.avatar.height"
+                    loading="lazy"
+                    decoding="async"
+                    @error="markAvatarUnavailable"
+                  />
+                  <span v-else aria-hidden="true">{{
+                    profile.name.slice(0, 1)
+                  }}</span>
+                  <span
+                    v-if="avatarUnavailable"
+                    class="about-page__avatar-label"
+                  >
+                    媒体暂不可用
+                  </span>
                 </div>
                 <p class="about-page__eyebrow">PROFILE</p>
                 <h2 id="about-profile-title">{{ profile.name }}</h2>
@@ -215,6 +237,7 @@ const socialIcons = { code: Github, social: Globe2 } as const
 }
 
 .about-page__avatar {
+  position: relative;
   display: grid;
   width: 5.5rem;
   height: 5.5rem;
@@ -231,6 +254,22 @@ const socialIcons = { code: Github, social: Globe2 } as const
   font-family: var(--font-display);
   font-size: 2.25rem;
   font-weight: var(--font-weight-bold);
+}
+
+.about-page__avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.about-page__avatar-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .about-page__eyebrow {

@@ -120,6 +120,7 @@ class SiteSettings(Base):
     tagline: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     profile: Mapped[str] = mapped_column(Text, nullable=False)
+    about: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     avatar_url: Mapped[str | None] = mapped_column(String(2048))
     avatar_alt: Mapped[str | None] = mapped_column(String(200))
     favicon_url: Mapped[str | None] = mapped_column(String(2048))

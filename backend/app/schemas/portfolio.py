@@ -451,11 +451,50 @@ class HomepageVisibilityUpdate(BaseModel):
         return self
 
 
+class AboutSkillGroup(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    items: list[str] = Field(default_factory=list, max_length=30)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, value: str) -> str:
+        return _required_text(value, "skill group name")
+
+    @field_validator("items")
+    @classmethod
+    def normalize_items(cls, value: list[str]) -> list[str]:
+        return _validate_unique_text(value, "skill item")
+
+
+class AboutTimelineItem(BaseModel):
+    period: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("period", "title", "description")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return _required_text(value, "timeline field")
+
+
+class AboutSettings(BaseModel):
+    interests: list[str] = Field(default_factory=list, max_length=30)
+    skills: list[AboutSkillGroup] = Field(default_factory=list, max_length=20)
+    story: list[str] = Field(default_factory=list, max_length=20)
+    timeline: list[AboutTimelineItem] = Field(default_factory=list, max_length=20)
+
+    @field_validator("interests", "story")
+    @classmethod
+    def normalize_text_lists(cls, value: list[str]) -> list[str]:
+        return _validate_unique_text(value, "about text")
+
+
 class SiteSettingsFields(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     tagline: str = Field(default="", max_length=500)
     description: str = Field(default="", max_length=5000)
     profile: str = Field(default="", max_length=10000)
+    about: AboutSettings = Field(default_factory=AboutSettings)
     avatar_url: str | None = Field(default=None, max_length=2048)
     avatar_alt: str | None = Field(default=None, max_length=200)
     favicon_url: str | None = Field(default=None, max_length=2048)
@@ -491,6 +530,7 @@ class SiteSettingsUpdateRequest(BaseModel):
     tagline: str | None = Field(default=None, max_length=500)
     description: str | None = Field(default=None, max_length=5000)
     profile: str | None = Field(default=None, max_length=10000)
+    about: AboutSettings | None = None
     avatar_url: str | None = Field(default=None, max_length=2048)
     avatar_alt: str | None = Field(default=None, max_length=200)
     favicon_url: str | None = Field(default=None, max_length=2048)
@@ -527,6 +567,7 @@ class SiteSettingsUpdateRequest(BaseModel):
             "tagline",
             "description",
             "profile",
+            "about",
             "social_links",
             "seo_defaults",
             "footer",

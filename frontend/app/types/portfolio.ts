@@ -1,4 +1,5 @@
-import type { SiteSocialLink } from '../config/siteIdentity'
+import type { PublicCollectionPagination } from './public-content'
+import type { SiteSocialLink } from './site'
 
 export interface PortfolioMedia {
   alt: string
@@ -26,6 +27,7 @@ export interface Project {
 
 export interface ProjectCollectionResponse {
   data: Project[]
+  pagination: PublicCollectionPagination
 }
 
 export interface FriendLink {
@@ -39,6 +41,7 @@ export interface FriendLink {
 
 export interface FriendCollectionResponse {
   data: FriendLink[]
+  pagination: PublicCollectionPagination
 }
 
 export interface AboutSkillGroup {
@@ -53,6 +56,7 @@ export interface AboutTimelineItem {
 }
 
 export interface AboutProfile {
+  avatar?: PortfolioMedia
   contact: {
     email: string
     note: string
@@ -68,7 +72,7 @@ export interface AboutProfile {
 }
 
 export interface PortfolioProvider {
-  getAbout: () => Promise<AboutProfile>
-  listFriends: () => Promise<FriendCollectionResponse>
-  listProjects: () => Promise<ProjectCollectionResponse>
+  getAbout: (signal?: AbortSignal) => Promise<AboutProfile>
+  listFriends: (signal?: AbortSignal) => Promise<FriendCollectionResponse>
+  listProjects: (signal?: AbortSignal) => Promise<ProjectCollectionResponse>
 }

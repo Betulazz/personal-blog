@@ -22,6 +22,9 @@ export interface ChatterCollectionResponse {
 }
 
 export interface ChatterProvider {
-  listChatter: (query: PublicFeedQuery) => Promise<ChatterCollectionResponse>
-  listTags: () => Promise<PublicTag[]>
+  listChatter: (
+    query: PublicFeedQuery,
+    signal?: AbortSignal,
+  ) => Promise<ChatterCollectionResponse>
+  listTags: (signal?: AbortSignal) => Promise<PublicTag[]>
 }

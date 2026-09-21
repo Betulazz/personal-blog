@@ -303,6 +303,7 @@ def _settings_fields(settings: SiteSettings) -> SiteSettingsFields:
         tagline=settings.tagline,
         description=settings.description,
         profile=settings.profile,
+        about=settings.about,
         avatar_url=settings.avatar_url,
         avatar_alt=settings.avatar_alt,
         favicon_url=settings.favicon_url,

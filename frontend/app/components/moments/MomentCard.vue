@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { MapPin } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-import { siteIdentity } from '../../config/siteIdentity'
 import type { Moment } from '../../types/moments'
 import { formatPublicDate } from '../../utils/public-content'
 
 const props = defineProps<{
   moment: Moment
+  siteName?: string
 }>()
 
 const failedImages = ref(new Set<string>())
-const monogram = siteIdentity.name.slice(0, 1)
+const displayName = computed(() => props.siteName || '动态作者')
+const monogram = computed(() => displayName.value.slice(0, 1))
 
 const markImageUnavailable = (src: string) => {
   failedImages.value = new Set(failedImages.value).add(src)
@@ -30,7 +31,7 @@ const imageIsUnavailable = (src: string) => failedImages.value.has(src)
     <div class="moment-card__content">
       <header class="moment-card__header">
         <div class="moment-card__identity">
-          <strong>{{ siteIdentity.name }}</strong>
+          <strong>{{ displayName }}</strong>
           <time :datetime="props.moment.publishedAt">
             {{ formatPublicDate(props.moment.publishedAt) }}
           </time>

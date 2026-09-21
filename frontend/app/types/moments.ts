@@ -29,6 +29,9 @@ export interface MomentCollectionResponse {
 }
 
 export interface MomentProvider {
-  listMoments: (query: PublicFeedQuery) => Promise<MomentCollectionResponse>
-  listTags: () => Promise<PublicTag[]>
+  listMoments: (
+    query: PublicFeedQuery,
+    signal?: AbortSignal,
+  ) => Promise<MomentCollectionResponse>
+  listTags: (signal?: AbortSignal) => Promise<PublicTag[]>
 }

@@ -18,6 +18,9 @@ import type {
   TaxonomyCollectionResponse,
 } from '~/types/posts'
 import type {
+  AboutProfile,
+  AboutSkillGroup,
+  AboutTimelineItem,
   FriendCollectionResponse,
   Project,
   ProjectCollectionResponse,
@@ -102,6 +105,12 @@ interface RawFriend {
 }
 
 interface RawSiteSettings {
+  about: {
+    interests: string[]
+    skills: AboutSkillGroup[]
+    story: string[]
+    timeline: AboutTimelineItem[]
+  }
   avatar_alt: string | null
   avatar_url: string | null
   contact: { email: string; note: string }
@@ -167,6 +176,13 @@ interface RawFeedCollection<T> extends RawCollection<T> {
   filters: Record<string, string>
 }
 
+interface RawPublicTag {
+  content_count: number
+  id: number
+  name: string
+  slug: string
+}
+
 export class BlogApiError extends Error {
   readonly code: string
   readonly details: unknown
@@ -189,6 +205,7 @@ export interface BlogApiClient {
     slug: string,
     signal?: AbortSignal,
   ) => Promise<PostDetail | null>
+  getAbout: (signal?: AbortSignal) => Promise<AboutProfile>
   getSettings: (signal?: AbortSignal) => Promise<PublicSiteSettings>
   listCategories: (
     signal?: AbortSignal,
@@ -197,6 +214,7 @@ export interface BlogApiClient {
     query: PublicFeedQuery,
     signal?: AbortSignal,
   ) => Promise<ChatterCollectionResponse>
+  listChatterTags: (signal?: AbortSignal) => Promise<PublicTag[]>
   listFriends: (signal?: AbortSignal) => Promise<FriendCollectionResponse>
   listHomepageChatter: (
     signal?: AbortSignal,
@@ -214,6 +232,7 @@ export interface BlogApiClient {
     query: PublicFeedQuery,
     signal?: AbortSignal,
   ) => Promise<MomentCollectionResponse>
+  listMomentTags: (signal?: AbortSignal) => Promise<PublicTag[]>
   listMusicTracks: (
     signal?: AbortSignal,
   ) => Promise<MusicTrackCollectionResponse>
@@ -236,12 +255,18 @@ const pagination = (value: RawPagination): PublicCollectionPagination => ({
   totalPages: value.total_pages,
 })
 
-const cover = (url: string | null, alt: string | null) =>
+type MediaUrlResolver = (value: string) => string
+
+const cover = (
+  url: string | null,
+  alt: string | null,
+  resolveMediaUrl: MediaUrlResolver,
+) =>
   url
     ? {
         alt: alt || '文章封面',
         height: 451,
-        src: url,
+        src: resolveMediaUrl(url),
         width: 640,
       }
     : undefined
@@ -261,8 +286,11 @@ const toPostTag = (value: RawTaxonomy): PostTag => ({
   slug: value.slug,
 })
 
-const toPostSummary = (value: RawPost): PostSummary => {
-  const postCover = cover(value.cover_url, value.cover_alt)
+const toPostSummary = (
+  value: RawPost,
+  resolveMediaUrl: MediaUrlResolver,
+): PostSummary => {
+  const postCover = cover(value.cover_url, value.cover_alt, resolveMediaUrl)
 
   return {
     category: toPostCategory(value.category),
@@ -280,7 +308,10 @@ const toPostSummary = (value: RawPost): PostSummary => {
   }
 }
 
-const toProject = (value: RawProject): Project => ({
+const toProject = (
+  value: RawProject,
+  resolveMediaUrl: MediaUrlResolver,
+): Project => ({
   demoUrl: value.demo_url ?? undefined,
   description: value.description,
   featured: value.featured,
@@ -291,7 +322,7 @@ const toProject = (value: RawProject): Project => ({
         logo: {
           alt: value.logo_alt || `${value.name} 标志`,
           height: 160,
-          src: value.logo_url,
+          src: resolveMediaUrl(value.logo_url),
           width: 160,
         },
       }
@@ -308,7 +339,10 @@ const toPublicTag = (value: { name: string; slug: string }): PublicTag => ({
   slug: value.slug,
 })
 
-const toMoment = (value: RawMoment): Moment => ({
+const toMoment = (
+  value: RawMoment,
+  resolveMediaUrl: MediaUrlResolver,
+): Moment => ({
   body: value.body,
   id: String(value.id),
   ...(value.images.length
@@ -316,7 +350,7 @@ const toMoment = (value: RawMoment): Moment => ({
         images: value.images.map((image) => ({
           alt: image.alt,
           height: image.height,
-          src: image.src,
+          src: resolveMediaUrl(image.src),
           width: image.width,
         })),
       }
@@ -337,12 +371,18 @@ const toChatter = (value: RawChatter): Chatter => ({
   title: value.title ?? '杂谈记录',
 })
 
-const toSiteSettings = (value: RawSiteSettings): PublicSiteSettings => ({
+const toSiteSettings = (
+  value: RawSiteSettings,
+  resolveMediaUrl: MediaUrlResolver,
+): PublicSiteSettings => ({
+  about: value.about,
   ...(value.avatar_alt ? { avatarAlt: value.avatar_alt } : {}),
-  ...(value.avatar_url ? { avatarUrl: value.avatar_url } : {}),
+  ...(value.avatar_url ? { avatarUrl: resolveMediaUrl(value.avatar_url) } : {}),
   contact: value.contact,
   description: value.description,
-  ...(value.favicon_url ? { faviconUrl: value.favicon_url } : {}),
+  ...(value.favicon_url
+    ? { faviconUrl: resolveMediaUrl(value.favicon_url) }
+    : {}),
   footer: value.footer,
   homepageVisibility: value.homepage_visibility,
   name: value.name,
@@ -354,7 +394,7 @@ const toSiteSettings = (value: RawSiteSettings): PublicSiteSettings => ({
     description: value.seo_defaults.description,
     keywords: value.seo_defaults.keywords,
     ...(value.seo_defaults.og_image_url
-      ? { ogImageUrl: value.seo_defaults.og_image_url }
+      ? { ogImageUrl: resolveMediaUrl(value.seo_defaults.og_image_url) }
       : {}),
     title: value.seo_defaults.title,
     twitterCard: value.seo_defaults.twitter_card,
@@ -371,14 +411,41 @@ const toIdentity = (value: PublicSiteSettings): SiteIdentityView => ({
   tagline: value.tagline,
 })
 
-const toTrack = (value: RawMusicTrack): MusicTrack => ({
+const toAbout = (
+  value: PublicSiteSettings,
+  avatarUrl = value.avatarUrl,
+): AboutProfile => ({
+  avatar: avatarUrl
+    ? {
+        alt: value.avatarAlt || `${value.name}头像`,
+        height: 240,
+        src: avatarUrl,
+        width: 240,
+      }
+    : undefined,
+  contact: value.contact,
+  interests: value.about.interests,
+  name: value.name,
+  profile: value.profile || value.description,
+  skills: value.about.skills,
+  socialLinks: value.socialLinks,
+  story: value.about.story,
+  tagline: value.tagline,
+  timeline: value.about.timeline,
+})
+
+const toTrack = (
+  value: RawMusicTrack,
+  resolveMediaUrl: MediaUrlResolver,
+): MusicTrack => ({
   artist: value.artist,
   id: String(value.id),
-  src: value.source_url,
+  src: resolveMediaUrl(value.source_url),
   title: value.title,
 })
 
 export const toPublicSiteIdentity = toIdentity
+export const toPublicAbout = toAbout
 
 export function useApiClient(): BlogApiClient {
   const runtimeConfig = useRuntimeConfig()
@@ -393,6 +460,23 @@ export function useApiClient(): BlogApiClient {
         ? new URL(publicBase, useRequestURL().origin).toString()
         : configuredBase || publicBase,
   )
+  const mediaBase = publicBase.startsWith('http')
+    ? publicBase
+    : import.meta.server
+      ? useRequestURL().origin
+      : ''
+  const resolveMediaUrl: MediaUrlResolver = (value) => {
+    if (/^https?:\/\//i.test(value)) {
+      return value
+    }
+    if (!value.startsWith('/uploads/')) {
+      return value
+    }
+    if (!mediaBase) {
+      return value
+    }
+    return new URL(value, mediaBase).toString()
+  }
   const serverHeaders = import.meta.server
     ? useRequestHeaders(['cookie', 'x-csrf-token'])
     : undefined
@@ -432,7 +516,7 @@ export function useApiClient(): BlogApiClient {
       signal,
     })
     return {
-      data: response.data.map(toPostSummary),
+      data: response.data.map((post) => toPostSummary(post, resolveMediaUrl)),
       filters: response.filters,
       pagination: pagination(response.pagination),
     }
@@ -507,7 +591,7 @@ export function useApiClient(): BlogApiClient {
       signal,
     })
     return {
-      data: response.data.map(toMoment),
+      data: response.data.map((moment) => toMoment(moment, resolveMediaUrl)),
       filters: response.filters,
       pagination: pagination(response.pagination),
     }
@@ -529,6 +613,33 @@ export function useApiClient(): BlogApiClient {
       pagination: pagination(response.pagination),
     }
   }
+
+  const listAllPublicTags = async (
+    path: '/moments/tags' | '/chatter/tags',
+    signal?: AbortSignal,
+  ) => {
+    const data: PublicTag[] = []
+    let page = 1
+    let totalPages = 1
+
+    while (page <= totalPages) {
+      const response = await request<RawCollection<RawPublicTag>>(path, {
+        query: { page, page_size: 100 },
+        signal,
+      })
+      totalPages = Math.max(1, response.pagination.total_pages)
+      data.push(...response.data.map(toPublicTag))
+      page += 1
+    }
+
+    return data
+  }
+
+  const listMomentTags = (signal?: AbortSignal) =>
+    listAllPublicTags('/moments/tags', signal)
+
+  const listChatterTags = (signal?: AbortSignal) =>
+    listAllPublicTags('/chatter/tags', signal)
 
   const listHomepagePosts = async (signal?: AbortSignal) => {
     const response = await listPosts({ page: 1, pageSize: 3 }, signal)
@@ -554,7 +665,7 @@ export function useApiClient(): BlogApiClient {
       signal,
     })
     return {
-      data: response.data.map(toProject),
+      data: response.data.map((project) => toProject(project, resolveMediaUrl)),
       pagination: pagination(response.pagination),
     }
   }
@@ -619,7 +730,7 @@ export function useApiClient(): BlogApiClient {
         `/posts/${encodeURIComponent(slug)}`,
         { signal },
       )
-      const summary = toPostSummary(response.data)
+      const summary = toPostSummary(response.data, resolveMediaUrl)
       return {
         ...summary,
         body: response.data.body ?? '',
@@ -639,8 +750,11 @@ export function useApiClient(): BlogApiClient {
         signal,
       },
     )
-    return toSiteSettings(response.data)
+    return toSiteSettings(response.data, resolveMediaUrl)
   }
+
+  const getAbout = async (signal?: AbortSignal) =>
+    toAbout(await getSettings(signal))
 
   const listMusicTracks = async (signal?: AbortSignal) => {
     const response = await request<RawCollection<RawMusicTrack>>(
@@ -651,7 +765,7 @@ export function useApiClient(): BlogApiClient {
       },
     )
     return {
-      data: response.data.map(toTrack),
+      data: response.data.map((track) => toTrack(track, resolveMediaUrl)),
       pagination: pagination(response.pagination),
     }
   }
@@ -668,7 +782,7 @@ export function useApiClient(): BlogApiClient {
               avatar: {
                 alt: friend.avatar_alt || `${friend.name} 网站头像`,
                 height: 160,
-                src: friend.avatar_url,
+                src: resolveMediaUrl(friend.avatar_url),
                 width: 160,
               },
             }
@@ -683,16 +797,19 @@ export function useApiClient(): BlogApiClient {
   }
 
   return {
+    getAbout,
     getPostBySlug,
     getSettings,
     listCategories,
     listChatter,
+    listChatterTags,
     listFriends,
     listHomepageChatter,
     listHomepageMoments,
     listHomepagePosts,
     listHomepageProjects,
     listMoments,
+    listMomentTags,
     listMusicTracks,
     listPosts,
     listProjects,

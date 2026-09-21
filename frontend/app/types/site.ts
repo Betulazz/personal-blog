@@ -13,9 +13,28 @@ export interface HomepageVisibility {
   projects: boolean
 }
 
+export interface AboutSkillGroup {
+  items: string[]
+  name: string
+}
+
+export interface AboutTimelineItem {
+  description: string
+  period: string
+  title: string
+}
+
+export interface AboutSettings {
+  interests: string[]
+  skills: AboutSkillGroup[]
+  story: string[]
+  timeline: AboutTimelineItem[]
+}
+
 export interface PublicSiteSettings {
   avatarAlt?: string
   avatarUrl?: string
+  about: AboutSettings
   contact: {
     email: string
     note: string

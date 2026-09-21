@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest'
 
 import PublicCollectionState from '../../app/components/public/PublicCollectionState.vue'
 import MomentCard from '../../app/components/moments/MomentCard.vue'
-import { chatterFixtureProvider } from '../../app/composables/chatterFixtures'
-import { momentFixtureProvider } from '../../app/composables/momentFixtures'
 import {
   buildPublicFeedQuery,
   buildPublicFeedRouteQuery,
@@ -33,56 +31,6 @@ describe('public feed query contract', () => {
         tag: 'building-notes',
       }),
     ).toEqual({ q: '夜里', tag: 'building-notes' })
-  })
-})
-
-describe('fixture-backed public content contracts', () => {
-  it('keeps Moment fields optional and filters the chronological feed', async () => {
-    const response = await momentFixtureProvider.listMoments({
-      page: 1,
-      pageSize: 12,
-    })
-
-    expect(response.data.length).toBeGreaterThanOrEqual(4)
-    expect(response.data[0]).toMatchObject({
-      body: expect.any(String),
-      id: expect.any(String),
-      publishedAt: expect.any(String),
-      tags: expect.arrayContaining([
-        expect.objectContaining({
-          name: expect.any(String),
-          slug: expect.any(String),
-        }),
-      ]),
-    })
-    expect(response.data.some((moment) => moment.images?.length)).toBe(true)
-    expect(response.data.some((moment) => !moment.location)).toBe(true)
-
-    const filtered = await momentFixtureProvider.listMoments({
-      page: 1,
-      pageSize: 12,
-      q: '窗帘',
-    })
-
-    expect(filtered.data.map((moment) => moment.id)).toEqual([
-      'moment-soft-light',
-    ])
-  })
-
-  it('keeps Chatter composed and filters by tag independently from Moments', async () => {
-    const response = await chatterFixtureProvider.listChatter({
-      page: 1,
-      pageSize: 12,
-      tag: 'typescript',
-    })
-
-    expect(response.data).toHaveLength(1)
-    expect(response.data[0]).toMatchObject({
-      body: expect.any(String),
-      mood: expect.any(String),
-      title: '先把边界说清楚',
-    })
-    expect(response.filters).toEqual({ tag: 'typescript' })
   })
 })
 

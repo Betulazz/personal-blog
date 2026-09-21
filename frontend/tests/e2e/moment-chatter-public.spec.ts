@@ -18,9 +18,12 @@ test('Moments keeps optional metadata and recovers missing media accessibly', as
   await expect(
     page.getByRole('heading', { name: '动态', exact: true }),
   ).toBeVisible()
-  await expect(page.getByRole('article')).toHaveCount(5)
+  await expect(page.getByRole('article')).toHaveCount(12)
   await expect(
     page.getByText('今天把首页的第一道光调得更柔和了。', { exact: false }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('来自公开 API 的动态记录', { exact: false }),
   ).toBeVisible()
   await expect(
     page.getByText('周末留了一点空白，没有安排，也没有追赶什么。'),
@@ -34,6 +37,10 @@ test('Moments keeps optional metadata and recovers missing media accessibly', as
   })
   await expect(page.getByRole('img', { name: /媒体暂不可用/ })).toBeVisible()
   await expect(page.getByLabel('动态标签').first()).toBeVisible()
+  await expect(page.getByRole('navigation', { name: '动态分页' })).toBeVisible()
+  await page.getByRole('link', { name: '2', exact: true }).click()
+  await expect(page).toHaveURL(/\/moments\?page=2$/)
+  await expect(page.getByRole('article')).toHaveCount(2)
 })
 
 test('Moment search and tag filters remain durable in the URL', async ({
@@ -66,9 +73,12 @@ test('Chatter has its own composed cards, search and tag filtering', async ({
   await expect(
     page.getByRole('heading', { name: '杂谈', exact: true }),
   ).toBeVisible()
-  await expect(page.getByRole('article')).toHaveCount(4)
+  await expect(page.getByRole('article')).toHaveCount(12)
   await expect(page.getByText('先把边界说清楚')).toBeVisible()
   await expect(page.getByText('让界面先学会呼吸')).toBeVisible()
+  await expect(
+    page.getByText('公开 API 的杂谈', { exact: false }),
+  ).toBeVisible()
 
   const search = page.getByRole('search')
   await search.getByLabel('搜索杂谈').fill('边界')
@@ -82,6 +92,12 @@ test('Chatter has its own composed cards, search and tag filtering', async ({
   await page.goto('/chatter')
   await page.getByRole('link', { name: 'TypeScript', exact: true }).click()
   await expect(page).toHaveURL(/\/chatter\?tag=typescript$/)
+  await expect(page.getByRole('article')).toHaveCount(1)
+
+  await page.goto('/chatter')
+  await expect(page.getByRole('navigation', { name: '杂谈分页' })).toBeVisible()
+  await page.getByRole('link', { name: '2', exact: true }).click()
+  await expect(page).toHaveURL(/\/chatter\?page=2$/)
   await expect(page.getByRole('article')).toHaveCount(1)
 })
 

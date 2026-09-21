@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
 const { data, error, pending, refresh } = await useAbout()
+const { identity } = await usePublicSiteSettings()
 
 useSeoMeta({
-  title: `关于 · ${siteIdentity.name}`,
+  title: () => `关于 · ${identity.value.name}`,
   description: '了解这个个人出版空间、它的写作方向和正在生长的故事。',
   ogDescription: '了解这个个人出版空间、它的写作方向和正在生长的故事。',
-  ogTitle: `关于 · ${siteIdentity.name}`,
+  ogTitle: () => `关于 · ${identity.value.name}`,
   ogType: 'profile',
   ogUrl: `${siteUrl}/about`,
   twitterCard: 'summary',
   twitterDescription: '了解这个个人出版空间、它的写作方向和正在生长的故事。',
-  twitterTitle: `关于 · ${siteIdentity.name}`,
+  twitterTitle: () => `关于 · ${identity.value.name}`,
 })
 
 useHead({

@@ -31,6 +31,7 @@ test('Projects communicate complete portfolio metadata and safe outbound links',
   await expect(page.getByText('2026.03 — 至今')).toBeVisible()
   await expect(page.getByText('精选', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('暂无公开演示')).toBeVisible()
+  await expect(page.getByText('来自公开 API 的项目描述')).toBeVisible()
 
   const source = page.getByRole('link', {
     name: 'Lumen Notes 源码（外部链接）',
@@ -56,6 +57,7 @@ test('Friend Links remain curated, honest, and actionable', async ({
     page.getByRole('heading', { name: '想交换友链？' }),
   ).toBeVisible()
   await expect(page.getByText('提交并不等于即时收录。')).toBeVisible()
+  await expect(page.getByText('live@example.com')).toBeVisible()
   await expect(
     page.getByRole('link', { name: 'Lantern Notes 网站（外部链接）' }),
   ).toHaveAttribute('rel', /noopener.*noreferrer/)
@@ -81,7 +83,12 @@ test('About presents profile context, long-form story, timeline, contact, and so
   ).toBeVisible()
   await expect(page.locator('#about-contact-title')).toBeVisible()
   await expect(
-    page.getByText('好的个人网站不需要把所有事情都说完。'),
+    page
+      .getByRole('complementary')
+      .getByText('一个喜欢把复杂问题拆小、把长期工作做得可持续的人。'),
+  ).toBeVisible()
+  await expect(
+    page.getByText('这段内容来自可配置的 About Site Identity。'),
   ).toBeVisible()
   await expect(
     page.getByRole('link', { name: 'GitHub' }).last(),

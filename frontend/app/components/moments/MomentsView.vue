@@ -3,19 +3,31 @@ import { computed } from 'vue'
 
 import type { MomentCollectionResponse } from '~/types/moments'
 import type { PublicFeedQuery, PublicTag } from '~/types/public-content'
-import { isPublicFeedPageOutOfRange } from '~/utils/public-content'
+import {
+  buildPublicFeedRouteQuery,
+  isPublicFeedPageOutOfRange,
+} from '~/utils/public-content'
 
 const props = defineProps<{
   error?: unknown
   pending: boolean
   query: PublicFeedQuery
   response: MomentCollectionResponse | null
+  siteName: string
   tags: PublicTag[]
 }>()
 
 const emit = defineEmits<{
   retry: []
 }>()
+
+const router = useRouter()
+
+const pageHref = (page: number) =>
+  router.resolve({
+    path: '/moments',
+    query: buildPublicFeedRouteQuery({ ...props.query, page }),
+  }).href
 
 const status = computed(() => {
   if (props.pending) {
@@ -87,9 +99,14 @@ const resultDescription = computed(() => {
       >
         <ol class="moments-page__list">
           <li v-for="moment in response?.data" :key="moment.id">
-            <MomentsMomentCard :moment="moment" />
+            <MomentsMomentCard :moment="moment" :site-name="siteName" />
           </li>
         </ol>
+        <PublicFeedPagination
+          label="动态分页"
+          :page-href="pageHref"
+          :pagination="response!.pagination"
+        />
       </PublicCollectionState>
     </UiPageContainer>
   </div>

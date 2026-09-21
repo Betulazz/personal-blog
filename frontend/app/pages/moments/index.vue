@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import { siteIdentity } from '~/config/siteIdentity'
+import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
 const { data, error, pending, query, refresh, tags } = await useMoments()
+const { identity } = await usePublicSiteSettings()
 
 const pageDescription = '按时间浏览关于生活、工作与正在发生之事的轻量记录。'
 
 useSeoMeta({
-  title: `动态 · ${siteIdentity.name}`,
+  title: () => `动态 · ${identity.value.name}`,
   description: pageDescription,
   ogDescription: pageDescription,
-  ogTitle: `动态 · ${siteIdentity.name}`,
+  ogTitle: () => `动态 · ${identity.value.name}`,
   ogType: 'website',
   ogUrl: `${siteUrl}/moments`,
   twitterCard: 'summary',
   twitterDescription: pageDescription,
-  twitterTitle: `动态 · ${siteIdentity.name}`,
+  twitterTitle: () => `动态 · ${identity.value.name}`,
 })
 
 useHead({
@@ -30,6 +31,7 @@ useHead({
     :pending="pending"
     :query="query"
     :response="data"
+    :site-name="identity.name"
     :tags="tags"
     @retry="refresh"
   />

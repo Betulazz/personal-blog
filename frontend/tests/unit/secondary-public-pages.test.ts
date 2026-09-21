@@ -4,31 +4,56 @@ import { describe, expect, it } from 'vitest'
 import ProjectCard from '../../app/components/portfolio/ProjectCard.vue'
 import PublicCollectionState from '../../app/components/public/PublicCollectionState.vue'
 import PublicPageState from '../../app/components/public/PublicPageState.vue'
-import { portfolioFixtureProvider } from '../../app/composables/portfolioFixtures'
+import { toPublicAbout } from '../../app/api/client'
+import type { PublicSiteSettings } from '../../app/types/site'
 import { getSafeExternalUrl } from '../../app/utils/external-links'
 
 describe('secondary public content contracts', () => {
-  it('keeps Project metadata complete and Friend Links curated', async () => {
-    const projects = await portfolioFixtureProvider.listProjects()
-    const friends = await portfolioFixtureProvider.listFriends()
+  it('maps live Site Identity About settings without a frontend fixture', () => {
+    const settings: PublicSiteSettings = {
+      about: {
+        interests: ['独立产品'],
+        skills: [{ items: ['TypeScript'], name: '界面与体验' }],
+        story: ['来自公开配置的故事。'],
+        timeline: [
+          {
+            description: '从 API 读取。',
+            period: '2026',
+            title: '公开配置',
+          },
+        ],
+      },
+      contact: { email: 'live@example.com', note: '欢迎来信。' },
+      description: '站点描述',
+      footer: { copyright: '', icp: '', note: '页脚说明' },
+      homepageVisibility: {
+        chatter: true,
+        friends: true,
+        music: true,
+        moments: true,
+        posts: true,
+        projects: true,
+      },
+      name: '夜航手记',
+      profile: '公开简介',
+      seoDefaults: {
+        description: 'SEO 描述',
+        keywords: [],
+        title: '夜航手记',
+        twitterCard: 'summary',
+      },
+      socialLinks: [],
+      tagline: '公开配置',
+    }
 
-    expect(projects.data).toHaveLength(3)
-    expect(projects.data[0]).toMatchObject({
-      featured: true,
-      sourceUrl: expect.stringMatching(/^https:\/\//),
-      status: expect.stringMatching(/^(active|archived|developing)$/),
-      timeSpan: expect.any(String),
+    expect(toPublicAbout(settings)).toMatchObject({
+      contact: settings.contact,
+      interests: ['独立产品'],
+      name: '夜航手记',
+      profile: '公开简介',
+      story: ['来自公开配置的故事。'],
+      timeline: [{ period: '2026', title: '公开配置' }],
     })
-    expect(projects.data.every((project) => project.stack.length > 0)).toBe(
-      true,
-    )
-    expect(friends.data).toHaveLength(3)
-    expect(friends.data.every((friend) => /^https:\/\//.test(friend.url))).toBe(
-      true,
-    )
-    expect(friends.data.every((friend) => friend.avatar !== undefined)).toBe(
-      true,
-    )
   })
 
   it('allows only http and https destinations for outbound cards', () => {

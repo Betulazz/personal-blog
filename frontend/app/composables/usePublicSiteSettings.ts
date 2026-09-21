@@ -5,6 +5,12 @@ import { siteIdentity } from '~/config/siteIdentity'
 import type { PublicSiteSettings, SiteIdentityView } from '~/types/site'
 
 const fallbackSettings: PublicSiteSettings = {
+  about: {
+    interests: [],
+    skills: [],
+    story: [],
+    timeline: [],
+  },
   contact: { email: '', note: '' },
   description: siteIdentity.description,
   footer: { copyright: '', icp: '', note: siteIdentity.footerNote },

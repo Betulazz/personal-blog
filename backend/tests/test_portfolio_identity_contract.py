@@ -203,6 +203,18 @@ async def test_portfolio_and_identity_public_reads_are_ordered_and_safe(
             "tagline": "在夜色里记录清晰的事",
             "description": "关于技术、生活与长期维护的公开记录。",
             "profile": "一个喜欢清晰边界的独立作者。",
+            "about": {
+                "interests": ["独立产品", "可访问性"],
+                "skills": [{"name": "界面与体验", "items": ["Vue", "TypeScript"]}],
+                "story": ["公开站点内容来自 Site Identity。"],
+                "timeline": [
+                    {
+                        "period": "2026",
+                        "title": "内容回到配置",
+                        "description": "About 页面从公开设置读取。",
+                    }
+                ],
+            },
             "avatar_url": "/uploads/avatar.webp",
             "favicon_url": "https://example.com/favicon.ico",
             "social_links": [
@@ -246,6 +258,7 @@ async def test_portfolio_and_identity_public_reads_are_ordered_and_safe(
     public_settings = await mysql_client.get("/api/v1/settings")
     assert public_settings.status_code == 200
     assert public_settings.json()["data"]["name"] == "夜航手记"
+    assert public_settings.json()["data"]["about"]["story"] == ["公开站点内容来自 Site Identity。"]
     assert public_settings.json()["data"]["social_links"][0]["href"] == (
         "https://github.com/example"
     )

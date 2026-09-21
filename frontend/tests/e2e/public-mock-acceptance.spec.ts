@@ -128,7 +128,7 @@ const unexpectedBrowserProblems = (
     ({ url }) => !expectedProblemPaths.some((path) => url.endsWith(path)),
   )
 
-test('public route inventory renders every fixture-backed entry point', async ({
+test('public route inventory renders every public entry point', async ({
   page,
 }) => {
   test.setTimeout(600_000)
