@@ -62,12 +62,18 @@ async def test_post_lifecycle_and_public_taxonomy_are_published_only(
             "category_id": category_id,
             "tag_ids": [tag_id],
             "reading_time_minutes": 7,
+            "seo_title": "星空下的 API 设计 | 夜航手记",
+            "seo_description": "面向长期维护的 API 设计记录。",
+            "canonical_url": "https://example.com/posts/api-under-stars",
+            "og_image_url": "/uploads/images/api-under-stars.webp",
         },
     )
     assert created.status_code == 201
     post = created.json()["data"]
     post_id = post["id"]
     assert post["status"] == "draft"
+    assert post["seo_title"] == "星空下的 API 设计 | 夜航手记"
+    assert post["canonical_url"] == "https://example.com/posts/api-under-stars"
 
     hidden = await mysql_client.get("/api/v1/posts")
     assert hidden.status_code == 200
@@ -92,6 +98,13 @@ async def test_post_lifecycle_and_public_taxonomy_are_published_only(
     assert published.status_code == 200
     assert published.json()["data"]["status"] == "published"
     assert published.json()["data"]["published_at"] is not None
+
+    filtered_admin = await mysql_client.get(
+        "/api/v1/admin/posts",
+        params={"category": "engineering", "tag": "unicode", "status": "published"},
+    )
+    assert filtered_admin.status_code == 200
+    assert [item["id"] for item in filtered_admin.json()["data"]] == [post_id]
 
     listing = await mysql_client.get("/api/v1/posts", params={"q": "星空", "page_size": 1})
     assert listing.status_code == 200

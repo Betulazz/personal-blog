@@ -32,7 +32,27 @@ test.describe('Post reading experience', () => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/posts/markdown-first')
 
-    await expect(page).toHaveTitle(/Markdown 是一条可迁移的路/)
+    await expect(page).toHaveTitle('Markdown 首先是一条可迁移的路')
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      'https://example.com/notes/markdown-first',
+    )
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+      'content',
+      '为长期写作保留可迁移、可审阅的 Markdown 内容。',
+    )
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+      'content',
+      'Markdown 首先是一条可迁移的路',
+    )
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      'content',
+      'https://example.com/media/markdown-first.webp',
+    )
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+      'content',
+      'summary',
+    )
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'Markdown 是一条可迁移的路',
     )

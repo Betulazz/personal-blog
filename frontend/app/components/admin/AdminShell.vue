@@ -9,6 +9,8 @@ const isMenuOpen = ref(false)
 const navigation = [
   { label: 'Dashboard', to: '/admin' },
   { label: '文章', to: '/admin/posts' },
+  { label: '分类', to: '/admin/categories' },
+  { label: '标签', to: '/admin/tags' },
   { label: 'Moment', to: '/admin/moments' },
   { label: 'Chatter', to: '/admin/chatter' },
   { label: '项目', to: '/admin/projects' },

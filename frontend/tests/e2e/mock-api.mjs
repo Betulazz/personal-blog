@@ -87,6 +87,10 @@ const basePost = (
   published_at: `${date}T08:00:00.000Z`,
   created_at: `${date}T08:00:00.000Z`,
   updated_at: `${date}T08:00:00.000Z`,
+  canonical_url: null,
+  og_image_url: null,
+  seo_description: null,
+  seo_title: null,
   category: taxonomy[category],
   tags: postTags.map((tag) => tags[tag]),
   body,
@@ -179,6 +183,15 @@ const posts = [
     Number(right.is_pinned) - Number(left.is_pinned) ||
     right.published_at.localeCompare(left.published_at),
 )
+
+posts.find((post) => post.slug === 'markdown-first').canonical_url =
+  'https://example.com/notes/markdown-first'
+posts.find((post) => post.slug === 'markdown-first').og_image_url =
+  'https://example.com/media/markdown-first.webp'
+posts.find((post) => post.slug === 'markdown-first').seo_description =
+  '为长期写作保留可迁移、可审阅的 Markdown 内容。'
+posts.find((post) => post.slug === 'markdown-first').seo_title =
+  'Markdown 首先是一条可迁移的路'
 
 const moments = [
   {
@@ -480,9 +493,79 @@ const tracks = [
 
 const failures = new Set()
 const authState = { forbidden: false }
+const initialPosts = structuredClone(posts)
+const initialTaxonomy = structuredClone(taxonomy)
+const initialTags = structuredClone(tags)
+
+const restoreMap = (target, source) => {
+  Object.keys(target).forEach((key) => delete target[key])
+  Object.assign(target, structuredClone(source))
+}
 
 const publicPost = (post) =>
   Object.fromEntries(Object.entries(post).filter(([key]) => key !== 'body'))
+
+const adminPost = (post) => ({
+  ...post,
+  canonical_url: post.canonical_url ?? null,
+  category_id: post.category?.id ?? null,
+  cover_alt: post.cover_alt ?? null,
+  cover_url: post.cover_url ?? null,
+  og_image_url: post.og_image_url ?? null,
+  seo_description: post.seo_description ?? null,
+  seo_title: post.seo_title ?? null,
+  tag_ids: post.tags.map((tag) => tag.id),
+})
+
+const taxonomyItems = (kind) => (kind === 'category' ? taxonomy : tags)
+const findTaxonomy = (kind, id) =>
+  Object.values(taxonomyItems(kind)).find((item) => item.id === Number(id))
+
+const replaceTaxonomy = (kind, current, next) => {
+  const items = taxonomyItems(kind)
+  delete items[current.slug]
+  items[next.slug] = next
+  posts.forEach((post) => {
+    if (kind === 'category' && post.category?.id === current.id)
+      post.category = next
+    if (kind === 'tag') {
+      post.tags = post.tags.map((tag) => (tag.id === current.id ? next : tag))
+    }
+  })
+}
+
+const withPostPayload = (post, payload) => {
+  const next = { ...post }
+  for (const key of [
+    'title',
+    'slug',
+    'summary',
+    'body',
+    'is_pinned',
+    'reading_time_minutes',
+    'cover_url',
+    'cover_alt',
+    'seo_title',
+    'seo_description',
+    'canonical_url',
+    'og_image_url',
+  ]) {
+    if (Object.hasOwn(payload, key)) next[key] = payload[key]
+  }
+  if (Object.hasOwn(payload, 'category_id')) {
+    next.category = payload.category_id
+      ? (Object.values(taxonomy).find(
+          (item) => item.id === Number(payload.category_id),
+        ) ?? null)
+      : null
+  }
+  if (Object.hasOwn(payload, 'tag_ids')) {
+    next.tags = payload.tag_ids
+      .map((id) => Object.values(tags).find((item) => item.id === Number(id)))
+      .filter(Boolean)
+  }
+  return next
+}
 
 const filteredPosts = (query) =>
   posts.filter((post) => {
@@ -531,7 +614,7 @@ const json = (response, payload, status = 200, extraHeaders = {}) => {
   response.writeHead(status, {
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Headers': 'Accept, Content-Type, X-CSRF-Token',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'DELETE, GET, PATCH, POST, OPTIONS',
     'Access-Control-Allow-Origin': 'http://127.0.0.1:3000',
     'Content-Type': 'application/json',
     ...extraHeaders,
@@ -640,6 +723,9 @@ const server = createServer(async (request, response) => {
   if (path === '/__control/reset') {
     failures.clear()
     authState.forbidden = false
+    posts.splice(0, posts.length, ...structuredClone(initialPosts))
+    restoreMap(taxonomy, initialTaxonomy)
+    restoreMap(tags, initialTags)
     json(response, { failures: [] }, 200, {
       'Set-Cookie': [
         'access_token=; Max-Age=0; Path=/api/v1',
@@ -783,6 +869,319 @@ const server = createServer(async (request, response) => {
     }
     json(response, { data: dashboard })
     return
+  }
+  const isAdminPostOrTaxonomyPath =
+    path.startsWith('/admin/posts') ||
+    path.startsWith('/admin/categories') ||
+    path.startsWith('/admin/tags')
+  if (isAdminPostOrTaxonomyPath && cookies.access_token !== 'mock-access') {
+    json(
+      response,
+      {
+        error: {
+          code: 'authentication_required',
+          message: 'Authentication is required',
+        },
+      },
+      401,
+    )
+    return
+  }
+  if (path === '/admin/posts' && request.method === 'GET') {
+    const filtered = posts.filter((post) => {
+      const searchable = [
+        post.title,
+        post.summary,
+        post.body,
+        post.category?.name,
+        ...post.tags.map((item) => item.name),
+      ]
+        .join(' ')
+        .toLocaleLowerCase()
+      return (
+        (!query.status || post.status === query.status) &&
+        (!query.category || post.category?.slug === query.category) &&
+        (!query.tag || post.tags.some((item) => item.slug === query.tag)) &&
+        (!query.q || searchable.includes(query.q.toLocaleLowerCase()))
+      )
+    })
+    json(response, {
+      ...paginate(filtered.map(adminPost), query.page, size),
+    })
+    return
+  }
+  const adminPostMatch = path.match(
+    /^\/admin\/posts\/(\d+)(?:\/(preview|publish|unpublish))?$/,
+  )
+  if (path === '/admin/posts' && request.method === 'POST') {
+    const payload = await readJson(request)
+    if (posts.some((post) => post.slug === payload.slug)) {
+      json(
+        response,
+        {
+          error: {
+            code: 'post_slug_conflict',
+            message: 'The Post slug is already in use',
+          },
+        },
+        409,
+      )
+      return
+    }
+    const id = Math.max(0, ...posts.map((post) => post.id)) + 1
+    const category = payload.category_id
+      ? (Object.values(taxonomy).find(
+          (item) => item.id === Number(payload.category_id),
+        ) ?? null)
+      : null
+    const created = withPostPayload(
+      {
+        id,
+        title: payload.title,
+        slug: payload.slug,
+        summary: payload.summary ?? '',
+        status: 'draft',
+        is_pinned: Boolean(payload.is_pinned),
+        reading_count: 0,
+        reading_time_minutes: Number(payload.reading_time_minutes) || 0,
+        cover_url: payload.cover_url ?? null,
+        cover_alt: payload.cover_alt ?? null,
+        published_at: null,
+        created_at: '2026-09-21T08:00:00.000Z',
+        updated_at: '2026-09-21T08:00:00.000Z',
+        category,
+        tags: [],
+        body: payload.body ?? '',
+      },
+      payload,
+    )
+    posts.unshift(created)
+    json(response, { data: adminPost(created) }, 201)
+    return
+  }
+  if (adminPostMatch) {
+    const post = posts.find(
+      (candidate) => candidate.id === Number(adminPostMatch[1]),
+    )
+    if (!post) {
+      json(
+        response,
+        {
+          error: {
+            code: 'post_not_found',
+            message: 'The requested Post does not exist',
+          },
+        },
+        404,
+      )
+      return
+    }
+    const action = adminPostMatch[2]
+    if (action === 'preview' && request.method === 'POST') {
+      const payload = await readJson(request)
+      json(response, { data: adminPost(withPostPayload(post, payload)) })
+      return
+    }
+    if (action === 'publish' && request.method === 'POST') {
+      if (post.status === 'published') {
+        json(
+          response,
+          {
+            error: {
+              code: 'post_already_published',
+              message: 'The Post is already published',
+            },
+          },
+          409,
+        )
+        return
+      }
+      if (!post.body?.trim()) {
+        json(
+          response,
+          {
+            error: {
+              code: 'post_body_required',
+              message: 'A Post needs Markdown content before publishing',
+            },
+          },
+          422,
+        )
+        return
+      }
+      if (!post.category) {
+        json(
+          response,
+          {
+            error: {
+              code: 'post_category_required',
+              message: 'A published Post must have a Category',
+            },
+          },
+          422,
+        )
+        return
+      }
+      post.status = 'published'
+      post.published_at = '2026-09-21T09:00:00.000Z'
+      json(response, { data: adminPost(post) })
+      return
+    }
+    if (action === 'unpublish' && request.method === 'POST') {
+      if (post.status === 'draft') {
+        json(
+          response,
+          {
+            error: {
+              code: 'post_not_published',
+              message: 'The Post is not published',
+            },
+          },
+          409,
+        )
+        return
+      }
+      post.status = 'draft'
+      post.published_at = null
+      json(response, { data: adminPost(post) })
+      return
+    }
+    if (!action && request.method === 'GET') {
+      json(response, { data: adminPost(post) })
+      return
+    }
+    if (!action && request.method === 'PATCH') {
+      const payload = await readJson(request)
+      if (
+        payload.slug &&
+        posts.some(
+          (candidate) =>
+            candidate.id !== post.id && candidate.slug === payload.slug,
+        )
+      ) {
+        json(
+          response,
+          {
+            error: {
+              code: 'post_slug_conflict',
+              message: 'The Post slug is already in use',
+            },
+          },
+          409,
+        )
+        return
+      }
+      Object.assign(post, withPostPayload(post, payload))
+      json(response, { data: adminPost(post) })
+      return
+    }
+    if (!action && request.method === 'DELETE') {
+      posts.splice(posts.indexOf(post), 1)
+      json(response, { data: { deleted: true } })
+      return
+    }
+  }
+  const taxonomyMatch = path.match(/^\/admin\/(categories|tags)(?:\/(\d+))?$/)
+  if (taxonomyMatch) {
+    const kind = taxonomyMatch[1] === 'categories' ? 'category' : 'tag'
+    const items = taxonomyItems(kind)
+    if (!taxonomyMatch[2] && request.method === 'GET') {
+      json(response, { data: Object.values(items) })
+      return
+    }
+    if (!taxonomyMatch[2] && request.method === 'POST') {
+      const payload = await readJson(request)
+      if (
+        Object.values(items).some(
+          (item) => item.slug === payload.slug || item.name === payload.name,
+        )
+      ) {
+        json(
+          response,
+          {
+            error: {
+              code: `${kind}_conflict`,
+              message: 'The taxonomy name or slug is already in use',
+            },
+          },
+          409,
+        )
+        return
+      }
+      const next = {
+        id: Math.max(0, ...Object.values(items).map((item) => item.id)) + 1,
+        name: payload.name,
+        slug: payload.slug,
+        post_count: 0,
+      }
+      items[next.slug] = next
+      json(response, { data: next }, 201)
+      return
+    }
+    const item = findTaxonomy(kind, taxonomyMatch[2])
+    if (!item) {
+      json(
+        response,
+        {
+          error: {
+            code: `${kind}_not_found`,
+            message: 'The requested taxonomy does not exist',
+          },
+        },
+        404,
+      )
+      return
+    }
+    if (request.method === 'PATCH') {
+      const payload = await readJson(request)
+      if (
+        Object.values(items).some(
+          (candidate) =>
+            candidate.id !== item.id &&
+            (candidate.slug === payload.slug ||
+              candidate.name === payload.name),
+        )
+      ) {
+        json(
+          response,
+          {
+            error: {
+              code: `${kind}_conflict`,
+              message: 'The taxonomy name or slug is already in use',
+            },
+          },
+          409,
+        )
+        return
+      }
+      const next = { ...item, ...payload }
+      replaceTaxonomy(kind, item, next)
+      json(response, { data: next })
+      return
+    }
+    if (request.method === 'DELETE') {
+      const used = posts.some((post) =>
+        kind === 'category'
+          ? post.category?.id === item.id
+          : post.tags.some((tag) => tag.id === item.id),
+      )
+      if (used) {
+        json(
+          response,
+          {
+            error: {
+              code: `${kind}_in_use`,
+              message: 'The taxonomy is still assigned to content',
+            },
+          },
+          409,
+        )
+        return
+      }
+      delete items[item.slug]
+      json(response, { data: { deleted: true } })
+      return
+    }
   }
   if (path === '/settings') {
     json(response, { data: settings })

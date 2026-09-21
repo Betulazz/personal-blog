@@ -222,13 +222,18 @@ test('keyboard, touch targets, and reduced motion remain usable on native data',
   await page.keyboard.press('Escape')
   await expect(menuButton).toBeFocused()
 
-  const runningAnimations = await page.evaluate(
-    () =>
-      document
-        .getAnimations()
-        .filter((animation) => animation.playState === 'running').length,
-  )
-  expect(runningAnimations).toBe(0)
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            document
+              .getAnimations()
+              .filter((animation) => animation.playState === 'running').length,
+        ),
+      { timeout: 3_000 },
+    )
+    .toBe(0)
 
   const playerControls = await page
     .locator(

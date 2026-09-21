@@ -85,6 +85,8 @@ async def list_admin_posts(
     page_size: int = Query(default=20, ge=1, le=100),
     q: str | None = Query(default=None, min_length=1, max_length=80),
     status_filter: str | None = Query(default=None, alias="status"),
+    category: str | None = Query(default=None, min_length=1, max_length=120),
+    tag: str | None = Query(default=None, min_length=1, max_length=120),
 ) -> AdminPostCollectionResponse:
     if status_filter is not None and status_filter not in {"draft", "published"}:
         raise AppError(
@@ -98,6 +100,8 @@ async def list_admin_posts(
         page_size=page_size,
         search=_normalize_query(q),
         status=status_filter,
+        category_slug=_normalize_query(category),
+        tag_slug=_normalize_query(tag),
     )
     return AdminPostCollectionResponse(
         data=[_post_admin(post) for post in posts],
@@ -306,6 +310,10 @@ def _post_summary(
         ),
         cover_url=cast(str | None, values.get("cover_url", post.cover_url)),
         cover_alt=cast(str | None, values.get("cover_alt", post.cover_alt)),
+        seo_title=cast(str | None, values.get("seo_title", post.seo_title)),
+        seo_description=cast(str | None, values.get("seo_description", post.seo_description)),
+        canonical_url=cast(str | None, values.get("canonical_url", post.canonical_url)),
+        og_image_url=cast(str | None, values.get("og_image_url", post.og_image_url)),
         published_at=post.published_at,
         created_at=post.created_at,
         updated_at=post.updated_at,

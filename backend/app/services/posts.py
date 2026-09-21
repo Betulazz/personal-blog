@@ -42,6 +42,10 @@ class PostService:
             reading_time_minutes=request.reading_time_minutes,
             cover_url=request.cover_url,
             cover_alt=request.cover_alt,
+            seo_title=request.seo_title,
+            seo_description=request.seo_description,
+            canonical_url=request.canonical_url,
+            og_image_url=request.og_image_url,
         )
         try:
             await self._repository.add(post)
@@ -155,12 +159,26 @@ class PostService:
         return posts, total
 
     async def admin_list(
-        self, *, page: int, page_size: int, search: str | None = None, status: str | None = None
+        self,
+        *,
+        page: int,
+        page_size: int,
+        search: str | None = None,
+        status: str | None = None,
+        category_slug: str | None = None,
+        tag_slug: str | None = None,
     ) -> tuple[list[Post], int]:
-        total = await self._repository.count_all(search=search, status=status)
+        total = await self._repository.count_all(
+            search=search,
+            status=status,
+            category_slug=category_slug,
+            tag_slug=tag_slug,
+        )
         posts = await self._repository.list_all(
             search=search,
             status=status,
+            category_slug=category_slug,
+            tag_slug=tag_slug,
             offset=(page - 1) * page_size,
             limit=page_size,
         )

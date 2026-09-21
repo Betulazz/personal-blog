@@ -14,7 +14,7 @@ import 'katex/dist/katex.min.css'
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
-const { identity } = await usePublicSiteSettings()
+const { identity, settings } = await usePublicSiteSettings()
 const slug = computed(() =>
   typeof route.params.slug === 'string' ? route.params.slug : '',
 )
@@ -35,8 +35,18 @@ const { data: renderedDocument } = await useAsyncData(
 
 const title = computed(() => post.value?.title ?? '文章未找到')
 const description = computed(
-  () => post.value?.summary ?? '这个文章链接暂时没有对应的公开内容。',
+  () =>
+    post.value?.seoDescription ??
+    post.value?.summary ??
+    '这个文章链接暂时没有对应的公开内容。',
 )
+const seoTitle = computed(
+  () => post.value?.seoTitle ?? `${title.value} · ${identity.value.name}`,
+)
+const canonicalUrl = computed(
+  () => post.value?.canonicalUrl ?? `${siteUrl}/posts/${slug.value}`,
+)
+const ogImageUrl = computed(() => post.value?.ogImageUrl)
 const bodyHtml = computed(() => renderedDocument.value?.html ?? '')
 const toc = computed(() => renderedDocument.value?.toc ?? [])
 const tocOpen = ref(false)
@@ -113,21 +123,23 @@ onBeforeUnmount(() => {
 })
 
 useSeoMeta({
-  title: computed(() => `${title.value} · ${identity.value.name}`),
+  title: seoTitle,
   description,
   ogDescription: description,
-  ogTitle: computed(() => `${title.value} · ${identity.value.name}`),
+  ogImage: ogImageUrl,
+  ogTitle: seoTitle,
   ogType: 'article',
-  ogUrl: computed(() => `${siteUrl}/posts/${slug.value}`),
-  twitterCard: 'summary',
+  ogUrl: canonicalUrl,
+  twitterCard: computed(() => settings.value.seoDefaults.twitterCard),
   twitterDescription: description,
-  twitterTitle: computed(() => `${title.value} · ${identity.value.name}`),
+  twitterImage: ogImageUrl,
+  twitterTitle: seoTitle,
 })
 
 useHead({
   link: [
     {
-      href: computed(() => `${siteUrl}/posts/${slug.value}`),
+      href: canonicalUrl,
       rel: 'canonical',
     },
   ],

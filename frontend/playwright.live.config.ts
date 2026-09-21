@@ -7,7 +7,10 @@ const backendPython =
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: 'live-public-acceptance.spec.ts',
+  testMatch: [
+    'live-public-acceptance.spec.ts',
+    'live-admin-acceptance.spec.ts',
+  ],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
@@ -26,6 +29,11 @@ export default defineConfig({
     {
       command: `${backendPython} -m app.cli serve-live --host 127.0.0.1 --port 8000`,
       cwd: '../backend',
+      env: {
+        LIVE_ACCEPTANCE_ADMIN_EMAIL: 'owner@example.com',
+        LIVE_ACCEPTANCE_ADMIN_PASSWORD: 'a sufficiently long password',
+        LIVE_ACCEPTANCE_ADMIN_USERNAME: 'owner',
+      },
       reuseExistingServer: false,
       timeout: 120_000,
       url: 'http://127.0.0.1:8000/api/v1/health/live',

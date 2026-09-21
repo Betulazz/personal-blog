@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import getpass
+import os
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -83,10 +84,33 @@ async def _seed_public() -> int:
 def _serve_live(host: str, port: int) -> int:
     subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
     subprocess.run([sys.executable, "-m", "app.cli", "seed-public"], check=True)
+    asyncio.run(_seed_live_admin_from_environment())
     import uvicorn
 
     uvicorn.run("app.main:app", host=host, port=port, log_level="warning")
     return 0
+
+
+async def _seed_live_admin_from_environment() -> None:
+    """Create an opt-in local acceptance Administrator when credentials are supplied."""
+
+    username = os.environ.get("LIVE_ACCEPTANCE_ADMIN_USERNAME")
+    password = os.environ.get("LIVE_ACCEPTANCE_ADMIN_PASSWORD")
+    if not username or not password:
+        return
+
+    async with async_session_factory() as session:
+        try:
+            await AuthService(session, get_settings()).create_first_admin(
+                CreateAdminRequest(
+                    username=username,
+                    email=os.environ.get("LIVE_ACCEPTANCE_ADMIN_EMAIL"),
+                    password=password,
+                )
+            )
+        except AppError as exc:
+            if exc.code != "administrator_exists":
+                raise
 
 
 def _prompt_for_admin() -> CreateAdminRequest:

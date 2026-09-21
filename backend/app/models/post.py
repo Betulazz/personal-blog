@@ -72,6 +72,10 @@ class Post(Base):
     )
     cover_url: Mapped[str | None] = mapped_column(String(2048))
     cover_alt: Mapped[str | None] = mapped_column(String(200))
+    seo_title: Mapped[str | None] = mapped_column(String(200))
+    seo_description: Mapped[str | None] = mapped_column(String(500))
+    canonical_url: Mapped[str | None] = mapped_column(String(2048))
+    og_image_url: Mapped[str | None] = mapped_column(String(2048))
     category_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("categories.id", ondelete="SET NULL"), index=True
     )

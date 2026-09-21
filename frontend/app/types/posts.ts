@@ -34,6 +34,10 @@ export interface PostSummary {
 
 export interface PostDetail extends PostSummary {
   body: string
+  canonicalUrl?: string
+  ogImageUrl?: string
+  seoDescription?: string
+  seoTitle?: string
 }
 
 export interface PostPagination {

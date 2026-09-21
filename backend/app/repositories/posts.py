@@ -77,10 +77,16 @@ class PostRepository:
         *,
         search: str | None = None,
         status: str | None = None,
+        category_slug: str | None = None,
+        tag_slug: str | None = None,
     ) -> int:
         statement = select(func.count(Post.id))
         if status:
             statement = statement.where(Post.status == status)
+        if category_slug:
+            statement = statement.where(Post.category.has(Category.slug == category_slug))
+        if tag_slug:
+            statement = statement.where(Post.tags.any(Tag.slug == tag_slug))
         if search:
             statement = statement.where(self._search_clause(search))
         return int(await self._session.scalar(statement) or 0)
@@ -90,12 +96,18 @@ class PostRepository:
         *,
         search: str | None = None,
         status: str | None = None,
+        category_slug: str | None = None,
+        tag_slug: str | None = None,
         offset: int,
         limit: int,
     ) -> list[Post]:
         statement = self._with_relationships(select(Post))
         if status:
             statement = statement.where(Post.status == status)
+        if category_slug:
+            statement = statement.where(Post.category.has(Category.slug == category_slug))
+        if tag_slug:
+            statement = statement.where(Post.tags.any(Tag.slug == tag_slug))
         if search:
             statement = statement.where(self._search_clause(search))
         statement = (

@@ -27,8 +27,22 @@ class PostWriteFields(BaseModel):
     reading_time_minutes: int = Field(default=0, ge=0, le=1440)
     cover_url: str | None = Field(default=None, max_length=2048)
     cover_alt: str | None = Field(default=None, max_length=200)
+    seo_title: str | None = Field(default=None, max_length=200)
+    seo_description: str | None = Field(default=None, max_length=500)
+    canonical_url: str | None = Field(default=None, max_length=2048)
+    og_image_url: str | None = Field(default=None, max_length=2048)
 
-    @field_validator("title", "slug", "summary", "cover_url", "cover_alt")
+    @field_validator(
+        "title",
+        "slug",
+        "summary",
+        "cover_url",
+        "cover_alt",
+        "seo_title",
+        "seo_description",
+        "canonical_url",
+        "og_image_url",
+    )
     @classmethod
     def strip_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -66,8 +80,22 @@ class PostUpdateRequest(BaseModel):
     reading_time_minutes: int | None = Field(default=None, ge=0, le=1440)
     cover_url: str | None = Field(default=None, max_length=2048)
     cover_alt: str | None = Field(default=None, max_length=200)
+    seo_title: str | None = Field(default=None, max_length=200)
+    seo_description: str | None = Field(default=None, max_length=500)
+    canonical_url: str | None = Field(default=None, max_length=2048)
+    og_image_url: str | None = Field(default=None, max_length=2048)
 
-    @field_validator("title", "slug", "summary", "cover_url", "cover_alt")
+    @field_validator(
+        "title",
+        "slug",
+        "summary",
+        "cover_url",
+        "cover_alt",
+        "seo_title",
+        "seo_description",
+        "canonical_url",
+        "og_image_url",
+    )
     @classmethod
     def strip_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -103,6 +131,10 @@ class PostSummaryResponse(BaseModel):
     reading_time_minutes: int
     cover_url: str | None
     cover_alt: str | None
+    seo_title: str | None
+    seo_description: str | None
+    canonical_url: str | None
+    og_image_url: str | None
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime

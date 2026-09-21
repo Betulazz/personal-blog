@@ -1,7 +1,13 @@
 import type { Chatter, ChatterCollectionResponse } from '~/types/chatter'
 import type {
   AdminDashboard,
+  AdminPost,
+  AdminPostCollection,
+  AdminPostInput,
+  AdminPostQuery,
   AdminRecentActivity,
+  AdminTaxonomy,
+  AdminTaxonomyInput,
   AdminUser,
 } from '~/types/admin'
 import type {
@@ -82,23 +88,29 @@ interface RawAdminDashboard {
 }
 
 interface RawTaxonomy {
+  created_at?: string | null
   id: number
   name: string
   post_count: number
   slug: string
+  updated_at?: string | null
 }
 
 interface RawPost {
   body?: string
+  canonical_url: string | null
   category: RawTaxonomy | null
   cover_alt: string | null
   cover_url: string | null
   created_at: string
   id: number
   is_pinned: boolean
+  og_image_url: string | null
   published_at: string | null
   reading_count: number
   reading_time_minutes: number
+  seo_description: string | null
+  seo_title: string | null
   slug: string
   status: string
   summary: string
@@ -235,6 +247,7 @@ export class BlogApiError extends Error {
 
 export interface BlogApiClient {
   getAdminDashboard: (signal?: AbortSignal) => Promise<AdminDashboard>
+  getAdminPost: (id: string, signal?: AbortSignal) => Promise<AdminPost>
   getCurrentUser: () => Promise<AdminUser>
   getPostBySlug: (
     slug: string,
@@ -244,6 +257,36 @@ export interface BlogApiClient {
   getSettings: (signal?: AbortSignal) => Promise<PublicSiteSettings>
   login: (identifier: string, password: string) => Promise<AdminUser>
   logout: () => Promise<void>
+  createAdminPost: (input: AdminPostInput) => Promise<AdminPost>
+  updateAdminPost: (
+    id: string,
+    input: Partial<AdminPostInput>,
+  ) => Promise<AdminPost>
+  previewAdminPost: (
+    id: string,
+    input?: Partial<AdminPostInput>,
+  ) => Promise<AdminPost>
+  publishAdminPost: (id: string) => Promise<AdminPost>
+  unpublishAdminPost: (id: string) => Promise<AdminPost>
+  deleteAdminPost: (id: string) => Promise<void>
+  listAdminPosts: (
+    query: AdminPostQuery,
+    signal?: AbortSignal,
+  ) => Promise<AdminPostCollection>
+  listAdminCategories: (signal?: AbortSignal) => Promise<AdminTaxonomy[]>
+  listAdminTags: (signal?: AbortSignal) => Promise<AdminTaxonomy[]>
+  createAdminCategory: (input: AdminTaxonomyInput) => Promise<AdminTaxonomy>
+  updateAdminCategory: (
+    id: string,
+    input: Partial<AdminTaxonomyInput>,
+  ) => Promise<AdminTaxonomy>
+  deleteAdminCategory: (id: string) => Promise<void>
+  createAdminTag: (input: AdminTaxonomyInput) => Promise<AdminTaxonomy>
+  updateAdminTag: (
+    id: string,
+    input: Partial<AdminTaxonomyInput>,
+  ) => Promise<AdminTaxonomy>
+  deleteAdminTag: (id: string) => Promise<void>
   listCategories: (
     signal?: AbortSignal,
   ) => Promise<TaxonomyCollectionResponse<PostCategory>>
@@ -322,6 +365,45 @@ const toPostTag = (value: RawTaxonomy): PostTag => ({
   name: value.name,
   postCount: value.post_count,
   slug: value.slug,
+})
+
+const toAdminTaxonomy = (value: RawTaxonomy): AdminTaxonomy => ({
+  ...(value.created_at ? { createdAt: value.created_at } : {}),
+  id: String(value.id),
+  name: value.name,
+  postCount: value.post_count,
+  slug: value.slug,
+  ...(value.updated_at ? { updatedAt: value.updated_at } : {}),
+})
+
+const toAdminPost = (
+  value: RawPost,
+  resolveMediaUrl: MediaUrlResolver,
+): AdminPost => ({
+  body: value.body ?? '',
+  canonicalUrl: value.canonical_url ?? undefined,
+  category: value.category ? toAdminTaxonomy(value.category) : null,
+  categoryId: value.category ? String(value.category.id) : undefined,
+  coverAlt: value.cover_alt ?? undefined,
+  coverUrl: value.cover_url ? resolveMediaUrl(value.cover_url) : undefined,
+  createdAt: value.created_at,
+  id: String(value.id),
+  isPinned: value.is_pinned,
+  ogImageUrl: value.og_image_url
+    ? resolveMediaUrl(value.og_image_url)
+    : undefined,
+  publishedAt: value.published_at ?? undefined,
+  readingCount: value.reading_count,
+  readingTimeMinutes: value.reading_time_minutes,
+  seoDescription: value.seo_description ?? undefined,
+  seoTitle: value.seo_title ?? undefined,
+  slug: value.slug,
+  status: value.status === 'published' ? 'published' : 'draft',
+  summary: value.summary,
+  tagIds: value.tags.map((tag) => String(tag.id)),
+  tags: value.tags.map(toAdminTaxonomy),
+  title: value.title,
+  updatedAt: value.updated_at,
 })
 
 const toPostSummary = (
@@ -552,7 +634,7 @@ export function useApiClient(): BlogApiClient {
     options: {
       body?: Record<string, unknown>
       headers?: Record<string, string>
-      method?: 'GET' | 'POST'
+      method?: 'DELETE' | 'GET' | 'PATCH' | 'POST'
       query?: Record<string, string | number | undefined>
       signal?: AbortSignal
     } = {},
@@ -581,15 +663,16 @@ export function useApiClient(): BlogApiClient {
     return response.data.token
   }
 
-  const postWithCsrf = async <T>(
+  const mutateWithCsrf = async <T>(
     path: string,
+    method: 'DELETE' | 'PATCH' | 'POST',
     body?: Record<string, unknown>,
   ) => {
     const token = await csrfToken()
     return request<T>(path, {
       body,
       headers: { 'X-CSRF-Token': token },
-      method: 'POST',
+      method,
     })
   }
 
@@ -599,23 +682,24 @@ export function useApiClient(): BlogApiClient {
   }
 
   const login = async (identifier: string, password: string) => {
-    const response = await postWithCsrf<RawApiResponse<{ user: RawAdminUser }>>(
-      '/auth/login',
-      { identifier, password },
-    )
+    const response = await mutateWithCsrf<
+      RawApiResponse<{ user: RawAdminUser }>
+    >('/auth/login', 'POST', { identifier, password })
     return toAdminUser(response.data.user)
   }
 
   const refreshSession = async () => {
-    const response =
-      await postWithCsrf<RawApiResponse<{ user: RawAdminUser }>>(
-        '/auth/refresh',
-      )
+    const response = await mutateWithCsrf<
+      RawApiResponse<{ user: RawAdminUser }>
+    >('/auth/refresh', 'POST')
     return toAdminUser(response.data.user)
   }
 
   const logout = async () => {
-    await postWithCsrf<RawApiResponse<{ logged_out: boolean }>>('/auth/logout')
+    await mutateWithCsrf<RawApiResponse<{ logged_out: boolean }>>(
+      '/auth/logout',
+      'POST',
+    )
   }
 
   const getAdminDashboard = async (signal?: AbortSignal) => {
@@ -625,6 +709,154 @@ export function useApiClient(): BlogApiClient {
     )
     return toAdminDashboard(response.data)
   }
+
+  const listAdminPosts = async (
+    query: AdminPostQuery,
+    signal?: AbortSignal,
+  ): Promise<AdminPostCollection> => {
+    const response = await request<RawCollection<RawPost>>('/admin/posts', {
+      query: {
+        category: query.category,
+        page: query.page,
+        page_size: query.pageSize,
+        q: query.q,
+        status: query.status,
+        tag: query.tag,
+      },
+      signal,
+    })
+    return {
+      data: response.data.map((post) => toAdminPost(post, resolveMediaUrl)),
+      pagination: pagination(response.pagination),
+    }
+  }
+
+  const getAdminPost = async (id: string, signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawPost>>(
+      `/admin/posts/${encodeURIComponent(id)}`,
+      { signal },
+    )
+    return toAdminPost(response.data, resolveMediaUrl)
+  }
+
+  const createAdminPost = async (input: AdminPostInput) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawPost>>(
+      '/admin/posts',
+      'POST',
+      { ...input },
+    )
+    return toAdminPost(response.data, resolveMediaUrl)
+  }
+
+  const updateAdminPost = async (
+    id: string,
+    input: Partial<AdminPostInput>,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawPost>>(
+      `/admin/posts/${encodeURIComponent(id)}`,
+      'PATCH',
+      { ...input },
+    )
+    return toAdminPost(response.data, resolveMediaUrl)
+  }
+
+  const previewAdminPost = async (
+    id: string,
+    input?: Partial<AdminPostInput>,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawPost>>(
+      `/admin/posts/${encodeURIComponent(id)}/preview`,
+      'POST',
+      input ? { ...input } : undefined,
+    )
+    return toAdminPost(response.data, resolveMediaUrl)
+  }
+
+  const publishAdminPost = async (id: string) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawPost>>(
+      `/admin/posts/${encodeURIComponent(id)}/publish`,
+      'POST',
+    )
+    return toAdminPost(response.data, resolveMediaUrl)
+  }
+
+  const unpublishAdminPost = async (id: string) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawPost>>(
+      `/admin/posts/${encodeURIComponent(id)}/unpublish`,
+      'POST',
+    )
+    return toAdminPost(response.data, resolveMediaUrl)
+  }
+
+  const deleteAdminPost = async (id: string) => {
+    await mutateWithCsrf<RawApiResponse<{ deleted: boolean }>>(
+      `/admin/posts/${encodeURIComponent(id)}`,
+      'DELETE',
+    )
+  }
+
+  const listAdminTaxonomy = async (
+    path: '/admin/categories' | '/admin/tags',
+    signal?: AbortSignal,
+  ) => {
+    const response = await request<{ data: RawTaxonomy[] }>(path, { signal })
+    return response.data.map(toAdminTaxonomy)
+  }
+
+  const listAdminCategories = (signal?: AbortSignal) =>
+    listAdminTaxonomy('/admin/categories', signal)
+
+  const listAdminTags = (signal?: AbortSignal) =>
+    listAdminTaxonomy('/admin/tags', signal)
+
+  const createAdminTaxonomy = async (
+    path: '/admin/categories' | '/admin/tags',
+    input: AdminTaxonomyInput,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawTaxonomy>>(
+      path,
+      'POST',
+      { ...input },
+    )
+    return toAdminTaxonomy(response.data)
+  }
+
+  const updateAdminTaxonomy = async (
+    path: '/admin/categories' | '/admin/tags',
+    id: string,
+    input: Partial<AdminTaxonomyInput>,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawTaxonomy>>(
+      `${path}/${encodeURIComponent(id)}`,
+      'PATCH',
+      { ...input },
+    )
+    return toAdminTaxonomy(response.data)
+  }
+
+  const deleteAdminTaxonomy = async (
+    path: '/admin/categories' | '/admin/tags',
+    id: string,
+  ) => {
+    await mutateWithCsrf<RawApiResponse<{ deleted: boolean }>>(
+      `${path}/${encodeURIComponent(id)}`,
+      'DELETE',
+    )
+  }
+
+  const createAdminCategory = (input: AdminTaxonomyInput) =>
+    createAdminTaxonomy('/admin/categories', input)
+  const updateAdminCategory = (
+    id: string,
+    input: Partial<AdminTaxonomyInput>,
+  ) => updateAdminTaxonomy('/admin/categories', id, input)
+  const deleteAdminCategory = (id: string) =>
+    deleteAdminTaxonomy('/admin/categories', id)
+  const createAdminTag = (input: AdminTaxonomyInput) =>
+    createAdminTaxonomy('/admin/tags', input)
+  const updateAdminTag = (id: string, input: Partial<AdminTaxonomyInput>) =>
+    updateAdminTaxonomy('/admin/tags', id, input)
+  const deleteAdminTag = (id: string) => deleteAdminTaxonomy('/admin/tags', id)
 
   const listPosts = async (query: PostQuery, signal?: AbortSignal) => {
     const response = await request<RawPostCollection>('/posts', {
@@ -856,6 +1088,18 @@ export function useApiClient(): BlogApiClient {
       return {
         ...summary,
         body: response.data.body ?? '',
+        ...(response.data.canonical_url
+          ? { canonicalUrl: response.data.canonical_url }
+          : {}),
+        ...(response.data.og_image_url
+          ? { ogImageUrl: resolveMediaUrl(response.data.og_image_url) }
+          : {}),
+        ...(response.data.seo_description
+          ? { seoDescription: response.data.seo_description }
+          : {}),
+        ...(response.data.seo_title
+          ? { seoTitle: response.data.seo_title }
+          : {}),
       }
     } catch (error: unknown) {
       if (error instanceof BlogApiError && error.status === 404) {
@@ -919,6 +1163,13 @@ export function useApiClient(): BlogApiClient {
   }
 
   return {
+    createAdminCategory,
+    createAdminPost,
+    createAdminTag,
+    deleteAdminCategory,
+    deleteAdminPost,
+    deleteAdminTag,
+    getAdminPost,
     getAdminDashboard,
     getCurrentUser,
     getAbout,
@@ -927,6 +1178,9 @@ export function useApiClient(): BlogApiClient {
     login,
     logout,
     listCategories,
+    listAdminCategories,
+    listAdminPosts,
+    listAdminTags,
     listChatter,
     listChatterTags,
     listFriends,
@@ -940,7 +1194,13 @@ export function useApiClient(): BlogApiClient {
     listPosts,
     listProjects,
     listTags,
+    previewAdminPost,
+    publishAdminPost,
     refreshSession,
+    unpublishAdminPost,
+    updateAdminCategory,
+    updateAdminPost,
+    updateAdminTag,
   }
 }
 

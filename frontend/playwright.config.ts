@@ -2,7 +2,10 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testIgnore: ['**/live-public-acceptance.spec.ts'],
+  testIgnore: [
+    '**/live-admin-acceptance.spec.ts',
+    '**/live-public-acceptance.spec.ts',
+  ],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
