@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
-import { onBeforeRouteLeave, type NavigationGuardNext } from 'vue-router'
+import { onBeforeRouteLeave } from 'vue-router'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { BlogApiError, useApiClient } from '~/api/client'
@@ -43,7 +43,7 @@ const recoveryOpen = ref(false)
 const leaveDialogOpen = ref(false)
 const draftCheckPending = ref(false)
 let requestNumber = 0
-let resolveLeave: NavigationGuardNext | null = null
+let resolveLeave: ((allow: boolean) => void) | null = null
 
 const isDirty = computed(() =>
   isAdminPostDraftDirty(currentSnapshot.value, baseline.value),
@@ -321,7 +321,7 @@ const leaveAfterDiscard = () => {
   const resolve = resolveLeave
   resolveLeave = null
   leaveDialogOpen.value = false
-  resolve?.()
+  resolve?.(true)
 }
 
 const cancelLeave = () => {
@@ -337,13 +337,14 @@ const handleBeforeUnload = (event: BeforeUnloadEvent) => {
   event.returnValue = ''
 }
 
-onBeforeRouteLeave((_to, _from, next) => {
+onBeforeRouteLeave(() => {
   if (!isDirty.value || !session.isAuthenticated) {
-    next()
-    return
+    return true
   }
-  resolveLeave = next
-  leaveDialogOpen.value = true
+  return new Promise<boolean>((resolve) => {
+    resolveLeave = resolve
+    leaveDialogOpen.value = true
+  })
 })
 
 onMounted(() => {

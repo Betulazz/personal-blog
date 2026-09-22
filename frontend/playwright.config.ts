@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   testIgnore: [
     '**/live-admin-acceptance.spec.ts',
+    '**/live-admin-workflow-acceptance.spec.ts',
     '**/live-public-acceptance.spec.ts',
   ],
   fullyParallel: false,

@@ -10,6 +10,7 @@ export default defineConfig({
   testMatch: [
     'live-public-acceptance.spec.ts',
     'live-admin-acceptance.spec.ts',
+    'live-admin-workflow-acceptance.spec.ts',
   ],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
