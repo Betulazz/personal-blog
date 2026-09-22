@@ -12,17 +12,27 @@ const unexpectedErrorFixture = fileURLToPath(
   new URL('./tests/fixtures/UnexpectedErrorPage.vue', import.meta.url),
 )
 
+const apiBase =
+  process.env.NUXT_API_BASE ??
+  process.env.NUXT_PUBLIC_API_BASE ??
+  'http://127.0.0.1:8000/api/v1'
+
+const localApiOrigin = /^https?:\/\//.test(apiBase)
+  ? new URL(apiBase).origin
+  : null
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   css: ['~/assets/css/main.css'],
   devtools: { enabled: false },
   modules: ['@nuxt/eslint', '@pinia/nuxt', '@vueuse/nuxt', 'motion-v/nuxt'],
   telemetry: false,
+  routeRules:
+    localApiOrigin && process.env.NODE_ENV !== 'production'
+      ? { '/uploads/**': { proxy: `${localApiOrigin}/uploads/**` } }
+      : {},
   runtimeConfig: {
-    apiBase:
-      process.env.NUXT_API_BASE ??
-      process.env.NUXT_PUBLIC_API_BASE ??
-      'http://127.0.0.1:8000/api/v1',
+    apiBase,
     public: {
       apiBase:
         process.env.NUXT_PUBLIC_API_BASE ?? 'http://127.0.0.1:8000/api/v1',

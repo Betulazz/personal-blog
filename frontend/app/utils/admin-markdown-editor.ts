@@ -1,6 +1,7 @@
 import { Node as TiptapNode, type AnyExtension } from '@tiptap/core'
 import { Image } from '@tiptap/extension-image'
 import { Link } from '@tiptap/extension-link'
+import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Placeholder } from '@tiptap/extension-placeholder'
 import { Table } from '@tiptap/extension-table'
 import { TableCell } from '@tiptap/extension-table-cell'
@@ -8,6 +9,8 @@ import { TableHeader } from '@tiptap/extension-table-header'
 import { TableRow } from '@tiptap/extension-table-row'
 import { Markdown } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
+
+import { isSafeContentUrl } from './markdown-safety'
 
 const MathBlock = TiptapNode.create({
   name: 'mathBlock',
@@ -117,10 +120,37 @@ const MathInline = TiptapNode.create({
   renderMarkdown: (node) => `$${node.attrs?.content ?? ''}$`,
 })
 
+const SafeLink = Link.extend({
+  renderMarkdown: (node, helpers) => {
+    const href = String(node.attrs?.href ?? '')
+    const text = helpers.renderChildren(node)
+    if (!isSafeContentUrl(href)) return text
+    const title = String(node.attrs?.title ?? '')
+    const safeTitle = title.replace(/["\r\n]/g, '').trim()
+    return safeTitle
+      ? `[${text}](${href} "${safeTitle}")`
+      : `[${text}](${href})`
+  },
+})
+
+const SafeImage = Image.extend({
+  renderMarkdown: (node) => {
+    const src = String(node.attrs?.src ?? '')
+    const alt = String(node.attrs?.alt ?? '')
+    if (!isSafeContentUrl(src)) return alt
+    return `![${alt}](${src})`
+  },
+})
+
 export const createAdminMarkdownExtensions = (): AnyExtension[] => [
   StarterKit.configure({ link: false }),
-  Link.configure({ openOnClick: false }),
-  Image.configure({ allowBase64: false }),
+  SafeLink.configure({
+    isAllowedUri: (url) => Boolean(url) && isSafeContentUrl(url),
+    openOnClick: false,
+  }),
+  SafeImage.configure({ allowBase64: false }),
+  TaskList,
+  TaskItem.configure({ nested: true }),
   Placeholder.configure({ placeholder: '用 Markdown 写下值得留下的内容…' }),
   Table.configure({ resizable: true }),
   TableRow,

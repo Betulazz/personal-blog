@@ -14,6 +14,25 @@ test('native administration crosses Nuxt, FastAPI, and MySQL for Post CRUD', asy
 }) => {
   test.setTimeout(180_000)
   const slug = `live-admin-${Date.now()}`
+  const markdown = [
+    '## 真实正文',
+    '',
+    '来自真实 FastAPI 与 MySQL，Unicode 霓虹 🚀。',
+    '',
+    '> 引用与 `inline code`。',
+    '',
+    '```ts',
+    'const answer = 42',
+    '```',
+    '',
+    '| 能力 | 结果 |',
+    '| --- | --- |',
+    '| 表格 | 保留 |',
+    '',
+    '- [ ] 任务一',
+    '',
+    '行内数学 $x^2$。',
+  ].join('\n')
 
   await login(page)
   await page.goto('/admin/posts')
@@ -25,9 +44,7 @@ test('native administration crosses Nuxt, FastAPI, and MySQL for Post CRUD', asy
   await page
     .getByLabel('摘要', { exact: true })
     .fill('真实 API 与 MySQL 的 CRUD 验收。')
-  await page
-    .getByLabel('Markdown 正文')
-    .fill('# 真实正文\n\n来自真实 FastAPI 与 MySQL。')
+  await page.getByLabel('Markdown 正文').fill(markdown)
 
   const categorySelect = page.getByRole('combobox', { name: '分类' })
   await categorySelect.click()
@@ -47,6 +64,28 @@ test('native administration crosses Nuxt, FastAPI, and MySQL for Post CRUD', asy
   await expect(
     page.getByRole('heading', { name: '现场管理端验收文章（已编辑）' }),
   ).toBeVisible()
+
+  await page.reload()
+  const editor = page.getByLabel('Markdown 正文')
+  await expect(editor).toContainText('真实正文')
+  await expect(editor).toContainText('const answer = 42')
+  await expect(editor).toContainText('表格')
+  await expect(editor).toContainText('霓虹 🚀')
+  await expect(editor).toContainText('行内数学 $x^2$。')
+
+  await page.getByRole('button', { name: '发布' }).click()
+  await page
+    .getByRole('dialog', { name: '确认发布这篇文章？' })
+    .getByRole('button', { name: '确认发布', exact: true })
+    .click()
+  await expect(page.getByText('已发布').first()).toBeVisible()
+
+  await page.getByRole('button', { name: '撤回' }).click()
+  await page
+    .getByRole('dialog', { name: '确认撤回这篇文章？' })
+    .getByRole('button', { name: '确认撤回', exact: true })
+    .click()
+  await expect(page.getByText('草稿').first()).toBeVisible()
 
   await page.getByRole('button', { name: '删除' }).click()
   await page

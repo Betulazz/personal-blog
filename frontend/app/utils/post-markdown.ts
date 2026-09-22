@@ -1,6 +1,8 @@
 import MarkdownIt from 'markdown-it'
 import type { Env, StateBlock, StateInline, Token } from 'markdown-it'
 
+import { isSafeContentUrl } from './markdown-safety'
+
 export interface PostTocItem {
   id: string
   level: number
@@ -16,30 +18,7 @@ interface MarkdownRenderOptions {
   enhance?: boolean
 }
 
-const SAFE_LINK_SCHEME = /^(?:https?:|mailto:|tel:)/i
-const SAFE_LOCAL_PATH = /^(?:[/.#]|$)/
-
-const isSafeUrl = (value: string) => {
-  const normalized = value.trim()
-  if (
-    [...normalized].some((character) => {
-      const code = character.charCodeAt(0)
-      return code <= 0x1f || code === 0x7f
-    })
-  ) {
-    return false
-  }
-  if (!normalized) {
-    return false
-  }
-
-  try {
-    const decoded = decodeURIComponent(normalized)
-    return SAFE_LINK_SCHEME.test(decoded) || SAFE_LOCAL_PATH.test(decoded)
-  } catch {
-    return false
-  }
-}
+const isSafeUrl = isSafeContentUrl
 
 const isExternalHttpUrl = (value: string) => /^https?:\/\//i.test(value)
 
@@ -364,6 +343,13 @@ export const renderPostMarkdown = (source: string) => {
   const env: Env = {}
   const tokens = markdown.parse(source, env)
   return markdown.renderer.render(tokens, markdown.options, env)
+}
+
+export const extractPostToc = (source: string): PostTocItem[] => {
+  const markdown = createMarkdown()
+  const env: Env = {}
+  markdown.parse(source, env)
+  return (env.postToc as PostTocItem[] | undefined) ?? []
 }
 
 export const renderPostMarkdownDocument = (source: string) =>

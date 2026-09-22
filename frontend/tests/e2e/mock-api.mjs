@@ -1087,6 +1087,15 @@ const server = createServer(async (request, response) => {
     })
     return
   }
+  if (path === '/__control/expire-session') {
+    json(response, { expired: true }, 200, {
+      'Set-Cookie': [
+        'access_token=; Max-Age=0; Path=/api/v1',
+        'refresh_token=; Max-Age=0; Path=/api/v1/auth',
+      ],
+    })
+    return
+  }
   if (path === '/__control/forbid') {
     authState.forbidden = true
     json(response, { forbidden: true })

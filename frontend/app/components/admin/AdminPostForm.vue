@@ -4,6 +4,7 @@ import type { AdminPost, AdminPostInput, AdminTaxonomy } from '~/types/admin'
 const props = withDefaults(
   defineProps<{
     categories?: AdminTaxonomy[]
+    dirty?: boolean
     errorMessage?: string | null
     isLoading?: boolean
     isSubmitting?: boolean
@@ -12,6 +13,7 @@ const props = withDefaults(
   }>(),
   {
     categories: () => [],
+    dirty: false,
     errorMessage: null,
     isLoading: false,
     isSubmitting: false,
@@ -21,8 +23,11 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
+  canonical: []
+  change: []
   preview: [value: AdminPostInput]
   save: [value: AdminPostInput]
+  sync: []
 }>()
 
 const form = reactive({
@@ -51,25 +56,113 @@ const categoryOptions = computed(() => [
   })),
 ])
 
-const syncPost = (post: AdminPost | null) => {
-  if (!post) return
-  form.body = post.body
-  form.canonicalUrl = post.canonicalUrl ?? ''
-  form.categoryId = post.categoryId ?? 'none'
-  form.coverAlt = post.coverAlt ?? ''
-  form.coverUrl = post.coverUrl ?? ''
-  form.isPinned = post.isPinned
-  form.ogImageUrl = post.ogImageUrl ?? ''
-  form.readingTime = String(post.readingTimeMinutes)
-  form.seoDescription = post.seoDescription ?? ''
-  form.seoTitle = post.seoTitle ?? ''
-  form.slug = post.slug
-  form.summary = post.summary
-  form.tagIds = [...post.tagIds]
-  form.title = post.title
+let syncing = false
+
+interface PostFormValues {
+  body: string
+  canonicalUrl: string
+  categoryId: string
+  coverAlt: string
+  coverUrl: string
+  isPinned: boolean
+  ogImageUrl: string
+  readingTime: string
+  seoDescription: string
+  seoTitle: string
+  slug: string
+  summary: string
+  tagIds: string[]
+  title: string
 }
 
-watch(() => props.post, syncPost, { immediate: true })
+const applyValues = (values: PostFormValues) => {
+  form.body = values.body
+  form.canonicalUrl = values.canonicalUrl
+  form.categoryId = values.categoryId
+  form.coverAlt = values.coverAlt
+  form.coverUrl = values.coverUrl
+  form.isPinned = values.isPinned
+  form.ogImageUrl = values.ogImageUrl
+  form.readingTime = values.readingTime
+  form.seoDescription = values.seoDescription
+  form.seoTitle = values.seoTitle
+  form.slug = values.slug
+  form.summary = values.summary
+  form.tagIds = values.tagIds
+  form.title = values.title
+}
+
+const syncPost = (post: AdminPost | null) => {
+  if (!post) return
+  syncing = true
+  applyValues({
+    body: post.body,
+    canonicalUrl: post.canonicalUrl ?? '',
+    categoryId: post.categoryId ?? 'none',
+    coverAlt: post.coverAlt ?? '',
+    coverUrl: post.coverUrl ?? '',
+    isPinned: post.isPinned,
+    ogImageUrl: post.ogImageUrl ?? '',
+    readingTime: String(post.readingTimeMinutes),
+    seoDescription: post.seoDescription ?? '',
+    seoTitle: post.seoTitle ?? '',
+    slug: post.slug,
+    summary: post.summary,
+    tagIds: [...post.tagIds],
+    title: post.title,
+  })
+}
+
+const applyInput = (input: AdminPostInput) => {
+  applyValues({
+    body: input.body,
+    canonicalUrl: input.canonical_url ?? '',
+    categoryId:
+      input.category_id === undefined || input.category_id === null
+        ? 'none'
+        : String(input.category_id),
+    coverAlt: input.cover_alt ?? '',
+    coverUrl: input.cover_url ?? '',
+    isPinned: input.is_pinned ?? false,
+    ogImageUrl: input.og_image_url ?? '',
+    readingTime: String(input.reading_time_minutes ?? 0),
+    seoDescription: input.seo_description ?? '',
+    seoTitle: input.seo_title ?? '',
+    slug: input.slug,
+    summary: input.summary,
+    tagIds: (input.tag_ids ?? []).map(String),
+    title: input.title,
+  })
+}
+
+watch(
+  () => props.post,
+  async (post) => {
+    if (!post) return
+    syncPost(post)
+    await nextTick()
+    syncing = false
+    emit('sync')
+  },
+  { immediate: true },
+)
+
+watch(
+  form,
+  () => {
+    if (!syncing) emit('change')
+  },
+  { deep: true },
+)
+
+const handleEditorReady = async (markdown: string) => {
+  if (markdown === form.body) return
+  syncing = true
+  form.body = markdown
+  await nextTick()
+  syncing = false
+  emit('canonical')
+}
 
 const toggleTag = (id: string) => {
   form.tagIds = form.tagIds.includes(id)
@@ -116,11 +209,35 @@ const submit = () => {
 const preview = () => {
   if (validate()) emit('preview', toInput())
 }
+
+defineExpose({
+  applyInput,
+  snapshot: toInput,
+})
 </script>
 
 <template>
   <form class="admin-post-form" novalidate @submit.prevent="submit">
-    <section class="admin-post-form__main" aria-labelledby="post-content-title">
+    <section
+      v-if="isLoading"
+      class="admin-post-form__loading"
+      data-testid="admin-post-loading"
+      role="status"
+      aria-busy="true"
+    >
+      <strong>正在准备编辑器…</strong>
+      <span class="admin-post-form__skeleton" aria-hidden="true" />
+      <span class="admin-post-form__skeleton" aria-hidden="true" />
+      <span
+        class="admin-post-form__skeleton admin-post-form__skeleton--tall"
+        aria-hidden="true"
+      />
+    </section>
+    <section
+      v-else
+      class="admin-post-form__main"
+      aria-labelledby="post-content-title"
+    >
       <div class="admin-form-section-heading">
         <div>
           <p class="admin-form-eyebrow">Long-form publication</p>
@@ -167,11 +284,19 @@ const preview = () => {
           Markdown
           是持久化核心格式；支持标题、引用、代码、表格、链接和数学公式。
         </p>
-        <AdminMarkdownEditor v-model="form.body" :disabled="isSubmitting" />
+        <AdminMarkdownEditor
+          v-model="form.body"
+          :disabled="isSubmitting"
+          @ready="handleEditorReady"
+        />
       </div>
     </section>
 
-    <aside class="admin-post-form__side" aria-label="文章属性">
+    <aside
+      v-if="!isLoading"
+      class="admin-post-form__side"
+      aria-label="文章属性"
+    >
       <section
         class="admin-post-form__section"
         aria-labelledby="taxonomy-title"
@@ -282,10 +407,10 @@ const preview = () => {
     <div v-if="errorMessage" class="admin-post-form__error" role="alert">
       {{ errorMessage }}
     </div>
-    <div v-if="isLoading" class="admin-post-form__loading" role="status">
-      正在读取文章…
-    </div>
-    <footer class="admin-post-form__actions">
+    <footer v-if="!isLoading" class="admin-post-form__actions">
+      <p v-if="dirty" class="admin-post-form__dirty" role="status">
+        有未保存的更改
+      </p>
       <UiButton
         type="button"
         variant="secondary"
@@ -425,8 +550,7 @@ const preview = () => {
   accent-color: var(--color-accent);
 }
 
-.admin-post-form__error,
-.admin-post-form__loading {
+.admin-post-form__error {
   grid-column: 1 / -1;
   padding: var(--space-4);
   border-radius: var(--radius-medium);
@@ -439,15 +563,43 @@ const preview = () => {
 }
 
 .admin-post-form__loading {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  border: var(--border-hairline) solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  background: var(--glass-panel-bg);
   color: var(--color-text-muted);
   text-align: center;
+}
+
+.admin-post-form__skeleton {
+  display: block;
+  height: 1rem;
+  margin-inline: auto;
+  width: min(28rem, 100%);
+  border-radius: var(--radius-round);
+  background: var(--glass-bg-hover);
+}
+
+.admin-post-form__skeleton--tall {
+  height: 16rem;
 }
 
 .admin-post-form__actions {
   display: flex;
   grid-column: 1 / -1;
+  align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
+}
+
+.admin-post-form__dirty {
+  flex: 1;
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--text-small);
 }
 
 @media (width <= 52rem) {
