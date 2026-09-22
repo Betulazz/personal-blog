@@ -471,23 +471,40 @@ const tracks = [
     id: 1,
     title: '月光落在窗边',
     artist: '本地示例音源',
-    source_url: '/audio/ambient-example.mp3',
-    artwork_url: null,
-    artwork_alt: null,
-    album: null,
-    duration_seconds: null,
+    album: '夜航',
+    source_strategy: 'remote_url',
+    source_url: 'https://example.com/audio/ambient-example.mp3',
+    artwork_url: '/uploads/images/track-moon.webp',
+    artwork_alt: '月光落在窗边的示例封面',
+    duration_seconds: 214,
     display_order: 0,
+    is_enabled: true,
   },
   {
     id: 2,
     title: '雨落在玻璃上',
     artist: '本地示例音源',
-    source_url: '/audio/quiet-example.mp3',
+    album: null,
+    source_strategy: 'remote_url',
+    source_url: 'https://example.com/audio/quiet-example.mp3',
     artwork_url: null,
     artwork_alt: null,
-    album: null,
     duration_seconds: null,
     display_order: 1,
+    is_enabled: true,
+  },
+  {
+    id: 3,
+    title: '旧磁带',
+    artist: '归档音源',
+    album: null,
+    source_strategy: 'local_media',
+    source_url: '/legacy/archive-tape.mp3',
+    artwork_url: null,
+    artwork_alt: null,
+    duration_seconds: null,
+    display_order: 2,
+    is_enabled: false,
   },
 ]
 
@@ -499,6 +516,7 @@ const initialTags = structuredClone(tags)
 const initialProjects = structuredClone(projects)
 const initialFriends = structuredClone(friends)
 const initialSettings = structuredClone(settings)
+const initialTracks = structuredClone(tracks)
 const settingsMeta = {
   created_at: '2026-09-01T08:00:00.000Z',
   updated_at: '2026-09-20T08:00:00.000Z',
@@ -509,6 +527,50 @@ const withAdminDates = (item) => ({
   created_at: item.created_at || '2026-09-01T08:00:00.000Z',
   updated_at: item.updated_at || '2026-09-20T08:00:00.000Z',
 })
+
+const orderedMusicTracks = () =>
+  [...tracks].sort(
+    (left, right) =>
+      left.display_order - right.display_order || left.id - right.id,
+  )
+
+const publicMusicTrack = (track) => ({
+  id: track.id,
+  title: track.title,
+  artist: track.artist,
+  album: track.album ?? null,
+  source_url: track.source_url,
+  artwork_url: track.artwork_url ?? null,
+  artwork_alt: track.artwork_alt ?? null,
+  duration_seconds: track.duration_seconds ?? null,
+  display_order: track.display_order,
+})
+
+const isSafeMusicSource = (strategy, value) => {
+  if (typeof value !== 'string' || !value.trim()) return false
+  if (strategy === 'local_media') {
+    if (!value.startsWith('/uploads/')) return false
+    try {
+      const decoded = decodeURIComponent(value)
+      return !decoded.split('/').some((part) => part === '.' || part === '..')
+    } catch {
+      return false
+    }
+  }
+  try {
+    const url = new URL(value)
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      Boolean(url.hostname) &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+    )
+  } catch {
+    return false
+  }
+}
 
 const adminSettings = () => ({
   ...settings,
@@ -759,6 +821,7 @@ const server = createServer(async (request, response) => {
     restoreMap(tags, initialTags)
     projects.splice(0, projects.length, ...structuredClone(initialProjects))
     friends.splice(0, friends.length, ...structuredClone(initialFriends))
+    tracks.splice(0, tracks.length, ...structuredClone(initialTracks))
     Object.keys(settings).forEach((key) => delete settings[key])
     Object.assign(settings, structuredClone(initialSettings))
     settingsMeta.updated_at = settingsMeta.created_at
@@ -910,6 +973,7 @@ const server = createServer(async (request, response) => {
     path.startsWith('/admin/chatter') ||
     path.startsWith('/admin/friends') ||
     path.startsWith('/admin/moments') ||
+    path.startsWith('/admin/music-tracks') ||
     path.startsWith('/admin/posts') ||
     path.startsWith('/admin/projects') ||
     path.startsWith('/admin/categories') ||
@@ -1011,6 +1075,151 @@ const server = createServer(async (request, response) => {
     }
     json(response, { data: item })
     return
+  }
+  if (path === '/admin/music-tracks/reorder' && request.method === 'POST') {
+    const payload = await readJson(request)
+    const requestedIds = Array.isArray(payload.track_ids)
+      ? payload.track_ids.map(Number)
+      : []
+    const existingIds = orderedMusicTracks().map((track) => track.id)
+    const isComplete =
+      requestedIds.length === existingIds.length &&
+      new Set(requestedIds).size === requestedIds.length &&
+      existingIds.every((id) => requestedIds.includes(id))
+    if (!isComplete) {
+      json(
+        response,
+        {
+          error: {
+            code: 'music_track_reorder_mismatch',
+            message:
+              'Reorder must include every configured Music Track exactly once',
+          },
+        },
+        422,
+      )
+      return
+    }
+    requestedIds.forEach((id, index) => {
+      const track = tracks.find((candidate) => candidate.id === id)
+      track.display_order = index
+      track.updated_at = new Date().toISOString()
+    })
+    json(response, { data: orderedMusicTracks().map(withAdminDates) })
+    return
+  }
+  const adminMusicMatch = path.match(
+    /^\/admin\/music-tracks(?:\/(\d+)(?:\/(enable|disable))?)?$/,
+  )
+  if (adminMusicMatch) {
+    const [, id, action] = adminMusicMatch
+    if (!id && request.method === 'GET') {
+      json(
+        response,
+        paginate(orderedMusicTracks().map(withAdminDates), query.page, size),
+      )
+      return
+    }
+    if (!id && request.method === 'POST') {
+      const payload = await readJson(request)
+      if (!isSafeMusicSource(payload.source_strategy, payload.source_url)) {
+        json(
+          response,
+          {
+            error: {
+              code: 'invalid_music_source',
+              message:
+                'The Music Track source does not match its source strategy',
+            },
+          },
+          422,
+        )
+        return
+      }
+      const created = {
+        id: Math.max(0, ...tracks.map((track) => track.id)) + 1,
+        title: payload.title,
+        artist: payload.artist,
+        album: payload.album ?? null,
+        source_strategy: payload.source_strategy,
+        source_url: payload.source_url,
+        artwork_url: payload.artwork_url ?? null,
+        artwork_alt: payload.artwork_alt ?? null,
+        duration_seconds: payload.duration_seconds ?? null,
+        display_order: payload.display_order ?? 0,
+        is_enabled: payload.is_enabled ?? true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      tracks.push(created)
+      json(response, { data: withAdminDates(created) }, 201)
+      return
+    }
+    const track = tracks.find((candidate) => candidate.id === Number(id))
+    if (!track) {
+      json(
+        response,
+        {
+          error: {
+            code: 'music_track_not_found',
+            message: 'The requested Music Track does not exist',
+          },
+        },
+        404,
+      )
+      return
+    }
+    if (action && request.method === 'POST') {
+      track.is_enabled = action === 'enable'
+      track.updated_at = new Date().toISOString()
+      json(response, { data: withAdminDates(track) })
+      return
+    }
+    if (!action && request.method === 'GET') {
+      json(response, { data: withAdminDates(track) })
+      return
+    }
+    if (!action && request.method === 'PATCH') {
+      const payload = await readJson(request)
+      const nextStrategy = payload.source_strategy ?? track.source_strategy
+      const nextSource = payload.source_url ?? track.source_url
+      if (!isSafeMusicSource(nextStrategy, nextSource)) {
+        json(
+          response,
+          {
+            error: {
+              code: 'invalid_music_source',
+              message:
+                'The Music Track source does not match its source strategy',
+            },
+          },
+          422,
+        )
+        return
+      }
+      for (const key of [
+        'title',
+        'artist',
+        'album',
+        'source_strategy',
+        'source_url',
+        'artwork_url',
+        'artwork_alt',
+        'duration_seconds',
+        'display_order',
+        'is_enabled',
+      ]) {
+        if (Object.hasOwn(payload, key)) track[key] = payload[key]
+      }
+      track.updated_at = new Date().toISOString()
+      json(response, { data: withAdminDates(track) })
+      return
+    }
+    if (!action && request.method === 'DELETE') {
+      tracks.splice(tracks.indexOf(track), 1)
+      json(response, { data: { deleted: true } })
+      return
+    }
   }
   const adminPortfolioMatch = path.match(
     /^\/admin\/(projects|friends)(?:\/(\d+))?$/,
@@ -1426,7 +1635,10 @@ const server = createServer(async (request, response) => {
     return
   }
   if (path === '/music-tracks') {
-    json(response, { ...paginate(tracks, query.page, size) })
+    const playable = orderedMusicTracks()
+      .filter((track) => track.is_enabled !== false)
+      .map(publicMusicTrack)
+    json(response, { ...paginate(playable, query.page, size) })
     return
   }
   if (path === '/projects') {

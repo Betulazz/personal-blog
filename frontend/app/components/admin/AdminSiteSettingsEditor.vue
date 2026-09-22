@@ -475,6 +475,11 @@ function isAbortError(failure: unknown) {
             <span>{{ item.label }}</span>
           </label>
         </fieldset>
+        <p class="admin-settings-note">
+          播放列表本身在
+          <NuxtLink to="/admin/music">音乐管理</NuxtLink>
+          中维护；这里只决定首页是否展示播放器。
+        </p>
       </UiGlassPanel>
 
       <UiGlassPanel class="admin-settings-section" padding="spacious">
@@ -652,6 +657,19 @@ function isAbortError(failure: unknown) {
 
 .admin-settings-checks input {
   accent-color: var(--color-accent);
+}
+
+.admin-settings-note {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--text-small);
+  line-height: 1.6;
+}
+
+.admin-settings-note a {
+  color: var(--color-accent-soft);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .admin-settings-preview {

@@ -33,12 +33,14 @@ export function useAdminPortfolioEditor<
   Input extends object,
 >(options: {
   api: AdminPortfolioResource<T, Input>
+  describeError?: (error: unknown, resource: string) => string
   empty: () => Input
   id?: string
   resource: string
   toInput: (record: T) => Input
 }) {
   const session = useAdminSession()
+  const describeError = options.describeError ?? adminPortfolioError
   const draftKey = `admin-draft:${options.resource}:${options.id ?? 'new'}`
   const form = useState<Input>(draftKey, options.empty)
   const initialized = useState(`${draftKey}:initialized`, () => !options.id)
@@ -71,7 +73,7 @@ export function useAdminPortfolioEditor<
       }
     } catch (failure) {
       if (isAbortError(failure)) return
-      error.value = adminPortfolioError(failure, options.resource)
+      error.value = describeError(failure, options.resource)
       loadFailed.value = true
     } finally {
       loading.value = false
@@ -110,7 +112,7 @@ export function useAdminPortfolioEditor<
         })
       }
     } catch (failure) {
-      error.value = adminPortfolioError(failure, options.resource)
+      error.value = describeError(failure, options.resource)
     } finally {
       busy.value = false
     }
@@ -126,7 +128,7 @@ export function useAdminPortfolioEditor<
       clearNuxtState([draftKey, `${draftKey}:initialized`])
       await navigateTo(`/admin/${options.resource}`)
     } catch (failure) {
-      error.value = adminPortfolioError(failure, options.resource)
+      error.value = describeError(failure, options.resource)
     } finally {
       busy.value = false
     }

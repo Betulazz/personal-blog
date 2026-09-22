@@ -65,6 +65,8 @@ const stateCopy = computed(() => {
 
 <style scoped>
 .admin-state {
+  position: relative;
+  z-index: var(--z-base);
   display: grid;
   min-height: 100svh;
   place-content: center;

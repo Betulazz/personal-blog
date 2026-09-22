@@ -5,6 +5,7 @@ import type {
   AdminMomentInput,
   AdminResourceApi,
 } from '~/types/admin-notes'
+import type { AdminMusicTrack, AdminMusicTrackInput } from '~/types/admin-music'
 import type { Chatter, ChatterCollectionResponse } from '~/types/chatter'
 import type {
   AdminDashboard,
@@ -232,6 +233,22 @@ interface RawMusicTrack {
   title: string
 }
 
+interface RawAdminMusicTrack {
+  album: string | null
+  artist: string
+  artwork_alt: string | null
+  artwork_url: string | null
+  created_at: string
+  display_order: number
+  duration_seconds: number | null
+  id: number
+  is_enabled: boolean
+  source_strategy: 'local_media' | 'remote_url' | 's3_media'
+  source_url: string
+  title: string
+  updated_at: string
+}
+
 interface RawMoment {
   body: string
   id: number
@@ -282,11 +299,18 @@ export class BlogApiError extends Error {
 
 export interface BlogApiClient {
   createAdminFriend: (input: AdminFriendLinkInput) => Promise<AdminFriendLink>
+  createAdminMusicTrack: (
+    input: AdminMusicTrackInput,
+  ) => Promise<AdminMusicTrack>
   createAdminProject: (input: AdminProjectInput) => Promise<AdminProject>
   adminMoments: AdminResourceApi<AdminMoment, AdminMomentInput>
   adminChatter: AdminResourceApi<AdminChatter, AdminChatterInput>
   getAdminDashboard: (signal?: AbortSignal) => Promise<AdminDashboard>
   getAdminFriend: (id: string, signal?: AbortSignal) => Promise<AdminFriendLink>
+  getAdminMusicTrack: (
+    id: string,
+    signal?: AbortSignal,
+  ) => Promise<AdminMusicTrack>
   getAdminProject: (id: string, signal?: AbortSignal) => Promise<AdminProject>
   getAdminSettings: (signal?: AbortSignal) => Promise<AdminSiteSettings>
   getAdminPost: (id: string, signal?: AbortSignal) => Promise<AdminPost>
@@ -319,6 +343,7 @@ export interface BlogApiClient {
     query: AdminFriendLinkQuery,
     signal?: AbortSignal,
   ) => Promise<AdminFriendLinkCollection>
+  listAdminMusicTracks: (signal?: AbortSignal) => Promise<AdminMusicTrack[]>
   listAdminProjects: (
     query: AdminProjectQuery,
     signal?: AbortSignal,
@@ -375,12 +400,22 @@ export interface BlogApiClient {
     signal?: AbortSignal,
   ) => Promise<TaxonomyCollectionResponse<PostTag>>
   deleteAdminFriend: (id: string) => Promise<void>
+  deleteAdminMusicTrack: (id: string) => Promise<void>
   deleteAdminProject: (id: string) => Promise<void>
   refreshSession: () => Promise<AdminUser>
+  reorderAdminMusicTracks: (trackIds: string[]) => Promise<AdminMusicTrack[]>
+  setAdminMusicTrackEnabled: (
+    id: string,
+    enabled: boolean,
+  ) => Promise<AdminMusicTrack>
   updateAdminFriend: (
     id: string,
     input: Partial<AdminFriendLinkInput>,
   ) => Promise<AdminFriendLink>
+  updateAdminMusicTrack: (
+    id: string,
+    input: Partial<AdminMusicTrackInput>,
+  ) => Promise<AdminMusicTrack>
   updateAdminProject: (
     id: string,
     input: Partial<AdminProjectInput>,
@@ -664,6 +699,28 @@ const toTrack = (
   id: String(value.id),
   src: resolveMediaUrl(value.source_url),
   title: value.title,
+})
+
+const toAdminMusicTrack = (
+  value: RawAdminMusicTrack,
+  resolveMediaUrl: MediaUrlResolver,
+): AdminMusicTrack => ({
+  album: value.album,
+  artist: value.artist,
+  artworkAlt: value.artwork_alt,
+  artworkPreviewUrl: value.artwork_url
+    ? resolveMediaUrl(value.artwork_url)
+    : null,
+  artworkUrl: value.artwork_url,
+  createdAt: value.created_at,
+  displayOrder: value.display_order,
+  durationSeconds: value.duration_seconds,
+  id: String(value.id),
+  isEnabled: value.is_enabled,
+  sourceStrategy: value.source_strategy,
+  sourceUrl: value.source_url,
+  title: value.title,
+  updatedAt: value.updated_at,
 })
 
 const toAdminUser = (value: RawAdminUser): AdminUser => ({
@@ -990,6 +1047,92 @@ export function useApiClient(): BlogApiClient {
       'DELETE',
     )
     clearPortfolioData('public-friends')
+  }
+
+  const clearPublicMusicData = () => {
+    clearNuxtData('public-music-tracks')
+  }
+
+  const listAdminMusicTracks = async (signal?: AbortSignal) => {
+    const tracks: AdminMusicTrack[] = []
+    let page = 1
+    let totalPages = 1
+    while (page <= totalPages) {
+      const response = await request<RawCollection<RawAdminMusicTrack>>(
+        '/admin/music-tracks',
+        { query: { page, page_size: 100 }, signal },
+      )
+      totalPages = Math.max(1, response.pagination.total_pages)
+      tracks.push(
+        ...response.data.map((track) =>
+          toAdminMusicTrack(track, resolveMediaUrl),
+        ),
+      )
+      page += 1
+    }
+    return tracks
+  }
+
+  const getAdminMusicTrack = async (id: string, signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawAdminMusicTrack>>(
+      `/admin/music-tracks/${encodeURIComponent(id)}`,
+      { signal },
+    )
+    return toAdminMusicTrack(response.data, resolveMediaUrl)
+  }
+
+  const createAdminMusicTrack = async (input: AdminMusicTrackInput) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminMusicTrack>>(
+      '/admin/music-tracks',
+      'POST',
+      Object.fromEntries(Object.entries(input)),
+    )
+    clearPublicMusicData()
+    return toAdminMusicTrack(response.data, resolveMediaUrl)
+  }
+
+  const updateAdminMusicTrack = async (
+    id: string,
+    input: Partial<AdminMusicTrackInput>,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminMusicTrack>>(
+      `/admin/music-tracks/${encodeURIComponent(id)}`,
+      'PATCH',
+      Object.fromEntries(Object.entries(input)),
+    )
+    clearPublicMusicData()
+    return toAdminMusicTrack(response.data, resolveMediaUrl)
+  }
+
+  const reorderAdminMusicTracks = async (trackIds: string[]) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminMusicTrack[]>>(
+      '/admin/music-tracks/reorder',
+      'POST',
+      {
+        track_ids: trackIds.map((id) => Number(id)),
+      },
+    )
+    clearPublicMusicData()
+    return response.data.map((track) =>
+      toAdminMusicTrack(track, resolveMediaUrl),
+    )
+  }
+
+  const setAdminMusicTrackEnabled = async (id: string, enabled: boolean) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawAdminMusicTrack>>(
+      `/admin/music-tracks/${encodeURIComponent(id)}/${enabled ? 'enable' : 'disable'}`,
+      'POST',
+    )
+    clearPublicMusicData()
+    return toAdminMusicTrack(response.data, resolveMediaUrl)
+  }
+
+  const deleteAdminMusicTrack = async (id: string) => {
+    await mutateWithCsrf<RawApiResponse<{ deleted: boolean }>>(
+      `/admin/music-tracks/${encodeURIComponent(id)}`,
+      'DELETE',
+    )
+    clearPublicMusicData()
   }
 
   const getAdminSettings = async (signal?: AbortSignal) => {
@@ -1476,17 +1619,20 @@ export function useApiClient(): BlogApiClient {
     adminMoments: adminResource<AdminMoment, AdminMomentInput>('moments'),
     adminChatter: adminResource<AdminChatter, AdminChatterInput>('chatter'),
     createAdminFriend,
+    createAdminMusicTrack,
     createAdminProject,
     createAdminCategory,
     createAdminPost,
     createAdminTag,
     deleteAdminCategory,
     deleteAdminFriend,
+    deleteAdminMusicTrack,
     deleteAdminPost,
     deleteAdminProject,
     deleteAdminTag,
     getAdminDashboard,
     getAdminFriend,
+    getAdminMusicTrack,
     getAdminPost,
     getAdminProject,
     getAdminSettings,
@@ -1499,6 +1645,7 @@ export function useApiClient(): BlogApiClient {
     listCategories,
     listAdminCategories,
     listAdminFriends,
+    listAdminMusicTracks,
     listAdminPosts,
     listAdminProjects,
     listAdminTags,
@@ -1518,9 +1665,12 @@ export function useApiClient(): BlogApiClient {
     previewAdminPost,
     publishAdminPost,
     refreshSession,
+    reorderAdminMusicTracks,
+    setAdminMusicTrackEnabled,
     unpublishAdminPost,
     updateAdminCategory,
     updateAdminFriend,
+    updateAdminMusicTrack,
     updateAdminPost,
     updateAdminProject,
     updateAdminSettings,

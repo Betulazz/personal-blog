@@ -91,4 +91,49 @@ describe('music player store', () => {
       configuredTracks.every((track) => track.src.startsWith('/audio/')),
     ).toBe(true)
   })
+
+  it('keeps the active track playing when the published order changes', () => {
+    const player = useMusicPlayerStore()
+
+    player.selectTrack(1)
+    player.setDuration(180)
+    player.setCurrentTime(60)
+    player.setPlaying(true)
+    player.setTracks([configuredTracks[1], configuredTracks[0]])
+
+    expect(player.currentTrack?.id).toBe('quiet-example')
+    expect(player.currentTrackIndex).toBe(0)
+    expect(player.currentTime).toBe(60)
+    expect(player.isPlaying).toBe(true)
+    expect(player.error).toBeUndefined()
+  })
+
+  it('falls back safely when the active track leaves the playlist', () => {
+    const player = useMusicPlayerStore()
+
+    player.selectTrack(1)
+    player.setDuration(180)
+    player.setCurrentTime(60)
+    player.setPlaying(true)
+    player.setTracks([configuredTracks[0]])
+
+    expect(player.currentTrack?.id).toBe('ambient-example')
+    expect(player.currentTime).toBe(0)
+    expect(player.duration).toBe(0)
+    expect(player.isPlaying).toBe(false)
+    expect(player.status).toBe('idle')
+    expect(player.error).toBeUndefined()
+  })
+
+  it('handles an empty published playlist without a current track', () => {
+    const player = useMusicPlayerStore()
+
+    player.setPlaying(true)
+    player.setTracks([])
+
+    expect(player.currentTrack).toBeUndefined()
+    expect(player.isPlaying).toBe(false)
+    expect(player.nextTrack()).toBe(false)
+    expect(player.previousTrack()).toBe(false)
+  })
 })

@@ -3,16 +3,20 @@ defineProps<{
   busy: boolean
   editing: boolean
   error: string
+  heading?: string
   label: string
   loadFailed: boolean
   loading: boolean
   notice: string
   record: {
     isActive?: boolean
-    name: string
+    name?: string
     status?: string
+    title?: string
   } | null
   resource: string
+  stateLabel?: string
+  stateTone?: 'accent' | 'neutral' | 'success'
 }>()
 
 const emit = defineEmits<{
@@ -43,7 +47,12 @@ const confirmDelete = () => {
         <p class="admin-editor-heading__eyebrow">
           {{ editing ? 'Continue configuration' : 'New configuration' }}
         </p>
-        <h1>{{ editing ? record?.name || `编辑${label}` : `新建${label}` }}</h1>
+        <h1>
+          {{
+            heading ||
+            (editing ? record?.name || `编辑${label}` : `新建${label}`)
+          }}
+        </h1>
         <p>
           {{
             editing
@@ -53,8 +62,11 @@ const confirmDelete = () => {
         </p>
       </div>
       <div v-if="editing && record" class="admin-editor-heading__actions">
+        <UiBadge v-if="stateLabel" :tone="stateTone ?? 'neutral'">
+          {{ stateLabel }}
+        </UiBadge>
         <UiBadge
-          v-if="record.status"
+          v-else-if="record.status"
           :tone="record.status === 'active' ? 'success' : 'neutral'"
         >
           {{ statusLabels[record.status] || record.status }}

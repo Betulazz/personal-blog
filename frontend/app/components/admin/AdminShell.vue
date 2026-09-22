@@ -15,6 +15,7 @@ const navigation = [
   { label: 'Chatter', to: '/admin/chatter' },
   { label: '项目', to: '/admin/projects' },
   { label: '友链', to: '/admin/friends' },
+  { label: '音乐', to: '/admin/music' },
   { label: '媒体', to: '/admin/media' },
   { label: '网站设置', to: '/admin/settings' },
 ]
@@ -121,6 +122,8 @@ watch(
 
 <style scoped>
 .admin-shell {
+  position: relative;
+  z-index: var(--z-base);
   min-height: 100svh;
   background:
     radial-gradient(circle at 82% -10%, var(--glow-accent), transparent 28rem),
