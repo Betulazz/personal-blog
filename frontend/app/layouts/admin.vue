@@ -36,7 +36,7 @@ watch(
 </script>
 
 <template>
-  <AdminShell v-if="session.isAuthenticated">
+  <AdminShell v-if="session.isAuthenticated || session.status === 'refreshing'">
     <slot />
   </AdminShell>
   <AdminState

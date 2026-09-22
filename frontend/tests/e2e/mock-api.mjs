@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { randomBytes } from 'node:crypto'
 
 const pageSize = (value, fallback = 20) => {
   const parsed = Number(value)
@@ -508,6 +509,221 @@ const tracks = [
   },
 ]
 
+const mediaPolicy = {
+  accepted_image_types: ['image/gif', 'image/jpeg', 'image/png', 'image/webp'],
+  accepted_audio_types: ['audio/flac', 'audio/mpeg', 'audio/ogg', 'audio/wav'],
+  max_upload_bytes: 262144,
+  image_max_upload_bytes: 262144,
+  image_max_pixels: 25000000,
+  image_max_dimension: 10000,
+}
+
+const mediaSeed = [
+  {
+    id: 1,
+    filename: 'night-sky.webp',
+    kind: 'image',
+    type: 'image/webp',
+    size: 184320,
+    width: 1280,
+    height: 720,
+    key: 'images/2026/09/11111111111111111111111111111111.webp',
+    createdAt: '2026-09-18T08:00:00.000Z',
+  },
+  {
+    id: 2,
+    filename: 'ambient-loop.wav',
+    kind: 'audio',
+    type: 'audio/wav',
+    size: 352044,
+    width: null,
+    height: null,
+    key: 'audio/2026/09/22222222222222222222222222222222.wav',
+    createdAt: '2026-09-17T08:00:00.000Z',
+  },
+  {
+    id: 3,
+    filename: 'post-cover.webp',
+    kind: 'image',
+    type: 'image/webp',
+    size: 96256,
+    width: 640,
+    height: 451,
+    key: 'images/2026/09/33333333333333333333333333333333.webp',
+    createdAt: '2026-09-16T08:00:00.000Z',
+    references: [{ resource_type: 'post', resource_id: 1, field: 'cover_url' }],
+  },
+  {
+    id: 4,
+    filename: 'missing-bytes.webp',
+    kind: 'image',
+    type: 'image/webp',
+    size: 51200,
+    width: 640,
+    height: 451,
+    key: 'images/2026/09/44444444444444444444444444444444.webp',
+    createdAt: '2026-09-15T08:00:00.000Z',
+    missingBytes: true,
+  },
+  {
+    id: 5,
+    filename: 'stale-metadata.png',
+    kind: 'image',
+    type: 'image/png',
+    size: 40960,
+    width: 320,
+    height: 320,
+    key: 'images/2026/09/55555555555555555555555555555555.png',
+    createdAt: '2026-09-14T08:00:00.000Z',
+    staleMetadata: true,
+  },
+  ...Array.from({ length: 12 }, (_, index) => ({
+    id: index + 6,
+    filename: `环境音 ${String(index + 1).padStart(2, '0')}.mp3`,
+    kind: 'audio',
+    type: 'audio/mpeg',
+    size: 1048576 + index * 2048,
+    width: null,
+    height: null,
+    key: `audio/2026/09/${String(index + 6).repeat(32)}.mp3`,
+    createdAt: `2026-08-${String(28 - index).padStart(2, '0')}T08:00:00.000Z`,
+  })),
+]
+
+const initialMediaAssets = structuredClone(mediaSeed)
+const mediaAssets = structuredClone(mediaSeed)
+
+const mediaAssetResponse = (asset) => ({
+  id: asset.id,
+  original_filename: asset.filename,
+  media_kind: asset.kind,
+  content_type: asset.type,
+  size_bytes: asset.size,
+  width: asset.width,
+  height: asset.height,
+  storage_strategy: 'local',
+  key: asset.key,
+  url: `/uploads/${asset.key}`,
+  created_at: asset.createdAt,
+})
+
+const tinyWav = (() => {
+  const sampleRate = 8000
+  const dataSize = 800 * 2
+  const buffer = Buffer.alloc(44 + dataSize)
+  buffer.write('RIFF', 0)
+  buffer.writeUInt32LE(36 + dataSize, 4)
+  buffer.write('WAVE', 8)
+  buffer.write('fmt ', 12)
+  buffer.writeUInt32LE(16, 16)
+  buffer.writeUInt16LE(1, 20)
+  buffer.writeUInt16LE(1, 22)
+  buffer.writeUInt32LE(sampleRate, 24)
+  buffer.writeUInt32LE(sampleRate * 2, 28)
+  buffer.writeUInt16LE(2, 32)
+  buffer.writeUInt16LE(16, 34)
+  buffer.write('data', 36)
+  buffer.writeUInt32LE(dataSize, 40)
+  return buffer
+})()
+
+const sniffImageType = (buffer) => {
+  if (
+    buffer.length >= 8 &&
+    buffer
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return 'image/png'
+  }
+  if (
+    buffer.length >= 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff
+  ) {
+    return 'image/jpeg'
+  }
+  if (buffer.subarray(0, 6).toString('ascii').startsWith('GIF8')) {
+    return 'image/gif'
+  }
+  if (
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp'
+  }
+  return null
+}
+
+const sniffAudioType = (buffer) => {
+  if (
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WAVE'
+  ) {
+    return 'audio/wav'
+  }
+  if (
+    buffer.subarray(0, 3).toString('ascii') === 'ID3' ||
+    (buffer.length >= 2 && buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0)
+  ) {
+    return 'audio/mpeg'
+  }
+  if (buffer.subarray(0, 4).toString('ascii') === 'fLaC') {
+    return 'audio/flac'
+  }
+  if (buffer.subarray(0, 4).toString('ascii') === 'OggS') {
+    return 'audio/ogg'
+  }
+  return null
+}
+
+const parseMultipart = (buffer, contentType) => {
+  const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(
+    contentType || '',
+  )
+  if (!boundaryMatch) return null
+  const boundary = `--${(boundaryMatch[1] || boundaryMatch[2]).trim()}`
+  for (const part of buffer.toString('binary').split(boundary)) {
+    const headerEnd = part.indexOf('\r\n\r\n')
+    if (headerEnd === -1) continue
+    const headers = part.slice(0, headerEnd)
+    const nameMatch = /name="([^"]+)"/i.exec(headers)
+    if (!nameMatch || nameMatch[1] !== 'file') continue
+    const filenameMatch = /filename="([^"]*)"/i.exec(headers)
+    const typeMatch = /Content-Type:\s*([^\r\n]+)/i.exec(headers)
+    let content = part.slice(headerEnd + 4)
+    if (content.endsWith('\r\n')) content = content.slice(0, -2)
+    return {
+      content: Buffer.from(content, 'binary'),
+      contentType: (typeMatch?.[1] || '').trim().toLowerCase(),
+      filename: filenameMatch?.[1] || 'upload',
+    }
+  }
+  return null
+}
+
+const readBuffer = async (request) => {
+  const chunks = []
+  for await (const chunk of request) chunks.push(chunk)
+  return Buffer.concat(chunks)
+}
+
+const mediaKeyFor = (kind, contentType) => {
+  const folder = kind === 'image' ? 'images' : 'audio'
+  const extension = {
+    'audio/flac': 'flac',
+    'audio/mpeg': 'mp3',
+    'audio/ogg': 'ogg',
+    'audio/wav': 'wav',
+    'image/gif': 'gif',
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+  }[contentType]
+  return `${folder}/2026/09/${randomBytes(16).toString('hex')}.${extension}`
+}
+
 const failures = new Set()
 const authState = { forbidden: false }
 const initialPosts = structuredClone(posts)
@@ -774,7 +990,7 @@ const dashboard = {
 }
 
 const tinyPng = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'iVBORw0KGgoAAAANSUhEUgAAAGAAAABACAIAAABqVuVZAAABCUlEQVR42u3WMQoDMQwF0Vmz58hJcsQcOkUgJMtahcHYlkeo+92r5ng8X4Wj/mXz9aQcUPtSn3ZZAyB1IiB1IiB1IiB1/tYLkDrX9RdInZv1C6TO/foBUqe6nhR1otWSjlcs6UgnAFKHAEgdAiB1CIDUIQBShwBIHQIgdQiA1CEGUqcRSJ3dS5pmIHV2L2magdTZvaRpBlJn95KmGUid3UuaTkDq5C9pOgGpk7+k6QSkTv6SphOQOvlLmk5A6uQvaYYAqZOhpBkCpE6GkmYIkDoZSpohQOpkKGmGAKmToaSZEEidNUqaCYHUWaOkmRBInTVKmgmB1FmjpJkQSJ01SprlgNSZpaSnvjc9gBdbduq/fgAAAABJRU5ErkJggg==',
   'base64',
 )
 
@@ -793,11 +1009,27 @@ const server = createServer(async (request, response) => {
   const cookies = parseCookies(request.headers.cookie)
 
   if (path.startsWith('/uploads/')) {
+    const key = decodeURIComponent(path.replace(/^\/uploads\//, ''))
+    const asset = mediaAssets.find((item) => item.key === key)
+    if (key.includes('..') || asset?.missingBytes) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_bytes_missing',
+            message: 'The Media Asset bytes are missing',
+          },
+        },
+        404,
+      )
+      return
+    }
+    const isAudio = key.startsWith('audio/')
     response.writeHead(200, {
       'Cache-Control': 'no-store',
-      'Content-Type': 'image/png',
+      'Content-Type': isAudio ? 'audio/wav' : 'image/png',
     })
-    response.end(tinyPng)
+    response.end(isAudio ? tinyWav : tinyPng)
     return
   }
 
@@ -811,6 +1043,16 @@ const server = createServer(async (request, response) => {
     json(response, { failures: [...failures] })
     return
   }
+  if (path === '/__control/clear-failures') {
+    failures.clear()
+    json(response, { failures: [] })
+    return
+  }
+  if (path === '/__control/clear-media') {
+    mediaAssets.length = 0
+    json(response, { cleared: true })
+    return
+  }
   if (path === '/__control/reset') {
     failures.clear()
     adminMoments.length = 0
@@ -822,6 +1064,11 @@ const server = createServer(async (request, response) => {
     projects.splice(0, projects.length, ...structuredClone(initialProjects))
     friends.splice(0, friends.length, ...structuredClone(initialFriends))
     tracks.splice(0, tracks.length, ...structuredClone(initialTracks))
+    mediaAssets.splice(
+      0,
+      mediaAssets.length,
+      ...structuredClone(initialMediaAssets),
+    )
     Object.keys(settings).forEach((key) => delete settings[key])
     Object.assign(settings, structuredClone(initialSettings))
     settingsMeta.updated_at = settingsMeta.created_at
@@ -972,6 +1219,7 @@ const server = createServer(async (request, response) => {
   const isAdminPostOrTaxonomyPath =
     path.startsWith('/admin/chatter') ||
     path.startsWith('/admin/friends') ||
+    path.startsWith('/admin/media') ||
     path.startsWith('/admin/moments') ||
     path.startsWith('/admin/music-tracks') ||
     path.startsWith('/admin/posts') ||
@@ -990,6 +1238,227 @@ const server = createServer(async (request, response) => {
       },
       401,
     )
+    return
+  }
+  if (path === '/admin/media/policy' && request.method === 'GET') {
+    json(response, { data: mediaPolicy })
+    return
+  }
+  const mediaReferencesMatch = path.match(/^\/admin\/media\/(\d+)\/references$/)
+  if (mediaReferencesMatch && request.method === 'GET') {
+    const asset = mediaAssets.find(
+      (item) => item.id === Number(mediaReferencesMatch[1]),
+    )
+    if (!asset) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_asset_not_found',
+            message: 'The requested Media Asset does not exist',
+          },
+        },
+        404,
+      )
+      return
+    }
+    json(response, { data: asset.references ?? [] })
+    return
+  }
+  if (path === '/admin/media' && request.method === 'GET') {
+    const filtered = mediaAssets
+      .filter((asset) => !query.kind || asset.kind === query.kind)
+      .sort(
+        (left, right) =>
+          right.createdAt.localeCompare(left.createdAt) || right.id - left.id,
+      )
+    json(response, paginate(filtered.map(mediaAssetResponse), query.page, size))
+    return
+  }
+  if (path === '/admin/media' && request.method === 'POST') {
+    const raw = await readBuffer(request)
+    const part = parseMultipart(raw, request.headers['content-type'])
+    if (!part || part.content.length === 0) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_empty',
+            message: 'The Media Asset must not be empty',
+          },
+        },
+        422,
+      )
+      return
+    }
+    const acceptedTypes = [
+      ...mediaPolicy.accepted_image_types,
+      ...mediaPolicy.accepted_audio_types,
+    ]
+    if (!acceptedTypes.includes(part.contentType)) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_type_unsupported',
+            message:
+              'Only supported image and audio Media Assets may be uploaded',
+          },
+        },
+        422,
+      )
+      return
+    }
+    const isImage = mediaPolicy.accepted_image_types.includes(part.contentType)
+    if (part.content.length > mediaPolicy.max_upload_bytes) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_too_large',
+            message: 'The Media Asset exceeds the upload size limit',
+          },
+        },
+        413,
+      )
+      return
+    }
+    if (isImage && part.content.length > mediaPolicy.image_max_upload_bytes) {
+      json(
+        response,
+        {
+          error: {
+            code: 'image_too_large',
+            message: 'The image exceeds the image size limit',
+          },
+        },
+        413,
+      )
+      return
+    }
+    const actual = isImage
+      ? sniffImageType(part.content)
+      : sniffAudioType(part.content)
+    if (!actual) {
+      json(
+        response,
+        {
+          error: {
+            code: isImage ? 'media_content_invalid' : 'media_content_mismatch',
+            message: isImage
+              ? 'The uploaded image is not valid'
+              : 'The uploaded bytes do not match the declared audio type',
+          },
+        },
+        422,
+      )
+      return
+    }
+    if (actual !== part.contentType) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_content_mismatch',
+            message: 'The uploaded bytes do not match the declared image type',
+          },
+        },
+        422,
+      )
+      return
+    }
+    const created = {
+      id: Math.max(0, ...mediaAssets.map((asset) => asset.id)) + 1,
+      filename: part.filename.replace(/\\/g, '/').split('/').pop() || 'upload',
+      kind: isImage ? 'image' : 'audio',
+      type: part.contentType,
+      size: part.content.length,
+      width: isImage ? 640 : null,
+      height: isImage ? 451 : null,
+      key: mediaKeyFor(isImage ? 'image' : 'audio', part.contentType),
+      createdAt: new Date().toISOString(),
+    }
+    mediaAssets.push(created)
+    json(response, { data: mediaAssetResponse(created) }, 201)
+    return
+  }
+  const mediaDeleteMatch = path.match(/^\/admin\/media\/(\d+)$/)
+  if (mediaDeleteMatch && request.method === 'DELETE') {
+    const asset = mediaAssets.find(
+      (item) => item.id === Number(mediaDeleteMatch[1]),
+    )
+    if (!asset) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_asset_not_found',
+            message: 'The requested Media Asset does not exist',
+          },
+        },
+        404,
+      )
+      return
+    }
+    const purge = query.purge_metadata === 'true'
+    if (asset.references?.length) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_asset_referenced',
+            message: 'The Media Asset is still referenced by site content',
+            details: asset.references,
+          },
+        },
+        409,
+      )
+      return
+    }
+    if (asset.missingBytes && !purge) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_bytes_missing',
+            message:
+              'The Media Asset bytes are missing; retry with purge_metadata=true',
+            details: {
+              asset_id: asset.id,
+              key: asset.key,
+              metadata_preserved: true,
+              recovery: 'purge_metadata',
+            },
+          },
+        },
+        409,
+      )
+      return
+    }
+    if (asset.staleMetadata && !purge) {
+      json(
+        response,
+        {
+          error: {
+            code: 'media_metadata_delete_failed',
+            message:
+              'The Media Asset bytes were removed but metadata cleanup failed; retry with purge_metadata=true',
+            details: {
+              asset_id: asset.id,
+              key: asset.key,
+              metadata_preserved: true,
+              recovery: 'purge_metadata',
+            },
+          },
+        },
+        503,
+      )
+      return
+    }
+    mediaAssets.splice(mediaAssets.indexOf(asset), 1)
+    json(response, {
+      data: purge ? { deleted: true, bytes_missing: true } : { deleted: true },
+    })
     return
   }
   const noteMatch = path.match(

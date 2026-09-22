@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.exceptions import AppError
 from app.models.media import MediaAsset
-from app.repositories.media import MediaAssetRepository
+from app.repositories.media import MediaAssetRepository, MediaReference
 from app.storage.base import (
     StorageAdapter,
     StorageCollisionError,
@@ -53,6 +53,16 @@ class MediaInspection:
     height: int | None
 
 
+@dataclass(frozen=True, slots=True)
+class MediaPolicy:
+    accepted_image_types: tuple[str, ...]
+    accepted_audio_types: tuple[str, ...]
+    max_upload_bytes: int
+    image_max_upload_bytes: int
+    image_max_pixels: int
+    image_max_dimension: int
+
+
 class MediaAssetService:
     def __init__(
         self,
@@ -65,14 +75,34 @@ class MediaAssetService:
         self._storage = storage
         self._repository = MediaAssetRepository(session)
 
-    async def list_all(self, *, page: int, page_size: int) -> tuple[list[MediaAsset], int]:
+    async def list_all(
+        self, *, page: int, page_size: int, kind: MediaKind | None = None
+    ) -> tuple[list[MediaAsset], int]:
         return (
-            await self._repository.list_all(offset=(page - 1) * page_size, limit=page_size),
-            await self._repository.count_all(),
+            await self._repository.list_all(
+                offset=(page - 1) * page_size, limit=page_size, kind=kind
+            ),
+            await self._repository.count_all(kind=kind),
         )
 
     async def detail(self, asset_id: int) -> MediaAsset:
         return await self._require(asset_id)
+
+    async def references(self, asset_id: int) -> list[MediaReference]:
+        asset = await self._require(asset_id)
+        return await self._repository.find_references(
+            key=asset.key, public_url=self._storage.public_url(asset.key)
+        )
+
+    def policy(self) -> MediaPolicy:
+        return MediaPolicy(
+            accepted_image_types=tuple(sorted(SUPPORTED_IMAGE_TYPES)),
+            accepted_audio_types=tuple(sorted(SUPPORTED_AUDIO_TYPES)),
+            max_upload_bytes=self._settings.media_max_upload_bytes,
+            image_max_upload_bytes=self._settings.image_max_upload_bytes,
+            image_max_pixels=self._settings.image_max_pixels,
+            image_max_dimension=self._settings.image_max_dimension,
+        )
 
     async def upload(self, file: UploadFile) -> MediaAsset:
         inspection = await inspect_upload(file, self._settings)

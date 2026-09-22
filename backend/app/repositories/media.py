@@ -10,6 +10,7 @@ from app.models.moment import MomentImage
 from app.models.music import MusicTrack
 from app.models.portfolio import FriendLink, Project, SiteSettings
 from app.models.post import Post
+from app.types.media import MediaKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,11 +44,18 @@ class MediaAssetRepository:
     async def delete(self, asset: MediaAsset) -> None:
         await self._session.delete(asset)
 
-    async def count_all(self) -> int:
-        return int(await self._session.scalar(select(func.count(MediaAsset.id))) or 0)
+    async def count_all(self, *, kind: MediaKind | None = None) -> int:
+        statement = select(func.count(MediaAsset.id))
+        if kind is not None:
+            statement = statement.where(MediaAsset.media_kind == kind)
+        return int(await self._session.scalar(statement) or 0)
 
-    async def list_all(self, *, offset: int, limit: int) -> list[MediaAsset]:
+    async def list_all(
+        self, *, offset: int, limit: int, kind: MediaKind | None = None
+    ) -> list[MediaAsset]:
         statement = select(MediaAsset).order_by(MediaAsset.created_at.desc(), MediaAsset.id.desc())
+        if kind is not None:
+            statement = statement.where(MediaAsset.media_kind == kind)
         return list(await self._session.scalars(statement.offset(offset).limit(limit)))
 
     async def find_references(self, *, key: str, public_url: str) -> list[MediaReference]:

@@ -23,3 +23,18 @@ class MediaAssetResponse(BaseModel):
 class MediaAssetCollectionResponse(BaseModel):
     data: list[MediaAssetResponse]
     pagination: PaginationMeta
+
+
+class MediaReferenceResponse(BaseModel):
+    resource_type: str
+    resource_id: int
+    field: str
+
+
+class MediaPolicyResponse(BaseModel):
+    accepted_image_types: list[str]
+    accepted_audio_types: list[str]
+    max_upload_bytes: int
+    image_max_upload_bytes: int
+    image_max_pixels: int
+    image_max_dimension: int

@@ -361,6 +361,11 @@ function isAbortError(failure: unknown) {
           label="Favicon URL"
           :error="validation.faviconUrl"
         />
+        <p class="admin-settings-note">
+          头像与 Favicon 可以直接使用
+          <NuxtLink to="/admin/media">媒体管理</NuxtLink>
+          中上传后的引用路径。
+        </p>
       </UiGlassPanel>
 
       <UiGlassPanel class="admin-settings-section" padding="spacious">

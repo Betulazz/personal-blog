@@ -6,11 +6,35 @@ from app.api.dependencies import get_current_user, get_media_service, require_cs
 from app.models.auth import User
 from app.models.media import MediaAsset
 from app.schemas.common import ApiResponse, PaginationMeta
-from app.schemas.media import MediaAssetCollectionResponse, MediaAssetResponse
+from app.schemas.media import (
+    MediaAssetCollectionResponse,
+    MediaAssetResponse,
+    MediaPolicyResponse,
+    MediaReferenceResponse,
+)
 from app.services.media import MediaAssetService
+from app.types.media import MediaKind
 
 router = APIRouter()
 CurrentAdmin = Annotated[User, Depends(get_current_user)]
+
+
+@router.get("/admin/media/policy", response_model=ApiResponse[MediaPolicyResponse])
+async def get_admin_media_policy(
+    _: CurrentAdmin,
+    service: Annotated[MediaAssetService, Depends(get_media_service)],
+) -> ApiResponse[MediaPolicyResponse]:
+    policy = service.policy()
+    return ApiResponse(
+        data=MediaPolicyResponse(
+            accepted_image_types=list(policy.accepted_image_types),
+            accepted_audio_types=list(policy.accepted_audio_types),
+            max_upload_bytes=policy.max_upload_bytes,
+            image_max_upload_bytes=policy.image_max_upload_bytes,
+            image_max_pixels=policy.image_max_pixels,
+            image_max_dimension=policy.image_max_dimension,
+        )
+    )
 
 
 @router.get("/admin/media", response_model=MediaAssetCollectionResponse)
@@ -19,8 +43,9 @@ async def list_admin_media(
     service: Annotated[MediaAssetService, Depends(get_media_service)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    kind: Annotated[MediaKind | None, Query()] = None,
 ) -> MediaAssetCollectionResponse:
-    assets, total = await service.list_all(page=page, page_size=page_size)
+    assets, total = await service.list_all(page=page, page_size=page_size, kind=kind)
     return MediaAssetCollectionResponse(
         data=[_response(asset, service) for asset in assets],
         pagination=PaginationMeta(
@@ -29,6 +54,28 @@ async def list_admin_media(
             total=total,
             total_pages=(total + page_size - 1) // page_size if total else 0,
         ),
+    )
+
+
+@router.get(
+    "/admin/media/{asset_id}/references",
+    response_model=ApiResponse[list[MediaReferenceResponse]],
+)
+async def get_admin_media_references(
+    asset_id: int,
+    _: CurrentAdmin,
+    service: Annotated[MediaAssetService, Depends(get_media_service)],
+) -> ApiResponse[list[MediaReferenceResponse]]:
+    references = await service.references(asset_id)
+    return ApiResponse(
+        data=[
+            MediaReferenceResponse(
+                resource_type=reference.resource_type,
+                resource_id=reference.resource_id,
+                field=reference.field,
+            )
+            for reference in references
+        ]
     )
 
 

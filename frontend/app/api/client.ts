@@ -31,6 +31,14 @@ import type {
   AdminSiteSettingsInput,
 } from '~/types/admin-portfolio'
 import type {
+  AdminMediaAsset,
+  AdminMediaCollection,
+  AdminMediaDeleteResult,
+  AdminMediaPolicy,
+  AdminMediaQuery,
+  AdminMediaReference,
+} from '~/types/admin-media'
+import type {
   HomepageChatter,
   HomepageCollectionResponse,
   HomepageMoment,
@@ -249,6 +257,40 @@ interface RawAdminMusicTrack {
   updated_at: string
 }
 
+interface RawAdminMediaAsset {
+  content_type: string
+  created_at: string
+  height: number | null
+  id: number
+  key: string
+  media_kind: AdminMediaAsset['mediaKind']
+  original_filename: string
+  size_bytes: number
+  storage_strategy: AdminMediaAsset['storageStrategy']
+  url: string
+  width: number | null
+}
+
+interface RawAdminMediaPolicy {
+  accepted_audio_types: string[]
+  accepted_image_types: string[]
+  image_max_dimension: number
+  image_max_pixels: number
+  image_max_upload_bytes: number
+  max_upload_bytes: number
+}
+
+interface RawAdminMediaReference {
+  field: string
+  resource_id: number
+  resource_type: string
+}
+
+interface RawAdminMediaDeleteResult {
+  bytes_missing?: boolean
+  deleted: boolean
+}
+
 interface RawMoment {
   body: string
   id: number
@@ -311,6 +353,23 @@ export interface BlogApiClient {
     id: string,
     signal?: AbortSignal,
   ) => Promise<AdminMusicTrack>
+  getAdminMediaPolicy: (signal?: AbortSignal) => Promise<AdminMediaPolicy>
+  getAdminMediaReferences: (
+    id: string,
+    signal?: AbortSignal,
+  ) => Promise<AdminMediaReference[]>
+  listAdminMedia: (
+    query: AdminMediaQuery,
+    signal?: AbortSignal,
+  ) => Promise<AdminMediaCollection>
+  uploadAdminMedia: (
+    file: File,
+    options?: { onProgress?: (ratio: number) => void },
+  ) => Promise<AdminMediaAsset>
+  deleteAdminMedia: (
+    id: string,
+    options?: { purgeMetadata?: boolean },
+  ) => Promise<AdminMediaDeleteResult>
   getAdminProject: (id: string, signal?: AbortSignal) => Promise<AdminProject>
   getAdminSettings: (signal?: AbortSignal) => Promise<AdminSiteSettings>
   getAdminPost: (id: string, signal?: AbortSignal) => Promise<AdminPost>
@@ -723,6 +782,41 @@ const toAdminMusicTrack = (
   updatedAt: value.updated_at,
 })
 
+const toAdminMediaAsset = (
+  value: RawAdminMediaAsset,
+  resolveMediaUrl: MediaUrlResolver,
+): AdminMediaAsset => ({
+  contentType: value.content_type,
+  createdAt: value.created_at,
+  height: value.height,
+  id: String(value.id),
+  key: value.key,
+  mediaKind: value.media_kind,
+  originalFilename: value.original_filename,
+  reference: value.url,
+  sizeBytes: value.size_bytes,
+  storageStrategy: value.storage_strategy,
+  url: resolveMediaUrl(value.url),
+  width: value.width,
+})
+
+const toAdminMediaPolicy = (value: RawAdminMediaPolicy): AdminMediaPolicy => ({
+  acceptedAudioTypes: value.accepted_audio_types,
+  acceptedImageTypes: value.accepted_image_types,
+  imageMaxDimension: value.image_max_dimension,
+  imageMaxPixels: value.image_max_pixels,
+  imageMaxUploadBytes: value.image_max_upload_bytes,
+  maxUploadBytes: value.max_upload_bytes,
+})
+
+const toAdminMediaReference = (
+  value: RawAdminMediaReference,
+): AdminMediaReference => ({
+  field: value.field,
+  resourceId: value.resource_id,
+  resourceType: value.resource_type,
+})
+
 const toAdminUser = (value: RawAdminUser): AdminUser => ({
   createdAt: value.created_at,
   ...(value.email ? { email: value.email } : {}),
@@ -1133,6 +1227,78 @@ export function useApiClient(): BlogApiClient {
       'DELETE',
     )
     clearPublicMusicData()
+  }
+
+  const listAdminMedia = async (
+    query: AdminMediaQuery,
+    signal?: AbortSignal,
+  ): Promise<AdminMediaCollection> => {
+    const response = await request<RawCollection<RawAdminMediaAsset>>(
+      '/admin/media',
+      {
+        query: {
+          kind: query.kind,
+          page: query.page,
+          page_size: query.pageSize,
+        },
+        signal,
+      },
+    )
+    return {
+      data: response.data.map((asset) =>
+        toAdminMediaAsset(asset, resolveMediaUrl),
+      ),
+      pagination: pagination(response.pagination),
+    }
+  }
+
+  const getAdminMediaPolicy = async (signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawAdminMediaPolicy>>(
+      '/admin/media/policy',
+      { signal },
+    )
+    return toAdminMediaPolicy(response.data)
+  }
+
+  const getAdminMediaReferences = async (id: string, signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawAdminMediaReference[]>>(
+      `/admin/media/${encodeURIComponent(id)}/references`,
+      { signal },
+    )
+    return response.data.map(toAdminMediaReference)
+  }
+
+  const uploadAdminMedia = async (
+    file: File,
+    options: { onProgress?: (ratio: number) => void } = {},
+  ) => {
+    const token = await csrfToken()
+    const body = new FormData()
+    body.append('file', file, file.name)
+    const response = await uploadWithProgress<
+      RawApiResponse<RawAdminMediaAsset>
+    >({
+      baseURL,
+      body,
+      headers: { 'X-CSRF-Token': token },
+      onProgress: options.onProgress,
+      path: '/admin/media',
+    })
+    return toAdminMediaAsset(response.data, resolveMediaUrl)
+  }
+
+  const deleteAdminMedia = async (
+    id: string,
+    options: { purgeMetadata?: boolean } = {},
+  ) => {
+    const purge = options.purgeMetadata ? '?purge_metadata=true' : ''
+    const response = await mutateWithCsrf<
+      RawApiResponse<RawAdminMediaDeleteResult>
+    >(`/admin/media/${encodeURIComponent(id)}${purge}`, 'DELETE')
+    return {
+      bytesMissing: Boolean(response.data.bytes_missing),
+      deleted: response.data.deleted,
+    }
   }
 
   const getAdminSettings = async (signal?: AbortSignal) => {
@@ -1626,12 +1792,15 @@ export function useApiClient(): BlogApiClient {
     createAdminTag,
     deleteAdminCategory,
     deleteAdminFriend,
+    deleteAdminMedia,
     deleteAdminMusicTrack,
     deleteAdminPost,
     deleteAdminProject,
     deleteAdminTag,
     getAdminDashboard,
     getAdminFriend,
+    getAdminMediaPolicy,
+    getAdminMediaReferences,
     getAdminMusicTrack,
     getAdminPost,
     getAdminProject,
@@ -1645,6 +1814,7 @@ export function useApiClient(): BlogApiClient {
     listCategories,
     listAdminCategories,
     listAdminFriends,
+    listAdminMedia,
     listAdminMusicTracks,
     listAdminPosts,
     listAdminProjects,
@@ -1675,6 +1845,7 @@ export function useApiClient(): BlogApiClient {
     updateAdminProject,
     updateAdminSettings,
     updateAdminTag,
+    uploadAdminMedia,
   }
 }
 
@@ -1688,21 +1859,64 @@ function isAbortError(error: unknown) {
   )
 }
 
-function normalizeApiError(error: unknown): BlogApiError {
-  if (error instanceof BlogApiError) {
-    return error
-  }
+function uploadWithProgress<T>(options: {
+  baseURL: string
+  body: FormData
+  headers: Record<string, string>
+  onProgress?: (ratio: number) => void
+  path: string
+}): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('POST', `${options.baseURL}${options.path}`)
+    request.responseType = 'text'
+    request.withCredentials = true
+    for (const [name, value] of Object.entries(options.headers)) {
+      request.setRequestHeader(name, value)
+    }
+    request.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        options.onProgress?.(Math.min(1, event.loaded / event.total))
+      }
+    })
+    request.addEventListener('abort', () => {
+      reject(new DOMException('Upload aborted', 'AbortError'))
+    })
+    request.addEventListener('error', () => {
+      reject(
+        new BlogApiError('网络连接中断，上传未完成，请重试。', { status: 0 }),
+      )
+    })
+    request.addEventListener('load', () => {
+      const payload = parseJson(request.responseText)
+      if (
+        request.status >= 200 &&
+        request.status < 300 &&
+        typeof payload === 'object' &&
+        payload !== null
+      ) {
+        resolve(payload as T)
+        return
+      }
+      reject(apiErrorFromPayload(request.status, payload))
+    })
+    request.send(options.body)
+  })
+}
 
-  const response =
-    typeof error === 'object' && error !== null && 'response' in error
-      ? (error.response as { _data?: unknown; status?: number } | undefined)
-      : undefined
-  const payload = response?._data
+function parseJson(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
+function apiErrorFromPayload(status: number, payload: unknown): BlogApiError {
   const envelope =
     typeof payload === 'object' && payload !== null && 'error' in payload
-      ? (payload.error as Record<string, unknown>)
+      ? ((payload as { error: unknown }).error as Record<string, unknown>)
       : undefined
-  const status = response?.status ?? getNumber(error, 'statusCode') ?? 0
 
   return new BlogApiError(
     typeof envelope?.message === 'string'
@@ -1716,6 +1930,20 @@ function normalizeApiError(error: unknown): BlogApiError {
       status,
     },
   )
+}
+
+function normalizeApiError(error: unknown): BlogApiError {
+  if (error instanceof BlogApiError) {
+    return error
+  }
+
+  const response =
+    typeof error === 'object' && error !== null && 'response' in error
+      ? (error.response as { _data?: unknown; status?: number } | undefined)
+      : undefined
+  const status = response?.status ?? getNumber(error, 'statusCode') ?? 0
+
+  return apiErrorFromPayload(status, response?._data)
 }
 
 function getNumber(value: unknown, key: string) {
