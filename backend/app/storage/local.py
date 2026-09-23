@@ -105,7 +105,7 @@ class LocalStorageAdapter(StorageAdapter):
 
     @staticmethod
     def _write_exclusive(path: Path, payload: bytes) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
         fd: int | None = None
         temporary: Path | None = None
         try:
@@ -117,6 +117,7 @@ class LocalStorageAdapter(StorageAdapter):
                 handle.flush()
                 os.fsync(handle.fileno())
             os.link(temporary, path)
+            path.chmod(0o644)
         finally:
             if fd is not None:
                 os.close(fd)

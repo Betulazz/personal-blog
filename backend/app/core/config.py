@@ -45,17 +45,25 @@ class Settings(BaseSettings):
     cors_origins: list[AnyHttpUrl] = Field(
         default_factory=lambda: [AnyHttpUrl("http://127.0.0.1:3000")]
     )
+    trusted_hosts: list[str] = Field(default_factory=lambda: ["*"])
 
     @model_validator(mode="after")
     def validate_auth_configuration(self) -> "Settings":
-        if self.app_env == "production" and (
-            not self.jwt_secret
-            or self.jwt_secret.startswith("replace-with-")
-            or self.cookie_secure is False
-        ):
-            raise ValueError("Production requires a real JWT_SECRET and Secure cookies")
+        if any(origin.host == "*" for origin in self.cors_origins):
+            raise ValueError("CORS_ORIGINS must not contain a wildcard host")
         if self.cookie_samesite == "none" and not self.cookies_are_secure:
             raise ValueError("COOKIE_SAMESITE=none requires COOKIE_SECURE=true")
+        if self.app_env == "production":
+            if (
+                not self.jwt_secret
+                or _is_placeholder(self.jwt_secret)
+                or self.cookie_secure is False
+            ):
+                raise ValueError("Production requires a real JWT_SECRET and Secure cookies")
+            if not self.trusted_hosts or "*" in self.trusted_hosts:
+                raise ValueError("Production requires explicit TRUSTED_HOSTS without wildcards")
+            if _is_placeholder(self.database_url):
+                raise ValueError("Production requires a real DATABASE_URL")
         if self.jwt_secret is None:
             self.jwt_secret = secrets.token_urlsafe(32)
         return self
@@ -65,6 +73,14 @@ class Settings(BaseSettings):
         return (
             self.cookie_secure if self.cookie_secure is not None else self.app_env == "production"
         )
+
+    @property
+    def trusted_hosts_enforced(self) -> bool:
+        return "*" not in self.trusted_hosts
+
+
+def _is_placeholder(value: str) -> bool:
+    return "replace-with-" in value
 
 
 @lru_cache

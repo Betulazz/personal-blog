@@ -7,7 +7,10 @@ An independent Nuxt 4 + FastAPI personal blog inspired by the visual language of
 - Phase 0 reference analysis: complete
 - Phase 1 architecture: complete
 - Public design system, pages, APIs, and native live acceptance: complete
-- Administration UI and later deployment phases: not started
+- Administration UI and native workflow acceptance: complete
+- Animation, responsive, accessibility, and performance convergence: complete
+- Cloud-server Docker deployment and operations: complete
+- Final v1 regression and release decision: pending
 
 ## Repository layout
 
@@ -32,3 +35,7 @@ Docker is not required for local development.
 
 Native database setup and migration commands are documented in
 [`docs/native-mysql-development.md`](docs/native-mysql-development.md).
+
+Production container topology, migrations, HTTPS, backup/restore, rollback
+limits, and the deployment verification record are documented in
+[`docs/deployment.md`](docs/deployment.md).

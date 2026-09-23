@@ -8,3 +8,4 @@ These ideas are intentionally outside the first release. Recording them here doe
 - Automatic friend-site health checks with honest status semantics and rate limits.
 - A carefully profiled low-density particle canvas if CSS effects cannot meet the desired quality.
 - Static export/import tooling for Markdown content and site settings.
+- An S3-compatible Media Asset adapter behind the existing `StorageAdapter` seam for multi-host or CDN-backed media.

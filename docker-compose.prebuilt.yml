@@ -1,0 +1,12 @@
+# Assemble the frontend runtime image from a .output bundle produced on a
+# workstation with Node 22.22.2. Use this on hosts that cannot run the full
+# Nuxt build (for example a 2 GB cloud server):
+#
+#   cd frontend && npm ci && npm run build
+#   docker compose -f docker-compose.yml -f docker-compose.prebuilt.yml \
+#     build frontend
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prebuilt

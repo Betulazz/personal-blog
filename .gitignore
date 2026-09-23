@@ -29,6 +29,9 @@ backend/htmlcov/
 # Runtime data
 uploads/
 mysql-data/
+backups/
+docker/certs/
+docker-compose.override.yml
 
 # Logs and temporary QA artifacts
 *.log

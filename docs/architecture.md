@@ -191,7 +191,7 @@ Business services depend on `StorageAdapter`, not a provider SDK.
 
 The baseline Compose topology contains `nginx`, `frontend`, `backend`, and `mysql`. Images use multi-stage builds and runtime users without root privileges where practical. MySQL and uploads use named volumes. Health checks gate service ordering, but migrations remain an explicit deployment step rather than a hidden web-process side effect.
 
-Docker is not installed on the current development host, so Compose and Dockerfile execution cannot yet be validated locally. Their syntax and behavior must be exercised in a Docker-capable environment before Phase 11 acceptance.
+Docker is not installed on the current development host, so Compose and Dockerfile execution cannot be validated locally. They are exercised on the Docker-capable cloud server; the runbook, limitations, and the Phase 11 verification record live in [`deployment.md`](deployment.md).
 
 ## Known environment constraints
 

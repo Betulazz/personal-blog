@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncIterator
 
 import pytest
@@ -35,6 +36,22 @@ async def test_local_storage_writes_reads_and_deletes_without_overwrite(tmp_path
     await adapter.delete(stored.key)
     with pytest.raises(StorageObjectNotFound):
         await adapter.read(stored.key)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits")
+@pytest.mark.asyncio
+async def test_local_storage_writes_world_readable_media_for_the_web_server(tmp_path) -> None:
+    adapter = LocalStorageAdapter(tmp_path)
+    stored = await adapter.put(
+        key="images/2026/09/example.png",
+        content_type="image/png",
+        content=_chunks(b"png"),
+    )
+    path = tmp_path / "images/2026/09/example.png"
+
+    assert path.stat().st_mode & 0o777 == 0o644
+    assert path.parent.stat().st_mode & 0o777 == 0o755
+    assert await adapter.read(stored.key) == b"png"
 
 
 @pytest.mark.parametrize(
