@@ -196,9 +196,27 @@ Certificate options:
   (`chmod 600`).
 - Let's Encrypt: issue the certificate on the host (standalone or DNS
   challenge), copy the files into `docker/certs/`, and reload Nginx with
-  `docker compose exec nginx nginx -s reload` after each renewal.
+  `docker compose exec nginx nginx -s reload` after each renewal. Let's
+  Encrypt also issues short-lived certificates for bare IP addresses; those
+  require fully automated renewal every few days.
 - Self-signed: acceptable only for rehearsal. Browsers warn until a real
   certificate is installed.
+
+Cloud certificate auto-deployment (Aliyun): the certificate service can write
+files on the ECS host and run a command after each deployment or renewal. Point
+it at the staging directory and let `docker/apply-certificate.sh` assemble the
+Nginx files and reload the container:
+
+| Field | Value |
+| --- | --- |
+| Certificate path | `/opt/personal-blog/docker/certs/deploy/cert.pem` |
+| Private key path | `/opt/personal-blog/docker/certs/deploy/privkey.pem` |
+| Certificate chain path | `/opt/personal-blog/docker/certs/deploy/chain.cer` |
+| Restart command | `bash /opt/personal-blog/docker/apply-certificate.sh` |
+
+The script concatenates the leaf certificate and the chain into
+`docker/certs/fullchain.pem`, installs the key with mode `600`, prints the
+subject and SANs, and reloads Nginx. Renewal deployments reuse the same command.
 
 If TLS terminates at a cloud load balancer or CDN instead, keep the base
 Compose file (no TLS override), point the load balancer at the host's port 80,
