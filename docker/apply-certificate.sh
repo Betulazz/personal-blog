@@ -30,6 +30,8 @@ if [[ -s "$CHAIN" ]]; then
 fi
 install -m 600 "$KEY" "$CERT_DIR/privkey.pem"
 chmod 644 "$CERT_DIR/fullchain.pem"
+chmod 700 "$DEPLOY_DIR"
+chmod 600 "$KEY"
 
 echo "Installed certificate:"
 openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -subject -issuer -enddate -ext subjectAltName
