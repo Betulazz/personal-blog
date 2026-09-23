@@ -777,6 +777,9 @@ test('Site Identity and Music Track changes reach the public shell and player', 
 
   await page.goto('/admin/music')
   await trackRow.getByRole('button', { name: '停用' }).click()
+  // Wait for the toggle to settle before leaving so the public read cannot
+  // race the in-flight update request.
+  await expect(trackRow.getByRole('button', { name: '启用' })).toBeVisible()
   await page.goto('/')
   await expect(page.getByTestId('music-player').locator('strong')).toHaveText(
     '夜色里的测试音轨',

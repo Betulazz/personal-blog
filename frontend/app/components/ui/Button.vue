@@ -39,7 +39,12 @@ const emit = defineEmits<{
     @blur="emit('blur', $event)"
     @focus="emit('focus', $event)"
   >
-    <span v-if="loading" class="button__spinner" aria-hidden="true" />
+    <span
+      v-if="loading"
+      class="button__spinner"
+      data-continuous-effect
+      aria-hidden="true"
+    />
     <span class="button__content"><slot /></span>
   </button>
 </template>
@@ -86,8 +91,8 @@ const emit = defineEmits<{
 .button[data-variant='primary'] {
   background: linear-gradient(
     135deg,
-    var(--color-accent-strong),
-    var(--color-accent)
+    var(--color-action-start),
+    var(--color-action-end)
   );
   box-shadow: 0 0.75rem 2rem rgb(95 109 243 / 24%);
 }

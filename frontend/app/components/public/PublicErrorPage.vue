@@ -149,7 +149,11 @@ const retry = () => {
 
 .error-page__action--primary {
   border: var(--border-hairline) solid rgb(164 175 255 / 50%);
-  background: linear-gradient(135deg, #438cf5, var(--color-accent-strong));
+  background: linear-gradient(
+    135deg,
+    var(--color-action-start),
+    var(--color-action-end)
+  );
   box-shadow: 0 0.75rem 2.5rem rgb(74 93 238 / 30%);
 }
 

@@ -14,6 +14,9 @@
   --color-accent: #7c83ff;
   --color-accent-strong: #5f6df3;
   --color-accent-soft: #a3a8ff;
+  /* Deeper gradient stops keep white action text at WCAG AA contrast. */
+  --color-action-start: #2f66d0;
+  --color-action-end: #4a54dd;
   --color-secondary: #b58bdc;
   --color-danger: #fb7185;
   --color-danger-border: rgb(251 113 133 / 44%);
@@ -123,9 +126,11 @@
   --motion-duration-fast: 140ms;
   --motion-duration-normal: 220ms;
   --motion-duration-slow: 480ms;
+  --motion-duration-shimmer: 1.8s;
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-distance-small: 0.25rem;
+  --motion-delay-entry-stagger: 140ms;
   --public-shell-safe-bottom: calc(8rem + env(safe-area-inset-bottom));
   --breakpoint-phone: 23.4375rem;
   --breakpoint-phone-wide: 26.875rem;
@@ -175,6 +180,8 @@
     --motion-duration-fast: 0.01ms;
     --motion-duration-normal: 0.01ms;
     --motion-duration-slow: 0.01ms;
+    --motion-duration-shimmer: 0.01ms;
+    --motion-delay-entry-stagger: 0ms;
     --motion-distance-small: 0;
   }
 }

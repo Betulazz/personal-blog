@@ -25,7 +25,11 @@ const emit = defineEmits<{
     aria-busy="true"
     aria-live="polite"
   >
-    <span class="home-section-state__spinner" aria-hidden="true" />
+    <span
+      class="home-section-state__spinner"
+      data-continuous-effect
+      aria-hidden="true"
+    />
     <span>正在加载{{ props.label }}…</span>
   </div>
 

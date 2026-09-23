@@ -33,6 +33,7 @@ const emit = defineEmits<{
         v-for="index in 3"
         :key="index"
         class="public-collection-state__skeleton"
+        data-continuous-effect
       >
         <span />
         <span />
@@ -179,7 +180,8 @@ const emit = defineEmits<{
     var(--glass-card-bg) 60%
   );
   background-size: 220% 100%;
-  animation: public-skeleton-shimmer 1.8s linear infinite;
+  animation: public-skeleton-shimmer var(--motion-duration-shimmer) linear
+    infinite;
 }
 
 .public-collection-state__skeleton span {

@@ -53,6 +53,7 @@ const emit = defineEmits<{
             v-for="index in 3"
             :key="index"
             class="post-taxonomy-index__skeleton"
+            data-continuous-effect
           >
             <span />
             <span />
@@ -178,7 +179,8 @@ const emit = defineEmits<{
     var(--glass-card-bg) 60%
   );
   background-size: 220% 100%;
-  animation: taxonomy-skeleton-shimmer 1.8s linear infinite;
+  animation: taxonomy-skeleton-shimmer var(--motion-duration-shimmer) linear
+    infinite;
 }
 
 .post-taxonomy-index__skeleton span {

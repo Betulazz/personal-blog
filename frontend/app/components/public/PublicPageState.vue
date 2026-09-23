@@ -27,7 +27,11 @@ const emit = defineEmits<{
     aria-live="polite"
   >
     <span>正在加载{{ props.label }}…</span>
-    <div class="public-page-state__skeleton" aria-hidden="true">
+    <div
+      class="public-page-state__skeleton"
+      data-continuous-effect
+      aria-hidden="true"
+    >
       <span />
       <span />
       <span />
@@ -149,7 +153,8 @@ const emit = defineEmits<{
     var(--glass-card-bg) 60%
   );
   background-size: 220% 100%;
-  animation: public-page-skeleton-shimmer 1.8s linear infinite;
+  animation: public-page-skeleton-shimmer var(--motion-duration-shimmer) linear
+    infinite;
 }
 
 .public-page-state__skeleton span {

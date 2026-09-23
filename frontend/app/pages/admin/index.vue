@@ -114,7 +114,11 @@ useHead({ title: 'Dashboard · 后台空间' })
       role="status"
       aria-busy="true"
     >
-      <span class="admin-dashboard__loader" aria-hidden="true" />
+      <span
+        class="admin-dashboard__loader"
+        data-continuous-effect
+        aria-hidden="true"
+      />
       正在读取站点状态…
     </section>
     <section

@@ -22,6 +22,11 @@ const localApiOrigin = /^https?:\/\//.test(apiBase)
   : null
 
 export default defineNuxtConfig({
+  app: {
+    head: {
+      htmlAttrs: { lang: 'zh-CN' },
+    },
+  },
   compatibilityDate: '2025-07-15',
   css: ['~/assets/css/main.css'],
   devtools: { enabled: false },

@@ -147,7 +147,7 @@ useHead({
 </script>
 
 <template>
-  <main class="post-detail-page">
+  <div class="post-detail-page">
     <div
       class="post-detail-page__progress"
       role="progressbar"
@@ -156,7 +156,7 @@ useHead({
       aria-valuemin="0"
       aria-valuemax="100"
     >
-      <span :style="{ width: `${readingProgress}%` }" />
+      <span :style="{ '--reading-progress': readingProgress / 100 }" />
     </div>
 
     <UiPageContainer width="wide">
@@ -190,7 +190,7 @@ useHead({
           class="post-detail-page__toc post-detail-page__toc--desktop"
           aria-label="文章目录"
         >
-          <nav>
+          <nav aria-label="文章目录">
             <p class="post-detail-page__toc-label">ON THIS PAGE</p>
             <ol>
               <li v-for="item in toc" :key="item.id" :data-level="item.level">
@@ -310,7 +310,7 @@ useHead({
     >
       <ArrowUp :size="18" aria-hidden="true" />
     </UiButton>
-  </main>
+  </div>
 </template>
 
 <style scoped>
@@ -342,7 +342,9 @@ useHead({
     var(--color-secondary)
   );
   box-shadow: var(--shadow-glow);
-  transition: width var(--motion-duration-fast) linear;
+  transform: scaleX(var(--reading-progress, 0));
+  transform-origin: left center;
+  transition: transform var(--motion-duration-fast) linear;
 }
 
 .post-detail-page__back {

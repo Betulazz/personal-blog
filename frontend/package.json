@@ -17,6 +17,8 @@
     "test": "npm run test:unit",
     "test:e2e": "playwright test",
     "test:e2e:live": "playwright test --config playwright.live.config.ts",
+    "test:e2e:performance": "playwright test --config playwright.performance.config.ts",
+    "test:e2e:quality": "playwright test --config playwright.quality.config.ts",
     "test:unit": "vitest run --configLoader native --pool=vmThreads",
     "typecheck": "nuxt typecheck"
   },

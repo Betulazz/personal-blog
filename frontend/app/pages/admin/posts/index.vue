@@ -170,7 +170,11 @@ useHead({ title: '文章管理 · 后台空间' })
       role="status"
       aria-busy="true"
     >
-      <span class="admin-resource-state__loader" aria-hidden="true" />
+      <span
+        class="admin-resource-state__loader"
+        data-continuous-effect
+        aria-hidden="true"
+      />
       正在读取文章…
     </section>
     <section v-else-if="errorMessage" class="admin-resource-state" role="alert">

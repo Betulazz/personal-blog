@@ -22,7 +22,7 @@ const motionEnabled = useMotionPreference({ disableOnMobile: true })
       class="foundation-page__content"
       :initial="motionEnabled ? { y: 8 } : false"
       :animate="{ y: 0 }"
-      :transition="{ ...motionTransitions.entry, delay: 0.14 }"
+      :transition="motionTransitions.entryStagger"
     >
       <HomeContent />
     </component>

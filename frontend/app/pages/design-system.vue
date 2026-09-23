@@ -512,6 +512,7 @@ onMounted(() => {
             >
               <span
                 class="motion-demo__orb"
+                data-continuous-effect
                 data-testid="motion-orb"
                 aria-hidden="true"
               />

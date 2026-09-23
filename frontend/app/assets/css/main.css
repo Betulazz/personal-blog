@@ -61,3 +61,12 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Continuous effects suspend while the document is hidden or the element is
+   outside the viewport; the observer lives in useContinuousEffectPause. */
+html[data-page-hidden] *,
+html[data-page-hidden] *::before,
+html[data-page-hidden] *::after,
+[data-continuous-effect][data-effect-paused='true'] {
+  animation-play-state: paused !important;
+}

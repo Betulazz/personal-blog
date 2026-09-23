@@ -6,6 +6,8 @@ export default defineConfig({
     '**/live-admin-acceptance.spec.ts',
     '**/live-admin-workflow-acceptance.spec.ts',
     '**/live-public-acceptance.spec.ts',
+    '**/quality-convergence.spec.ts',
+    '**/quality-convergence-performance.spec.ts',
   ],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),

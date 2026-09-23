@@ -463,11 +463,10 @@ function isAbortError(error: unknown) {
             <span
               class="admin-media-progress__bar"
               :data-indeterminate="uploadProgress === null"
+              :data-continuous-effect="uploadProgress === null ? '' : undefined"
               :style="{
-                width:
-                  uploadProgress === null
-                    ? '100%'
-                    : `${Math.round(uploadProgress * 100)}%`,
+                '--upload-progress':
+                  uploadProgress === null ? 1 : uploadProgress,
               }"
             />
           </div>
@@ -908,7 +907,10 @@ function isAbortError(error: unknown) {
     var(--color-accent-strong),
     var(--color-accent-soft)
   );
-  transition: width var(--motion-duration-normal) var(--motion-ease-standard);
+  transform: scaleX(var(--upload-progress, 0));
+  transform-origin: left center;
+  transition: transform var(--motion-duration-normal)
+    var(--motion-ease-standard);
 }
 
 .admin-media-progress__bar[data-indeterminate='true'] {
