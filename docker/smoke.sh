@@ -15,6 +15,9 @@ CURL_OPTS=(--max-time 15)
 if [[ "${CURL_INSECURE:-0}" == "1" ]]; then
   CURL_OPTS+=(-k)
 fi
+if [[ -n "${CURL_RESOLVE:-}" ]]; then
+  CURL_OPTS+=(--resolve "$CURL_RESOLVE")
+fi
 
 BODY_FILE="$(mktemp)"
 COOKIE_JAR="$(mktemp)"
