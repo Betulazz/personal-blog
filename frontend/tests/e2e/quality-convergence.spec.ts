@@ -116,11 +116,20 @@ const unexpectedProblems = (
     if (url.includes('/uploads/')) {
       return false
     }
-    // Documented noncritical engine differences: Firefox reports navigations
-    // that abort an in-flight prefetch as NS_BINDING_ABORTED, and WebKit
-    // surfaces an unhandled Nuxt build-manifest fetch rejection when a
-    // navigation aborts it mid-flight.
-    if (message === 'requestfailed: NS_BINDING_ABORTED') {
+    // Documented noncritical engine differences: the journeys and capture loop
+    // navigate rapidly, so in-flight prefetches, pending reads, media, and
+    // Nuxt's app-manifest fetch are routinely cancelled by the next navigation.
+    // Firefox reports that cancellation as NS_BINDING_ABORTED, Chromium as
+    // net::ERR_ABORTED, and WebKit as "Load request cancelled"; WebKit can also
+    // surface an unhandled build-manifest rejection or Nuxt's transient
+    // NUXT_E5002 app-manifest diagnostic for the same cancellation. All are
+    // navigation cancellations rather than network failures.
+    if (
+      message === 'requestfailed: NS_BINDING_ABORTED' ||
+      message === 'requestfailed: net::ERR_ABORTED' ||
+      message === 'requestfailed: Load request cancelled' ||
+      message.includes('[NUXT_E5002]')
+    ) {
       return false
     }
     if (

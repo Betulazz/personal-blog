@@ -291,3 +291,27 @@ test('native API errors and unavailable media stay safe at the page boundary', a
   await page.unroute('**/api/v1/projects**')
   await expect(page.locator('main#main-content')).toBeVisible()
 })
+
+test('native sitemap and robots expose the live public origin', async ({
+  request,
+}) => {
+  const sitemapResponse = await request.get('/sitemap.xml')
+  expect(sitemapResponse.status()).toBe(200)
+  expect(sitemapResponse.headers()['content-type']).toContain('application/xml')
+
+  const sitemap = await sitemapResponse.text()
+  expect(sitemap).toContain('<loc>http://127.0.0.1:3000/</loc>')
+  expect(sitemap).toContain(
+    '<loc>http://127.0.0.1:3000/posts/live-acceptance-markdown</loc>',
+  )
+  expect(sitemap).toContain(
+    '<loc>http://127.0.0.1:3000/categories/live-acceptance</loc>',
+  )
+  expect(sitemap).not.toContain('/admin')
+
+  const robotsResponse = await request.get('/robots.txt')
+  expect(robotsResponse.status()).toBe(200)
+  expect(await robotsResponse.text()).toContain(
+    'Sitemap: http://127.0.0.1:3000/sitemap.xml',
+  )
+})

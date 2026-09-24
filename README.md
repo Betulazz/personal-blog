@@ -10,7 +10,7 @@ An independent Nuxt 4 + FastAPI personal blog inspired by the visual language of
 - Administration UI and native workflow acceptance: complete
 - Animation, responsive, accessibility, and performance convergence: complete
 - Cloud-server Docker deployment and operations: complete
-- Final v1 regression and release decision: pending
+- Final v1 regression and release decision: complete (v1 release-ready)
 
 ## Repository layout
 

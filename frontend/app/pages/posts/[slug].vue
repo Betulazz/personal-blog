@@ -47,6 +47,22 @@ const canonicalUrl = computed(
   () => post.value?.canonicalUrl ?? `${siteUrl}/posts/${slug.value}`,
 )
 const ogImageUrl = computed(() => post.value?.ogImageUrl)
+const structuredData = computed(() => {
+  if (!post.value) {
+    return null
+  }
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    author: { '@type': 'Person', name: identity.value.name },
+    dateModified: post.value.updatedAt,
+    datePublished: post.value.publishedAt,
+    description: description.value,
+    headline: title.value,
+    image: ogImageUrl.value,
+    mainEntityOfPage: canonicalUrl.value,
+  }).replace(/</g, '\\u003c')
+})
 const bodyHtml = computed(() => renderedDocument.value?.html ?? '')
 const toc = computed(() => renderedDocument.value?.toc ?? [])
 const tocOpen = ref(false)
@@ -143,6 +159,16 @@ useHead({
       rel: 'canonical',
     },
   ],
+  script: computed(() =>
+    structuredData.value
+      ? [
+          {
+            innerHTML: structuredData.value,
+            type: 'application/ld+json' as 'application/json',
+          },
+        ]
+      : [],
+  ),
 })
 </script>
 

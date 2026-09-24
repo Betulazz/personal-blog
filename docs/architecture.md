@@ -1,7 +1,7 @@
 # Architecture
 
 Status: Phase 1 baseline  
-Last updated: 2026-09-18
+Last updated: 2026-09-24
 
 ## Goals
 
@@ -54,6 +54,7 @@ The browser sees one public origin in production. Nginx terminates HTTP, proxies
 - Pinia only for genuinely cross-route client state such as the music player and authenticated administrator session presentation.
 - VueUse for focused browser/composable utilities.
 - Motion for Vue for purposeful transitions; reduced-motion behavior is mandatory.
+- Nitro server routes serve `/robots.txt` and `/sitemap.xml` from the configured public origin and published API content; both are reachable through the Nginx frontend upstream.
 
 ### Boundaries
 

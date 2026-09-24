@@ -893,7 +893,7 @@ export function useApiClient(): BlogApiClient {
     } = {},
   ): Promise<T> => {
     try {
-      return await $fetch<T>(path, {
+      return (await $fetch<T>(path, {
         baseURL,
         body: options.body,
         credentials: 'include',
@@ -901,7 +901,7 @@ export function useApiClient(): BlogApiClient {
         method: options.method,
         query: options.query,
         signal: options.signal,
-      })
+      })) as T
     } catch (error: unknown) {
       if (isAbortError(error)) {
         throw error

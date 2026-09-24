@@ -53,6 +53,18 @@ test.describe('Post reading experience', () => {
       'content',
       'summary',
     )
+    const structuredData = JSON.parse(
+      (await page
+        .locator('script[type="application/ld+json"]')
+        .first()
+        .textContent()) ?? '{}',
+    )
+    expect(structuredData).toMatchObject({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: 'Markdown 是一条可迁移的路',
+      mainEntityOfPage: 'https://example.com/notes/markdown-first',
+    })
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'Markdown 是一条可迁移的路',
     )
