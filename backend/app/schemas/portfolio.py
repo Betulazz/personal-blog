@@ -1,8 +1,9 @@
+import re
 from datetime import datetime
 from typing import Literal
 from urllib.parse import unquote, urlsplit
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.portfolio import ProjectStatus
 from app.schemas.common import PaginationMeta
@@ -48,29 +49,114 @@ def _validate_unique_text(value: list[str], field: str) -> list[str]:
     return normalized
 
 
+def _validate_github_repository_url(value: str | None) -> str | None:
+    normalized = _validate_url(value, "repository_url")
+    if normalized is None:
+        return None
+    parsed = urlsplit(normalized)
+    path = unquote(parsed.path)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != "github.com"
+        or parsed.port is not None
+        or parsed.query
+        or parsed.fragment
+        or not re.fullmatch(r"/[A-Za-z0-9](?:[A-Za-z0-9-]{0,37})/[A-Za-z0-9_.-]+(?:\.git)?/?", path)
+    ):
+        raise ValueError("repository_url must be an HTTPS GitHub repository URL")
+    return normalized.rstrip("/")
+
+
+def _validate_background_reference(value: str) -> str:
+    normalized = value.strip()
+    decoded = unquote(normalized)
+    if not normalized or any(character.isspace() for character in decoded):
+        raise ValueError("background image must use HTTPS or an existing image Media Asset")
+    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in decoded):
+        raise ValueError("background image must use HTTPS or an existing image Media Asset")
+    if "\\" in decoded:
+        raise ValueError("background image must use HTTPS or an existing image Media Asset")
+    if normalized.startswith("/uploads/"):
+        path = urlsplit(normalized)
+        key = path.path.removeprefix("/uploads/")
+        if (
+            path.query
+            or path.fragment
+            or not key.startswith("images/")
+            or any(part in {"", ".", ".."} for part in key.split("/"))
+        ):
+            raise ValueError("background Media Asset reference is malformed")
+        return normalized
+    parsed = urlsplit(normalized)
+    try:
+        port = parsed.port
+    except ValueError as error:
+        raise ValueError("background image URL must be a safe HTTPS URL") from error
+    if (
+        parsed.scheme.lower() != "https"
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or port == 0
+    ):
+        raise ValueError("background image URL must be a safe HTTPS URL")
+    return normalized
+
+
+def _background_reference_key(value: str) -> str:
+    parsed = urlsplit(value)
+    if parsed.scheme:
+        hostname = (parsed.hostname or "").casefold()
+        port = parsed.port
+        netloc = f"{hostname}:{port}" if port and port != 443 else hostname
+        return f"https://{netloc}{parsed.path}?{parsed.query}#{parsed.fragment}"
+    return parsed.path
+
+
+class BackgroundGalleryImage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    alt: str = Field(min_length=1, max_length=200)
+    url: str = Field(min_length=1, max_length=2048)
+
+    @field_validator("alt")
+    @classmethod
+    def normalize_alt(cls, value: str) -> str:
+        return _required_text(value, "background alternative text")
+
+    @field_validator("url")
+    @classmethod
+    def normalize_url(cls, value: str) -> str:
+        return _validate_background_reference(value)
+
+
+def _reject_variant_fields(fields_set: set[str], fields: set[str], message: str) -> None:
+    incompatible = sorted(fields_set & fields)
+    if incompatible:
+        raise ValueError(f"{message}: {', '.join(incompatible)}")
+
+
 class ProjectCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_type: Literal["personal", "github_open_source"] = "personal"
     name: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1, max_length=5000)
     logo_url: str | None = Field(default=None, max_length=2048)
     logo_alt: str | None = Field(default=None, max_length=200)
-    technology: list[str] = Field(
-        default_factory=list,
-        max_length=20,
-    )
-    time_span: str = Field(min_length=1, max_length=120)
+    technology: list[str] | None = Field(default=None, max_length=20)
+    time_span: str | None = Field(default=None, min_length=1, max_length=120)
     source_url: str | None = Field(default=None, max_length=2048)
     demo_url: str | None = Field(default=None, max_length=2048)
-    status: ProjectStatus = ProjectStatus.ACTIVE
+    repository_url: str | None = Field(default=None, max_length=2048)
+    status: ProjectStatus | None = None
     featured: bool = False
-    display_order: int = Field(
-        default=0,
-        ge=0,
-    )
+    display_order: int = Field(default=0, ge=0)
 
     @field_validator("name", "description", "time_span")
     @classmethod
-    def strip_required_fields(cls, value: str, info: object) -> str:
-        return _required_text(value, "project field")
+    def strip_required_fields(cls, value: str | None) -> str | None:
+        return _required_text(value, "project field") if value is not None else None
 
     @field_validator("logo_alt")
     @classmethod
@@ -79,8 +165,8 @@ class ProjectCreateRequest(BaseModel):
 
     @field_validator("technology")
     @classmethod
-    def normalize_technology(cls, value: list[str]) -> list[str]:
-        return _validate_unique_text(value, "technology item")
+    def normalize_technology(cls, value: list[str] | None) -> list[str] | None:
+        return _validate_unique_text(value, "technology item") if value is not None else None
 
     @field_validator("logo_url")
     @classmethod
@@ -92,8 +178,43 @@ class ProjectCreateRequest(BaseModel):
     def validate_project_url(cls, value: str | None, info: object) -> str | None:
         return _validate_url(value, "project URL")
 
+    @field_validator("repository_url")
+    @classmethod
+    def validate_repository_url(cls, value: str | None) -> str | None:
+        return _validate_github_repository_url(value)
+
+    @model_validator(mode="after")
+    def validate_variant_fields(self) -> "ProjectCreateRequest":
+        fields_set = self.model_fields_set
+        if self.project_type == "personal":
+            _reject_variant_fields(
+                fields_set,
+                {"repository_url"},
+                "repository_url belongs to GitHub Open-source Projects",
+            )
+            if self.time_span is None:
+                raise ValueError("time_span is required for a Personal Project")
+            if "technology" in fields_set and self.technology is None:
+                raise ValueError("technology must not be null")
+            if "status" in fields_set and self.status is None:
+                raise ValueError("status must not be null")
+            self.technology = self.technology or []
+            self.status = self.status or ProjectStatus.ACTIVE
+        else:
+            _reject_variant_fields(
+                fields_set,
+                {"technology", "time_span", "source_url", "demo_url", "status"},
+                "Personal Project fields are not valid for a GitHub Open-source Project",
+            )
+            if self.repository_url is None:
+                raise ValueError("repository_url is required for a GitHub Open-source Project")
+        return self
+
 
 class ProjectUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_type: Literal["personal", "github_open_source"] | None = None
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, min_length=1, max_length=5000)
     logo_url: str | None = Field(default=None, max_length=2048)
@@ -105,6 +226,7 @@ class ProjectUpdateRequest(BaseModel):
     time_span: str | None = Field(default=None, min_length=1, max_length=120)
     source_url: str | None = Field(default=None, max_length=2048)
     demo_url: str | None = Field(default=None, max_length=2048)
+    repository_url: str | None = Field(default=None, max_length=2048)
     status: ProjectStatus | None = None
     featured: bool | None = None
     display_order: int | None = Field(
@@ -152,13 +274,40 @@ class ProjectUpdateRequest(BaseModel):
     def validate_project_url(cls, value: str | None) -> str | None:
         return _validate_url(value, "project URL")
 
+    @field_validator("repository_url")
+    @classmethod
+    def validate_repository_url(cls, value: str | None) -> str | None:
+        return _validate_github_repository_url(value)
 
-class ProjectPublicResponse(BaseModel):
+    @model_validator(mode="after")
+    def validate_variant_fields(self) -> "ProjectUpdateRequest":
+        if "project_type" in self.model_fields_set and self.project_type is None:
+            raise ValueError("project_type must not be null")
+        if self.project_type == "personal":
+            _reject_variant_fields(
+                self.model_fields_set,
+                {"repository_url"},
+                "repository_url belongs to GitHub Open-source Projects",
+            )
+        elif self.project_type == "github_open_source":
+            _reject_variant_fields(
+                self.model_fields_set,
+                {"technology", "time_span", "source_url", "demo_url", "status"},
+                "Personal Project fields are not valid for a GitHub Open-source Project",
+            )
+        return self
+
+
+class ProjectPublicFields(BaseModel):
     id: int
     name: str
     description: str
     logo_url: str | None
     logo_alt: str | None
+
+
+class PersonalProjectPublicResponse(ProjectPublicFields):
+    project_type: Literal["personal"]
     technology: list[str]
     time_span: str
     source_url: str | None
@@ -168,9 +317,27 @@ class ProjectPublicResponse(BaseModel):
     display_order: int
 
 
-class ProjectAdminResponse(ProjectPublicResponse):
+class GithubOpenSourceProjectPublicResponse(ProjectPublicFields):
+    project_type: Literal["github_open_source"]
+    repository_url: str
+    featured: bool
+    display_order: int
+
+
+ProjectPublicResponse = PersonalProjectPublicResponse | GithubOpenSourceProjectPublicResponse
+
+
+class PersonalProjectAdminResponse(PersonalProjectPublicResponse):
     created_at: datetime
     updated_at: datetime
+
+
+class GithubOpenSourceProjectAdminResponse(GithubOpenSourceProjectPublicResponse):
+    created_at: datetime
+    updated_at: datetime
+
+
+ProjectAdminResponse = PersonalProjectAdminResponse | GithubOpenSourceProjectAdminResponse
 
 
 class ProjectCollectionResponse(BaseModel):
@@ -305,71 +472,6 @@ class SiteSocialLink(BaseModel):
         return _validate_url(value, "social link href") or ""
 
 
-class SeoDefaults(BaseModel):
-    title: str = Field(default="", max_length=200)
-    description: str = Field(default="", max_length=500)
-    keywords: list[str] = Field(default_factory=list, max_length=30)
-    canonical_url: str | None = Field(default=None, max_length=2048)
-    og_image_url: str | None = Field(default=None, max_length=2048)
-    twitter_card: Literal["summary", "summary_large_image"] = "summary_large_image"
-
-    @field_validator("title", "description")
-    @classmethod
-    def strip_seo_text(cls, value: str) -> str:
-        return value.strip()
-
-    @field_validator("keywords")
-    @classmethod
-    def normalize_keywords(cls, value: list[str]) -> list[str]:
-        return _validate_unique_text(value, "keyword")
-
-    @field_validator("canonical_url")
-    @classmethod
-    def validate_canonical_url(cls, value: str | None) -> str | None:
-        return _validate_url(value, "canonical_url")
-
-    @field_validator("og_image_url")
-    @classmethod
-    def validate_og_image_url(cls, value: str | None) -> str | None:
-        return _validate_url(value, "og_image_url", allow_local=True)
-
-
-class SeoDefaultsUpdate(BaseModel):
-    title: str | None = Field(default=None, max_length=200)
-    description: str | None = Field(default=None, max_length=500)
-    keywords: list[str] | None = Field(default=None, max_length=30)
-    canonical_url: str | None = Field(default=None, max_length=2048)
-    og_image_url: str | None = Field(default=None, max_length=2048)
-    twitter_card: Literal["summary", "summary_large_image"] | None = None
-
-    @field_validator("title", "description")
-    @classmethod
-    def strip_seo_text(cls, value: str | None) -> str | None:
-        return value.strip() if value is not None else None
-
-    @field_validator("keywords")
-    @classmethod
-    def normalize_keywords(cls, value: list[str] | None) -> list[str] | None:
-        return _validate_unique_text(value, "keyword") if value is not None else None
-
-    @field_validator("canonical_url")
-    @classmethod
-    def validate_canonical_url(cls, value: str | None) -> str | None:
-        return _validate_url(value, "canonical_url")
-
-    @field_validator("og_image_url")
-    @classmethod
-    def validate_og_image_url(cls, value: str | None) -> str | None:
-        return _validate_url(value, "og_image_url", allow_local=True)
-
-    @model_validator(mode="after")
-    def reject_null_non_clearable_values(self) -> "SeoDefaultsUpdate":
-        for field in ("title", "description", "keywords", "twitter_card"):
-            if field in self.model_fields_set and getattr(self, field) is None:
-                raise ValueError(f"{field} must not be null")
-        return self
-
-
 class FooterSettings(BaseModel):
     note: str = Field(default="", max_length=500)
     copyright: str = Field(default="", max_length=200)
@@ -499,10 +601,10 @@ class SiteSettingsFields(BaseModel):
     avatar_alt: str | None = Field(default=None, max_length=200)
     favicon_url: str | None = Field(default=None, max_length=2048)
     social_links: list[SiteSocialLink] = Field(default_factory=list, max_length=30)
-    seo_defaults: SeoDefaults = Field(default_factory=SeoDefaults)
     footer: FooterSettings = Field(default_factory=FooterSettings)
     contact: ContactSettings = Field(default_factory=ContactSettings)
     homepage_visibility: HomepageVisibility = Field(default_factory=HomepageVisibility)
+    background_gallery: list[BackgroundGalleryImage] = Field(default_factory=list, max_length=12)
 
     @field_validator("tagline", "description", "profile")
     @classmethod
@@ -526,6 +628,8 @@ class SiteSettingsFields(BaseModel):
 
 
 class SiteSettingsUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=1, max_length=200)
     tagline: str | None = Field(default=None, max_length=500)
     description: str | None = Field(default=None, max_length=5000)
@@ -535,10 +639,10 @@ class SiteSettingsUpdateRequest(BaseModel):
     avatar_alt: str | None = Field(default=None, max_length=200)
     favicon_url: str | None = Field(default=None, max_length=2048)
     social_links: list[SiteSocialLink] | None = Field(default=None, max_length=30)
-    seo_defaults: SeoDefaultsUpdate | None = None
     footer: FooterSettingsUpdate | None = None
     contact: ContactSettingsUpdate | None = None
     homepage_visibility: HomepageVisibilityUpdate | None = None
+    background_gallery: list[BackgroundGalleryImage] | None = Field(default=None, max_length=12)
 
     @field_validator("tagline", "description", "profile")
     @classmethod
@@ -569,13 +673,22 @@ class SiteSettingsUpdateRequest(BaseModel):
             "profile",
             "about",
             "social_links",
-            "seo_defaults",
             "footer",
             "contact",
             "homepage_visibility",
+            "background_gallery",
         ):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"{field} must not be null")
+        return self
+
+    @model_validator(mode="after")
+    def reject_duplicate_background_references(self) -> "SiteSettingsUpdateRequest":
+        if self.background_gallery is None:
+            return self
+        references = [_background_reference_key(image.url) for image in self.background_gallery]
+        if len(references) != len(set(references)):
+            raise ValueError("background_gallery must not contain duplicate image references")
         return self
 
 

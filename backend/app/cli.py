@@ -73,8 +73,7 @@ async def _seed_public() -> int:
         await dispose_engine()
     print(
         "Seeded public acceptance content: "
-        f"{summary.posts} Posts, {summary.moments} Moments, "
-        f"{summary.chatters} Chatter entries, {summary.projects} Projects, "
+        f"{summary.posts} Posts, {summary.chatters} Chatter entries, {summary.projects} Projects, "
         f"{summary.friends} Friend Links, {summary.music_tracks} Music Tracks."
     )
     print("No Administrator was created or changed.")

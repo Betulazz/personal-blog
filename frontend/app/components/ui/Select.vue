@@ -141,7 +141,7 @@ const describedBy = computed(
   color: var(--color-text-subtle);
 }
 
-.select__content {
+:global(.select__content) {
   z-index: var(--z-overlay);
   min-width: var(--reka-select-trigger-width);
   max-height: min(20rem, var(--reka-select-content-available-height));
@@ -156,11 +156,11 @@ const describedBy = computed(
     var(--motion-ease-emphasized);
 }
 
-.select__viewport {
+:global(.select__viewport) {
   padding: var(--space-2);
 }
 
-.select__item {
+:global(.select__item) {
   position: relative;
   display: flex;
   min-height: 2.75rem;
@@ -172,17 +172,17 @@ const describedBy = computed(
   cursor: pointer;
 }
 
-.select__item[data-highlighted] {
+:global(.select__item[data-highlighted]) {
   background: var(--glass-bg-hover);
   color: var(--color-text);
 }
 
-.select__item[data-disabled] {
+:global(.select__item[data-disabled]) {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.select__indicator {
+:global(.select__indicator) {
   position: absolute;
   right: var(--space-3);
   display: inline-flex;

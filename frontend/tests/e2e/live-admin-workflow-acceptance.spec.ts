@@ -27,7 +27,7 @@ const csrfToken = async (page: Page) => {
 
 type AdminPostApiPayload = {
   body: string
-  category_id: number
+  tag_ids: number[]
   slug: string
   summary: string
   title: string
@@ -228,20 +228,13 @@ test('Post creation, editing, and publishing reach public readers with recoverab
   await expect(page).toHaveURL(/\/admin\/posts\/\d+\/edit$/)
   const editorUrl = new URL(page.url()).pathname
 
-  await page.getByRole('button', { name: '发布' }).click()
+  await expect(page.getByRole('heading', { name: '文章标签' })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: '分类' })).toHaveCount(0)
   await page
-    .getByRole('dialog', { name: '确认发布这篇文章？' })
-    .getByRole('button', { name: '确认发布', exact: true })
-    .click()
-  await expect(page.getByText('发布前请先选择一个分类。')).toBeVisible()
-
-  await page.reload()
-  await expect(page.getByLabel('Markdown 正文')).toContainText(body)
-
-  const categorySelect = page.getByRole('combobox', { name: '分类' })
-  await categorySelect.click()
-  await page.getByRole('option', { name: '现场验收' }).press('Enter')
-  await expect(categorySelect).toContainText('现场验收')
+    .locator('.admin-tag-option')
+    .filter({ hasText: 'Acceptance' })
+    .getByRole('checkbox')
+    .check()
   await page.getByRole('button', { name: '保存草稿' }).click()
   await expect(page.getByRole('button', { name: '保存草稿' })).toBeEnabled()
 
@@ -250,6 +243,10 @@ test('Post creation, editing, and publishing reach public readers with recoverab
     .getByRole('dialog', { name: '确认发布这篇文章？' })
     .getByRole('button', { name: '确认发布', exact: true })
     .click()
+  await expect(page.getByRole('button', { name: '撤回' })).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByLabel('Markdown 正文')).toContainText(body)
   await expect(page.getByRole('button', { name: '撤回' })).toBeVisible()
 
   const publicPost = await page.goto(`/posts/${token}`)
@@ -363,21 +360,17 @@ test('Markdown loaded into the editor survives a save and reaches public renderi
 
   await login(page)
 
-  const categoriesResponse = await page.request.get(
-    `${apiBase}/admin/categories`,
-  )
-  expect(categoriesResponse.status()).toBe(200)
-  const categories = (await categoriesResponse.json()).data as Array<{
+  const tagsResponse = await page.request.get(`${apiBase}/admin/tags`)
+  expect(tagsResponse.status()).toBe(200)
+  const tags = (await tagsResponse.json()).data as Array<{
     id: number
     slug: string
   }>
-  const categoryId = categories.find(
-    (category) => category.slug === 'live-acceptance',
-  )!.id
+  const markdownTagId = tags.find((tag) => tag.slug === 'markdown')!.id
 
   const created = await createPostThroughApi(page, {
     body: markdown,
-    category_id: categoryId,
+    tag_ids: [markdownTagId],
     slug: token,
     summary: '现场工作流验收 Markdown 保留。',
     title,
@@ -398,7 +391,13 @@ test('Markdown loaded into the editor survives a save and reaches public renderi
     `${apiBase}/admin/posts/${created.id}`,
   )
   expect(storedResponse.status()).toBe(200)
-  const storedBody = (await storedResponse.json()).data.body as string
+  const storedPost = (await storedResponse.json()).data as {
+    body: string
+    tag_ids: number[]
+  }
+  const storedBody = storedPost.body
+  const storedTags = storedPost.tag_ids
+  expect(storedTags).toContain(markdownTagId)
   expect(storedBody).toContain('## 现场正文')
   expect(storedBody).toContain('```ts')
   expect(storedBody).toContain('const answer = 42')
@@ -441,64 +440,28 @@ test('Markdown loaded into the editor survives a save and reaches public renderi
   await expect(page).toHaveURL(/\/admin\/posts$/)
 })
 
-test('Moment and Chatter publishing reach their public feeds independently', async ({
+test('body-only Chatter publishing reaches Chatter and the mixed Activity Timeline', async ({
   page,
 }) => {
   test.setTimeout(300_000)
   const problems = collectBrowserProblems(page)
   const token = `${Date.now()}`
-  const momentBody = `现场工作流验收 Moment ${token}：真实数据抵达公开动态流。`
-  const chatterTitle = `现场工作流验收 Chatter ${token}`
-  const chatterBody = `现场工作流验收 Chatter 正文 ${token}：短篇记录也能被公开浏览。`
+  const chatterBody = `现场工作流验收 Chatter 正文 ${token}：只有正文也能进入杂谈与动态。`
 
   await login(page)
 
-  await page.goto('/admin/moments/new')
-  await page.getByLabel('正文').fill(momentBody)
-  await page.getByRole('button', { name: '添加图片' }).click()
-  await page.getByLabel('图片地址').fill('not-a-valid-image-source')
-  await page.getByLabel('图片说明').fill('验收图片')
-  await page.getByRole('button', { name: '保存草稿' }).click()
-  await expect(
-    page.getByText('请填写有效的图片地址、说明及 1–10000 的整数尺寸。'),
-  ).toBeVisible()
-  await page.getByRole('button', { name: '移除图片 1' }).click()
-  await page.getByRole('button', { name: '保存草稿' }).click()
-  await expect(page).toHaveURL(/\/admin\/moments\/\d+\/edit$/)
-  const momentUrl = new URL(page.url()).pathname
-
-  await page.goto('/moments')
-  await expect(page.getByText(momentBody)).toHaveCount(0)
-  await page.goto(momentUrl)
-  await page.getByRole('button', { name: '发布' }).click()
-  await page
-    .getByRole('dialog', { name: '确认发布 Moment？' })
-    .getByRole('button', { name: '确认发布', exact: true })
-    .click()
-  await expect(page.getByRole('button', { name: '撤回' })).toBeVisible()
-
-  await page.goto('/moments')
-  await expect(page.getByText(momentBody)).toBeVisible()
-
-  await page.goto(momentUrl)
-  await page.getByRole('button', { name: '删除' }).click()
-  await page
-    .getByRole('dialog', { name: '确认删除 Moment？' })
-    .getByRole('button', { name: '确认删除', exact: true })
-    .click()
-  await expect(page).toHaveURL(/\/admin\/moments$/)
-  await page.goto('/moments')
-  await expect(page.getByText(momentBody)).toHaveCount(0)
-
   await page.goto('/admin/chatter/new')
-  await page.getByLabel('标题', { exact: true }).fill(chatterTitle)
   await page.getByLabel('正文').fill(chatterBody)
+  await expect(page.getByLabel('标题', { exact: true })).toHaveValue('')
+  await expect(page.getByLabel('标签')).toHaveCount(0)
   await page.getByRole('button', { name: '保存草稿' }).click()
   await expect(page).toHaveURL(/\/admin\/chatter\/\d+\/edit$/)
   const chatterUrl = new URL(page.url()).pathname
 
   await page.goto('/chatter')
-  await expect(page.getByText(chatterTitle)).toHaveCount(0)
+  await expect(page.getByText(chatterBody)).toHaveCount(0)
+  await page.goto('/moments')
+  await expect(page.getByText(chatterBody)).toHaveCount(0)
   await page.goto(chatterUrl)
   await page.getByRole('button', { name: '发布' }).click()
   await page
@@ -508,7 +471,9 @@ test('Moment and Chatter publishing reach their public feeds independently', asy
   await expect(page.getByRole('button', { name: '撤回' })).toBeVisible()
 
   await page.goto('/chatter')
-  await expect(page.getByText(chatterTitle)).toBeVisible()
+  await expect(page.getByText(chatterBody)).toBeVisible()
+  await page.goto('/moments')
+  await expect(page.getByText(chatterBody)).toBeVisible()
 
   await page.goto(chatterUrl)
   await page.getByRole('button', { name: '删除' }).click()
@@ -518,7 +483,9 @@ test('Moment and Chatter publishing reach their public feeds independently', asy
     .click()
   await expect(page).toHaveURL(/\/admin\/chatter$/)
   await page.goto('/chatter')
-  await expect(page.getByText(chatterTitle)).toHaveCount(0)
+  await expect(page.getByText(chatterBody)).toHaveCount(0)
+  await page.goto('/moments')
+  await expect(page.getByText(chatterBody)).toHaveCount(0)
 
   expect(unexpectedProblems(problems)).toEqual([])
 })
@@ -707,7 +674,7 @@ test('Site Identity and Music Track changes reach the public shell and player', 
   const problems = collectBrowserProblems(page)
   const token = `${Date.now()}`
   const tagline = `现场工作流验收标语 ${token}`
-  const trackTitle = `现场工作流验收音轨 ${token}`
+  const acceptanceSongId = process.env.NETEASE_ACCEPTANCE_SONG_ID?.trim()
 
   await login(page)
 
@@ -731,67 +698,70 @@ test('Site Identity and Music Track changes reach the public shell and player', 
     ).toBeVisible()
   }
 
-  await page.goto('/admin/music/new')
-  await page.getByLabel('音乐标题').fill(trackTitle)
-  await page.getByLabel('艺术家').fill('现场工作流验收演奏者')
-  const sourceStrategy = page.getByRole('combobox', { name: '来源策略' })
-  await sourceStrategy.click()
-  await page.getByRole('option', { name: '远程 URL' }).press('Enter')
-  await page.getByLabel('音源地址').fill(`https://example.com/${token}.mp3`)
-  await expect(page.getByText('当前音源地址符合所选来源策略。')).toBeVisible()
-  await page.getByLabel('展示顺序').fill('0')
-  await page.getByLabel('启用这首音乐').check()
-  await page.getByRole('button', { name: '保存音乐' }).click()
-  await expect(page).toHaveURL(/\/admin\/music\/\d+\/edit$/)
+  if (acceptanceSongId && /^[1-9][0-9]{0,18}$/.test(acceptanceSongId)) {
+    await page.goto('/admin/music/new')
+    await page.getByLabel('网易云歌曲 ID').fill(acceptanceSongId)
+    await page.getByRole('button', { name: '预览歌曲' }).click()
+    const trackTitle = await page
+      .locator('.admin-music-preview__identity strong')
+      .textContent()
+    expect(trackTitle).toBeTruthy()
+    await page.getByLabel('展示顺序').fill('0')
+    await page.getByRole('button', { name: '导入到播放列表' }).click()
+    await expect(page).toHaveURL(/\/admin\/music\/\d+\/edit$/)
 
-  await page.goto('/admin/music')
-  const trackRow = page.locator(
-    `[data-testid="music-track-row"][data-track-title="${trackTitle}"]`,
-  )
-  await expect(trackRow).toBeVisible()
-  const rowCount = await page.locator('[data-testid="music-track-row"]').count()
-  const trackIndex = () =>
-    page
+    await page.goto('/admin/music')
+    const trackRow = page.locator(
+      `[data-testid="music-track-row"][data-track-title="${trackTitle}"]`,
+    )
+    await expect(trackRow).toBeVisible()
+    const rowCount = await page
       .locator('[data-testid="music-track-row"]')
-      .evaluateAll(
-        (rows, title) =>
-          rows.findIndex(
-            (row) => row.getAttribute('data-track-title') === title,
-          ),
-        trackTitle,
-      )
-  for (let step = 0; step < rowCount && (await trackIndex()) > 0; step += 1) {
-    const previous = await trackIndex()
-    await trackRow.getByRole('button', { name: `上移 ${trackTitle}` }).click()
-    await expect.poll(trackIndex).toBeLessThan(previous)
+      .count()
+    const trackIndex = () =>
+      page
+        .locator('[data-testid="music-track-row"]')
+        .evaluateAll(
+          (rows, title) =>
+            rows.findIndex(
+              (row) => row.getAttribute('data-track-title') === title,
+            ),
+          trackTitle,
+        )
+    for (let step = 0; step < rowCount && (await trackIndex()) > 0; step += 1) {
+      const previous = await trackIndex()
+      await trackRow.getByRole('button', { name: `上移 ${trackTitle}` }).click()
+      await expect.poll(trackIndex).toBeLessThan(previous)
+    }
+    expect(await trackIndex()).toBe(0)
+    await expect(
+      page.locator('[data-testid="music-track-row"]').first(),
+    ).toHaveAttribute('data-track-title', trackTitle!)
+
+    await page.goto('/')
+    await expect(page.getByTestId('music-player').locator('strong')).toHaveText(
+      trackTitle!,
+    )
+
+    await page.goto('/admin/music')
+    await trackRow.getByRole('button', { name: '停用' }).click()
+    await expect(trackRow.getByRole('button', { name: '启用' })).toBeVisible()
+    await page.goto('/')
+    expect(await page.getByTestId('music-player').innerText()).not.toContain(
+      trackTitle!,
+    )
+
+    await page.goto('/admin/music')
+    await trackRow.getByRole('button', { name: `删除 ${trackTitle}` }).click()
+    await page
+      .getByRole('dialog', { name: '确认删除这首音乐？' })
+      .getByRole('button', { name: '确认删除', exact: true })
+      .click()
+    await expect(trackRow).toHaveCount(0)
+  } else {
+    await page.goto('/admin/music')
+    await expect(page.getByRole('heading', { name: '音乐管理' })).toBeVisible()
   }
-  expect(await trackIndex()).toBe(0)
-  await expect(
-    page.locator('[data-testid="music-track-row"]').first(),
-  ).toHaveAttribute('data-track-title', trackTitle)
-
-  await page.goto('/')
-  await expect(page.getByTestId('music-player').locator('strong')).toHaveText(
-    trackTitle,
-  )
-
-  await page.goto('/admin/music')
-  await trackRow.getByRole('button', { name: '停用' }).click()
-  // Wait for the toggle to settle before leaving so the public read cannot
-  // race the in-flight update request.
-  await expect(trackRow.getByRole('button', { name: '启用' })).toBeVisible()
-  await page.goto('/')
-  await expect(page.getByTestId('music-player').locator('strong')).toHaveText(
-    '夜色里的测试音轨',
-  )
-
-  await page.goto('/admin/music')
-  await trackRow.getByRole('button', { name: `删除 ${trackTitle}` }).click()
-  await page
-    .getByRole('dialog', { name: '确认删除这首音乐？' })
-    .getByRole('button', { name: '确认删除', exact: true })
-    .click()
-  await expect(trackRow).toHaveCount(0)
 
   expect(unexpectedProblems(problems)).toEqual([])
 })
@@ -902,8 +872,12 @@ test('admin failure recovery, keyboard, dialogs, touch targets, and unsaved-form
         await expect(page.getByLabel('Markdown 正文')).toBeVisible()
         if (viewport.width <= 430) {
           await capture(page, testInfo, 'admin-post-editor', viewport.width)
-          const toolbarSizes = await page
-            .getByRole('toolbar', { name: 'Markdown 编辑工具' })
+          const markdownToolbar = page.locator('[role="toolbar"]')
+          await expect(markdownToolbar).toHaveAttribute(
+            'aria-label',
+            'Markdown 编辑工具',
+          )
+          const toolbarSizes = await markdownToolbar
             .getByRole('button')
             .evaluateAll((buttons) =>
               buttons.map((button) => button.getBoundingClientRect().height),

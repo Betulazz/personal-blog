@@ -5,7 +5,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chatter import Chatter
-from app.models.moment import Moment
 from app.models.portfolio import FriendLink, Project
 from app.models.post import Post
 
@@ -15,7 +14,6 @@ class DashboardCounts:
     posts: int
     published_posts: int
     draft_posts: int
-    moments: int
     chatter: int
     projects: int
     friends: int
@@ -47,7 +45,6 @@ class DashboardRepository:
             posts=sum(status_counts.values()),
             published_posts=status_counts.get("published", 0),
             draft_posts=status_counts.get("draft", 0),
-            moments=await self._count(Moment),
             chatter=await self._count(Chatter),
             projects=await self._count(Project),
             friends=await self._count(FriendLink),
@@ -75,24 +72,8 @@ class DashboardRepository:
         activities.extend(
             DashboardActivity(
                 id=int(row.id),
-                type="moment",
-                title=_content_title(row.body),
-                status=row.status,
-                updated_at=row.updated_at,
-            )
-            for row in (
-                await self._session.execute(
-                    select(Moment.id, Moment.body, Moment.status, Moment.updated_at)
-                    .order_by(Moment.updated_at.desc(), Moment.id.desc())
-                    .limit(limit)
-                )
-            ).all()
-        )
-        activities.extend(
-            DashboardActivity(
-                id=int(row.id),
                 type="chatter",
-                title=_content_title(row.title or row.lead or row.body),
+                title=_content_title(row.title or row.body),
                 status=row.status,
                 updated_at=row.updated_at,
             )
@@ -101,7 +82,6 @@ class DashboardRepository:
                     select(
                         Chatter.id,
                         Chatter.title,
-                        Chatter.lead,
                         Chatter.body,
                         Chatter.status,
                         Chatter.updated_at,
@@ -150,9 +130,7 @@ class DashboardRepository:
         )
         return activities
 
-    async def _count(
-        self, model: type[Moment] | type[Chatter] | type[Project] | type[FriendLink]
-    ) -> int:
+    async def _count(self, model: type[Chatter] | type[Project] | type[FriendLink]) -> int:
         return int(await self._session.scalar(select(func.count(model.id))) or 0)
 
 

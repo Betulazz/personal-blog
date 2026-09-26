@@ -16,6 +16,14 @@ class MusicTrackRepository:
             await self._session.scalar(select(MusicTrack).where(MusicTrack.id == track_id)),
         )
 
+    async def find_by_netease_song_id(self, song_id: int) -> MusicTrack | None:
+        return cast(
+            MusicTrack | None,
+            await self._session.scalar(
+                select(MusicTrack).where(MusicTrack.netease_song_id == song_id)
+            ),
+        )
+
     async def add(self, track: MusicTrack) -> MusicTrack:
         self._session.add(track)
         await self._session.flush()

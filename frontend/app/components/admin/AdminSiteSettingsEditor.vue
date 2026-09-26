@@ -10,6 +10,7 @@ import type { SiteSocialLink } from '~/types/site'
 interface SettingsForm {
   avatarAlt: string
   avatarUrl: string
+  backgroundGallery: Array<{ alt: string; previewUrl: string; url: string }>
   contactEmail: string
   contactNote: string
   description: string
@@ -27,12 +28,6 @@ interface SettingsForm {
   }
   name: string
   profile: string
-  seoCanonicalUrl: string
-  seoDescription: string
-  seoKeywords: string
-  seoOgImageUrl: string
-  seoTitle: string
-  seoTwitterCard: 'summary' | 'summary_large_image'
   socialLinks: SiteSocialLink[]
   tagline: string
 }
@@ -40,6 +35,7 @@ interface SettingsForm {
 const emptyForm = (): SettingsForm => ({
   avatarAlt: '',
   avatarUrl: '',
+  backgroundGallery: [],
   contactEmail: '',
   contactNote: '',
   description: '',
@@ -57,12 +53,6 @@ const emptyForm = (): SettingsForm => ({
   },
   name: '',
   profile: '',
-  seoCanonicalUrl: '',
-  seoDescription: '',
-  seoKeywords: '',
-  seoOgImageUrl: '',
-  seoTitle: '',
-  seoTwitterCard: 'summary_large_image',
   socialLinks: [],
   tagline: '',
 })
@@ -70,6 +60,11 @@ const emptyForm = (): SettingsForm => ({
 const toForm = (settings: AdminSiteSettings): SettingsForm => ({
   avatarAlt: settings.avatarAlt ?? '',
   avatarUrl: settings.avatarUrl ?? '',
+  backgroundGallery: settings.backgroundGallery.map((image) => ({
+    alt: image.alt,
+    previewUrl: image.url,
+    url: image.reference,
+  })),
   contactEmail: settings.contact.email,
   contactNote: settings.contact.note,
   description: settings.description,
@@ -80,25 +75,17 @@ const toForm = (settings: AdminSiteSettings): SettingsForm => ({
   homepageVisibility: { ...settings.homepageVisibility },
   name: settings.name,
   profile: settings.profile,
-  seoCanonicalUrl: settings.seoDefaults.canonicalUrl ?? '',
-  seoDescription: settings.seoDefaults.description,
-  seoKeywords: settings.seoDefaults.keywords.join(', '),
-  seoOgImageUrl: settings.seoDefaults.ogImageUrl ?? '',
-  seoTitle: settings.seoDefaults.title,
-  seoTwitterCard: settings.seoDefaults.twitterCard,
   socialLinks: settings.socialLinks.map((link) => ({ ...link })),
   tagline: settings.tagline,
 })
 
-const splitList = (value: string) =>
-  value
-    .split(/[,\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-
 const toInput = (form: SettingsForm): AdminSiteSettingsInput => ({
   avatar_alt: form.avatarAlt.trim() || null,
   avatar_url: form.avatarUrl.trim() || null,
+  background_gallery: form.backgroundGallery.map((image) => ({
+    alt: image.alt.trim(),
+    url: image.url.trim(),
+  })),
   contact: {
     email: form.contactEmail.trim(),
     note: form.contactNote.trim(),
@@ -113,14 +100,6 @@ const toInput = (form: SettingsForm): AdminSiteSettingsInput => ({
   homepage_visibility: { ...form.homepageVisibility },
   name: form.name.trim(),
   profile: form.profile.trim(),
-  seo_defaults: {
-    canonical_url: form.seoCanonicalUrl.trim() || null,
-    description: form.seoDescription.trim(),
-    keywords: splitList(form.seoKeywords),
-    og_image_url: form.seoOgImageUrl.trim() || null,
-    title: form.seoTitle.trim(),
-    twitter_card: form.seoTwitterCard,
-  },
   social_links: form.socialLinks
     .map((link) => ({
       href: link.href.trim(),
@@ -142,6 +121,9 @@ const busy = ref(false)
 const error = ref('')
 const notice = ref('')
 const validation = reactive<Record<string, string>>({})
+const mediaPickerOpen = ref(false)
+const backgroundUrl = ref('')
+const backgroundAlt = ref('')
 let loadController: AbortController | null = null
 
 const friendlyError = (failure: unknown) => {
@@ -182,6 +164,29 @@ const load = async () => {
 }
 
 const isHttpUrl = (value: string) => /^https?:\/\/[^\s]+$/i.test(value)
+const isSafeBackgroundUrl = (value: string) => {
+  try {
+    const parsed = new URL(value)
+    return (
+      parsed.protocol === 'https:' &&
+      Boolean(parsed.hostname) &&
+      !parsed.username &&
+      !parsed.password
+    )
+  } catch {
+    return false
+  }
+}
+const backgroundReferenceKey = (value: string) => {
+  if (value.startsWith('/uploads/')) return value
+  try {
+    const parsed = new URL(value)
+    const port = parsed.port === '443' ? '' : parsed.port
+    return `https://${parsed.hostname.toLowerCase()}${port ? `:${port}` : ''}${parsed.pathname}${parsed.search}${parsed.hash}`
+  } catch {
+    return value
+  }
+}
 const isMediaUrl = (value: string) =>
   isHttpUrl(value) ||
   (/^\/uploads\/[^\s]+$/.test(value) && !value.startsWith('//'))
@@ -191,18 +196,33 @@ const validate = () => {
     Reflect.deleteProperty(validation, key),
   )
   if (!form.value.name.trim()) validation.name = '请输入网站名称。'
-  for (const field of ['avatarUrl', 'faviconUrl', 'seoOgImageUrl'] as const) {
+  for (const field of ['avatarUrl', 'faviconUrl'] as const) {
     const value = form.value[field].trim()
     if (value && !isMediaUrl(value)) {
       validation[field] = '请输入安全的 HTTP(S) URL 或 /uploads/ 媒体路径。'
     }
   }
-  if (
-    form.value.seoCanonicalUrl.trim() &&
-    !isHttpUrl(form.value.seoCanonicalUrl.trim())
-  ) {
-    validation.seoCanonicalUrl = '请输入安全的 HTTP(S) URL。'
+  if (form.value.backgroundGallery.length > 12) {
+    validation.backgroundGallery = '背景图库最多可添加 12 张图片。'
   }
+  const seenBackgrounds = new Set<string>()
+  form.value.backgroundGallery.forEach((image, index) => {
+    if (!image.alt.trim()) {
+      validation[`background-alt-${index}`] = '请为背景图片填写替代文本。'
+    }
+    if (
+      !image.url.startsWith('/uploads/') &&
+      !isSafeBackgroundUrl(image.url.trim())
+    ) {
+      validation[`background-url-${index}`] =
+        '背景图片必须使用 HTTPS URL 或媒体库图片。'
+    }
+    const key = backgroundReferenceKey(image.url.trim())
+    if (seenBackgrounds.has(key)) {
+      validation.backgroundGallery = '背景图库不能重复引用同一张图片。'
+    }
+    seenBackgrounds.add(key)
+  })
   form.value.socialLinks.forEach((link, index) => {
     if (link.label.trim() && !isHttpUrl(link.href.trim())) {
       validation[`social-${index}`] = '社交链接必须使用安全的 HTTP(S) URL。'
@@ -246,6 +266,69 @@ const addSocialLink = () =>
 const removeSocialLink = (index: number) =>
   form.value.socialLinks.splice(index, 1)
 
+const addBackground = (url: string, alt: string, previewUrl = url) => {
+  if (form.value.backgroundGallery.length >= 12) {
+    validation.backgroundGallery = '背景图库最多可添加 12 张图片。'
+    return false
+  }
+  if (
+    form.value.backgroundGallery.some(
+      (image) =>
+        backgroundReferenceKey(image.url.trim()) ===
+        backgroundReferenceKey(url.trim()),
+    )
+  ) {
+    validation.backgroundGallery = '这张图片已经在背景图库中。'
+    return false
+  }
+  if (!alt.trim()) {
+    validation.backgroundAlt = '请填写背景图片替代文本。'
+    return false
+  }
+  form.value.backgroundGallery.push({
+    alt: alt.trim(),
+    previewUrl,
+    url: url.trim(),
+  })
+  validation.backgroundGallery = ''
+  validation.backgroundAlt = ''
+  return true
+}
+
+const addBackgroundUrl = () => {
+  const url = backgroundUrl.value.trim()
+  if (!isSafeBackgroundUrl(url)) {
+    validation.backgroundUrl = '请输入安全的 HTTPS 图片 URL。'
+    return
+  }
+  if (addBackground(url, backgroundAlt.value)) {
+    backgroundUrl.value = ''
+    backgroundAlt.value = ''
+    validation.backgroundUrl = ''
+  }
+}
+
+const addMediaBackground = (selection: { alt: string; reference: string }) => {
+  if (addBackground(selection.reference, selection.alt, selection.reference)) {
+    backgroundUrl.value = ''
+    backgroundAlt.value = ''
+  }
+}
+
+const removeBackground = (index: number) =>
+  form.value.backgroundGallery.splice(index, 1)
+
+const moveBackground = (index: number, offset: -1 | 1) => {
+  const nextIndex = index + offset
+  const gallery = form.value.backgroundGallery
+  if (nextIndex < 0 || nextIndex >= gallery.length) return
+  const current = gallery[index]
+  const next = gallery[nextIndex]
+  if (!current || !next) return
+  gallery[index] = next
+  gallery[nextIndex] = current
+}
+
 const previewName = computed(() => form.value.name.trim() || '网站名称')
 const previewTagline = computed(
   () => form.value.tagline.trim() || '网站标语会显示在这里。',
@@ -255,7 +338,6 @@ const visibilityItems: Array<{
   label: string
 }> = [
   { key: 'posts', label: '首页显示文章' },
-  { key: 'moments', label: '首页显示 Moments' },
   { key: 'chatter', label: '首页显示 Chatter' },
   { key: 'projects', label: '首页显示精选项目' },
   { key: 'friends', label: '首页显示友链' },
@@ -371,45 +453,108 @@ function isAbortError(failure: unknown) {
       <UiGlassPanel class="admin-settings-section" padding="spacious">
         <div class="admin-form-section-heading">
           <div>
-            <p class="admin-form-eyebrow">Search presentation</p>
-            <h2>SEO 默认值</h2>
+            <p class="admin-form-eyebrow">Background Gallery</p>
+            <h2>背景图库</h2>
           </div>
+          <span class="admin-form-muted"
+            >{{ form.backgroundGallery.length }} / 12</span
+          >
         </div>
-        <UiInput
-          v-model="form.seoTitle"
-          label="默认 SEO 标题"
-          maxlength="200"
-        />
-        <UiTextarea
-          v-model="form.seoDescription"
-          label="默认 SEO 描述"
-          :rows="3"
-          maxlength="500"
-        />
-        <UiInput
-          v-model="form.seoKeywords"
-          label="SEO 关键词"
-          description="使用逗号分隔。"
-          maxlength="1000"
-        />
-        <UiInput
-          v-model="form.seoCanonicalUrl"
-          label="Canonical URL"
-          type="url"
-          :error="validation.seoCanonicalUrl"
-        />
-        <UiInput
-          v-model="form.seoOgImageUrl"
-          label="Open Graph 图片 URL"
-          :error="validation.seoOgImageUrl"
-        />
-        <UiSelect
-          v-model="form.seoTwitterCard"
-          label="Twitter Card"
-          :options="[
-            { label: 'Summary', value: 'summary' },
-            { label: 'Summary Large Image', value: 'summary_large_image' },
-          ]"
+        <p class="admin-settings-note">
+          公开页面会按顺序显示并每 30 秒切换。支持安全 HTTPS 图片链接或
+          <NuxtLink to="/admin/media">媒体库</NuxtLink>
+          中已有的图片；空图库会使用内置背景。
+        </p>
+        <p
+          v-if="validation.backgroundGallery"
+          role="alert"
+          class="admin-settings-error"
+        >
+          {{ validation.backgroundGallery }}
+        </p>
+        <div v-if="!form.backgroundGallery.length" class="admin-form-muted">
+          还没有背景图片，公开页面会继续使用内置背景。
+        </div>
+        <ol v-else class="admin-background-gallery" aria-label="背景图库顺序">
+          <li
+            v-for="(image, index) in form.backgroundGallery"
+            :key="`${image.url}-${index}`"
+            class="admin-background-gallery__item"
+          >
+            <img :src="image.previewUrl" alt="" loading="lazy" />
+            <div class="admin-background-gallery__details">
+              <strong>{{ image.alt }}</strong>
+              <span>{{ image.url }}</span>
+              <small>顺序 {{ index + 1 }}</small>
+            </div>
+            <div class="admin-background-gallery__actions">
+              <UiButton
+                type="button"
+                size="small"
+                variant="secondary"
+                :disabled="index === 0"
+                :aria-label="`背景图片 ${index + 1} 上移`"
+                @click="moveBackground(index, -1)"
+              >
+                上移
+              </UiButton>
+              <UiButton
+                type="button"
+                size="small"
+                variant="secondary"
+                :disabled="index === form.backgroundGallery.length - 1"
+                :aria-label="`背景图片 ${index + 1} 下移`"
+                @click="moveBackground(index, 1)"
+              >
+                下移
+              </UiButton>
+              <UiButton
+                type="button"
+                size="small"
+                variant="ghost"
+                :aria-label="`移除背景图片 ${index + 1}`"
+                @click="removeBackground(index)"
+              >
+                移除
+              </UiButton>
+            </div>
+          </li>
+        </ol>
+        <div class="admin-settings-pair">
+          <UiInput
+            v-model="backgroundUrl"
+            label="背景图片 HTTPS URL"
+            type="url"
+            :error="validation.backgroundUrl"
+          />
+          <UiInput
+            v-model="backgroundAlt"
+            label="背景图片替代文本"
+            maxlength="200"
+            :error="validation.backgroundAlt"
+          />
+        </div>
+        <div class="admin-background-gallery__add-actions">
+          <UiButton
+            type="button"
+            variant="secondary"
+            :disabled="form.backgroundGallery.length >= 12"
+            @click="addBackgroundUrl"
+          >
+            添加 HTTPS 图片
+          </UiButton>
+          <UiButton
+            type="button"
+            variant="secondary"
+            :disabled="form.backgroundGallery.length >= 12"
+            @click="mediaPickerOpen = true"
+          >
+            从媒体库选择
+          </UiButton>
+        </div>
+        <AdminMediaPicker
+          v-model:open="mediaPickerOpen"
+          @select="addMediaBackground"
         />
       </UiGlassPanel>
 
@@ -595,8 +740,7 @@ function isAbortError(failure: unknown) {
 }
 
 .admin-settings-section:nth-of-type(1),
-.admin-settings-section:nth-of-type(2),
-.admin-settings-section:nth-of-type(5),
+.admin-settings-section:nth-of-type(4),
 .admin-settings-preview,
 .admin-settings-error,
 .admin-settings-actions {
@@ -634,6 +778,58 @@ function isAbortError(failure: unknown) {
   border: var(--border-hairline) solid var(--glass-border);
   border-radius: var(--radius-medium);
   background: var(--glass-subtle-bg);
+}
+
+.admin-background-gallery {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-background-gallery__item {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border: var(--border-hairline) solid var(--glass-border);
+  border-radius: var(--radius-medium);
+  background: var(--glass-subtle-bg);
+}
+
+.admin-background-gallery__item > img {
+  width: 7rem;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-small);
+  background: var(--color-canvas);
+  object-fit: cover;
+}
+
+.admin-background-gallery__details {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.admin-background-gallery__details span {
+  overflow: hidden;
+  color: var(--color-text-subtle);
+  font-size: var(--text-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-background-gallery__details small {
+  color: var(--color-text-muted);
+}
+
+.admin-background-gallery__actions,
+.admin-background-gallery__add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .admin-settings-checks {
@@ -759,8 +955,7 @@ function isAbortError(failure: unknown) {
   }
 
   .admin-settings-section:nth-of-type(1),
-  .admin-settings-section:nth-of-type(2),
-  .admin-settings-section:nth-of-type(5),
+  .admin-settings-section:nth-of-type(4),
   .admin-settings-preview,
   .admin-settings-error,
   .admin-settings-actions {
@@ -769,6 +964,19 @@ function isAbortError(failure: unknown) {
 
   .admin-settings-checks {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-background-gallery__item {
+    grid-template-columns: 5rem minmax(0, 1fr);
+  }
+
+  .admin-background-gallery__item > img {
+    width: 5rem;
+  }
+
+  .admin-background-gallery__actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
   }
 }
 

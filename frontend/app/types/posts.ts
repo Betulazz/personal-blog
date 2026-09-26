@@ -5,12 +5,6 @@ export interface PostCover {
   width: number
 }
 
-export interface PostCategory {
-  name: string
-  postCount: number
-  slug: string
-}
-
 export interface PostTag {
   name: string
   postCount: number
@@ -18,7 +12,6 @@ export interface PostTag {
 }
 
 export interface PostSummary {
-  category: PostCategory
   cover?: PostCover
   id: string
   pinned: boolean
@@ -34,10 +27,6 @@ export interface PostSummary {
 
 export interface PostDetail extends PostSummary {
   body: string
-  canonicalUrl?: string
-  ogImageUrl?: string
-  seoDescription?: string
-  seoTitle?: string
 }
 
 export interface PostPagination {
@@ -48,7 +37,6 @@ export interface PostPagination {
 }
 
 export interface PostQuery {
-  category?: string
   page: number
   pageSize: number
   q?: string
@@ -58,7 +46,6 @@ export interface PostQuery {
 export interface PostCollectionResponse {
   data: PostSummary[]
   filters: {
-    category?: string
     q?: string
     tag?: string
   }
@@ -75,9 +62,6 @@ export interface PostDiscoveryProvider {
     slug: string,
     signal?: AbortSignal,
   ) => Promise<PostDetail | null>
-  listCategories: (
-    signal?: AbortSignal,
-  ) => Promise<TaxonomyCollectionResponse<PostCategory>>
   listPosts: (
     query: PostQuery,
     signal?: AbortSignal,

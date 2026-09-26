@@ -8,15 +8,9 @@ export const adminPostDraftKey = (postId?: string) =>
 export const serializeAdminPostInput = (input: AdminPostInput) =>
   JSON.stringify({
     body: input.body,
-    canonicalUrl: input.canonical_url?.trim() || null,
-    categoryId: input.category_id ?? null,
     coverAlt: input.cover_alt?.trim() || null,
     coverUrl: input.cover_url?.trim() || null,
     isPinned: input.is_pinned ?? false,
-    ogImageUrl: input.og_image_url?.trim() || null,
-    readingTimeMinutes: input.reading_time_minutes ?? 0,
-    seoDescription: input.seo_description?.trim() || null,
-    seoTitle: input.seo_title?.trim() || null,
     slug: input.slug.trim(),
     summary: input.summary.trim(),
     tagIds: [...(input.tag_ids ?? [])].sort((left, right) => left - right),

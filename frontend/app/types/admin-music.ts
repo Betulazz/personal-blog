@@ -1,5 +1,3 @@
-export type AdminMusicSourceStrategy = 'local_media' | 'remote_url' | 's3_media'
-
 export interface AdminMusicTrack {
   album: string | null
   artist: string
@@ -11,21 +9,19 @@ export interface AdminMusicTrack {
   durationSeconds: number | null
   id: string
   isEnabled: boolean
-  sourceStrategy: AdminMusicSourceStrategy
-  sourceUrl: string
+  neteaseSongId: string
+  providerUrl: string
   title: string
   updatedAt: string
 }
 
 export interface AdminMusicTrackInput {
-  album: string | null
-  artist: string
-  artwork_alt: string | null
-  artwork_url: string | null
   display_order: number
-  duration_seconds: number | null
   is_enabled: boolean
-  source_strategy: AdminMusicSourceStrategy
-  source_url: string
-  title: string
+  netease_song_id: string
+}
+
+export interface AdminMusicTrackUpdateInput {
+  display_order?: number
+  is_enabled?: boolean
 }

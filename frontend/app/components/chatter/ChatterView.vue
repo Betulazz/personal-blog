@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 import type { ChatterCollectionResponse } from '~/types/chatter'
-import type { PublicFeedQuery, PublicTag } from '~/types/public-content'
+import type { PublicFeedQuery } from '~/types/public-content'
 import {
   buildPublicFeedRouteQuery,
   isPublicFeedPageOutOfRange,
@@ -13,7 +13,6 @@ const props = defineProps<{
   pending: boolean
   query: PublicFeedQuery
   response: ChatterCollectionResponse | null
-  tags: PublicTag[]
 }>()
 
 const emit = defineEmits<{
@@ -64,14 +63,14 @@ const resultDescription = computed(() => {
     <UiPageContainer as="section" class="chatter-page__intro" width="wide">
       <div class="chatter-page__intro-copy">
         <UiSectionHeader
-          description="比动态更完整，比文章更轻盈的想法。这里收纳可以慢慢读完的短篇记录。"
+          description="随手记下想法、生活片段与此刻的心情。"
           eyebrow="COMPOSED NOTES"
           title="杂谈"
           :heading-level="1"
         />
         <div class="chatter-page__summary">
           <UiBadge tone="accent">{{ resultDescription }}</UiBadge>
-          <span v-if="query.q || query.tag">筛选状态已保存在当前链接中</span>
+          <span v-if="query.q">筛选状态已保存在当前链接中</span>
         </div>
       </div>
     </UiPageContainer>
@@ -85,9 +84,8 @@ const resultDescription = computed(() => {
       <PublicFeedControls
         base-path="/chatter"
         content-label="杂谈"
-        placeholder="搜索标题、正文、心情或标签"
+        placeholder="搜索标题或正文"
         :query="query"
-        :tags="tags"
       />
 
       <PublicCollectionState
@@ -119,7 +117,7 @@ const resultDescription = computed(() => {
 }
 
 .chatter-page__intro {
-  padding-top: clamp(10rem, 17vw, 14rem);
+  padding-top: var(--public-heading-offset);
   padding-bottom: var(--space-12);
 }
 
@@ -156,7 +154,6 @@ const resultDescription = computed(() => {
 
 @media (width <= 48rem) {
   .chatter-page__intro {
-    padding-top: 9rem;
     padding-bottom: var(--space-10);
   }
 

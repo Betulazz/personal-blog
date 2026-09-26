@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.media import MediaAsset
+from app.models.migration_archive import ContentMigrationArchive
 from app.models.music import MusicTrack
 
 
@@ -23,10 +24,20 @@ async def clean_media(
     settings = get_settings()
     monkeypatch.setattr(settings, "media_root", tmp_path)
     await isolated_mysql_session.execute(delete(MusicTrack))
+    await isolated_mysql_session.execute(
+        delete(ContentMigrationArchive).where(
+            ContentMigrationArchive.source_type == "legacy_music_track"
+        )
+    )
     await isolated_mysql_session.execute(delete(MediaAsset))
     await isolated_mysql_session.commit()
     yield
     await isolated_mysql_session.execute(delete(MusicTrack))
+    await isolated_mysql_session.execute(
+        delete(ContentMigrationArchive).where(
+            ContentMigrationArchive.source_type == "legacy_music_track"
+        )
+    )
     await isolated_mysql_session.execute(delete(MediaAsset))
     await isolated_mysql_session.commit()
 
@@ -154,6 +165,7 @@ async def test_media_delete_reports_references_and_missing_bytes(
     mysql_client: AsyncClient,
     auth_admin: None,
     clean_media: None,
+    isolated_mysql_session: AsyncSession,
 ) -> None:
     csrf = await _login(mysql_client)
     uploaded = await mysql_client.post(
@@ -167,17 +179,17 @@ async def test_media_delete_reports_references_and_missing_bytes(
     assert audio_delivery.status_code == 200
     assert audio_delivery.headers["content-type"] == "audio/wav"
 
-    track = await mysql_client.post(
-        "/api/v1/admin/music-tracks",
-        headers={"X-CSRF-Token": csrf},
-        json={
+    archived_track = ContentMigrationArchive(
+        source_type="legacy_music_track",
+        source_key="42",
+        payload={
+            "id": 42,
             "title": "引用中的音频",
-            "artist": "测试",
-            "source_strategy": "local_media",
             "source_url": asset["url"],
         },
     )
-    assert track.status_code == 201
+    isolated_mysql_session.add(archived_track)
+    await isolated_mysql_session.commit()
     referenced = await mysql_client.delete(
         f"/api/v1/admin/media/{asset['id']}",
         headers={"X-CSRF-Token": csrf},
@@ -186,6 +198,9 @@ async def test_media_delete_reports_references_and_missing_bytes(
     assert referenced.json()["error"]["code"] == "media_asset_referenced"
     assert referenced.json()["error"]["details"][0]["field"] == "source_url"
 
+    await isolated_mysql_session.delete(archived_track)
+    await isolated_mysql_session.commit()
+
     settings = get_settings()
     file_path = settings.media_root / Path(asset["key"])
     file_path.unlink()
@@ -193,11 +208,6 @@ async def test_media_delete_reports_references_and_missing_bytes(
     assert missing.status_code == 404
     assert missing.json()["error"]["code"] == "media_bytes_missing"
 
-    deleted_track = await mysql_client.delete(
-        f"/api/v1/admin/music-tracks/{track.json()['data']['id']}",
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert deleted_track.status_code == 200
     missing_delete = await mysql_client.delete(
         f"/api/v1/admin/media/{asset['id']}",
         headers={"X-CSRF-Token": csrf},

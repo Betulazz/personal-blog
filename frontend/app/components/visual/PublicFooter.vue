@@ -31,7 +31,7 @@ const monogram = computed(() => identity.value.name.slice(0, 1))
           <h2>继续探索</h2>
           <ul>
             <li v-for="item in publicNavigation" :key="item.href">
-              <a :href="item.href">{{ item.label }}</a>
+              <NuxtLink :to="item.href">{{ item.label }}</NuxtLink>
             </li>
           </ul>
         </nav>

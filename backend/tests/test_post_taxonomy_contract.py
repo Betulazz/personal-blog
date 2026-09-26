@@ -3,10 +3,11 @@ from collections.abc import AsyncIterator
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.post import Post, post_tags
-from app.models.taxonomy import Category, Tag
+from app.models.taxonomy import Tag
 
 
 @pytest.fixture
@@ -16,33 +17,21 @@ async def clean_post_taxonomy(
     await isolated_mysql_session.execute(delete(post_tags))
     await isolated_mysql_session.execute(delete(Post))
     await isolated_mysql_session.execute(delete(Tag))
-    await isolated_mysql_session.execute(delete(Category))
     await isolated_mysql_session.commit()
     yield
     await isolated_mysql_session.execute(delete(post_tags))
     await isolated_mysql_session.execute(delete(Post))
     await isolated_mysql_session.execute(delete(Tag))
-    await isolated_mysql_session.execute(delete(Category))
     await isolated_mysql_session.commit()
 
 
 @pytest.mark.asyncio
-async def test_post_lifecycle_and_public_taxonomy_are_published_only(
+async def test_posts_keep_tags_without_categories_and_preserve_first_publication(
     mysql_client: AsyncClient,
     auth_admin: None,
     clean_post_taxonomy: None,
 ) -> None:
-    csrf = await _get_csrf(mysql_client)
-    csrf = await _login(mysql_client, csrf)
-    headers = {"X-CSRF-Token": csrf}
-
-    category = await mysql_client.post(
-        "/api/v1/admin/categories",
-        headers=headers,
-        json={"name": "工程实践", "slug": "engineering"},
-    )
-    assert category.status_code == 201
-    category_id = category.json()["data"]["id"]
+    headers = {"X-CSRF-Token": await _login(mysql_client)}
     tag = await mysql_client.post(
         "/api/v1/admin/tags",
         headers=headers,
@@ -59,195 +48,253 @@ async def test_post_lifecycle_and_public_taxonomy_are_published_only(
             "slug": "api-under-stars",
             "summary": "一篇 Unicode 摘要 🌌",
             "body": "# 你好\n\n记录正文与 **Markdown**。",
-            "category_id": category_id,
             "tag_ids": [tag_id],
-            "reading_time_minutes": 7,
-            "seo_title": "星空下的 API 设计 | 夜航手记",
-            "seo_description": "面向长期维护的 API 设计记录。",
-            "canonical_url": "https://example.com/posts/api-under-stars",
-            "og_image_url": "/uploads/images/api-under-stars.webp",
         },
     )
     assert created.status_code == 201
-    post = created.json()["data"]
-    post_id = post["id"]
-    assert post["status"] == "draft"
-    assert post["seo_title"] == "星空下的 API 设计 | 夜航手记"
-    assert post["canonical_url"] == "https://example.com/posts/api-under-stars"
-
-    hidden = await mysql_client.get("/api/v1/posts")
-    assert hidden.status_code == 200
-    assert hidden.json()["data"] == []
-    assert (await mysql_client.get("/api/v1/posts/api-under-stars")).status_code == 404
-
-    preview = await mysql_client.post(f"/api/v1/admin/posts/{post_id}/preview", headers=headers)
-    assert preview.status_code == 200
-    assert preview.json()["data"]["body"].startswith("# 你好")
-    unsaved_preview = await mysql_client.post(
-        f"/api/v1/admin/posts/{post_id}/preview",
-        headers=headers,
-        json={"title": "未保存的预览", "body": "# 预览", "category_id": None, "tag_ids": []},
-    )
-    assert unsaved_preview.status_code == 200
-    assert unsaved_preview.json()["data"]["title"] == "未保存的预览"
-    assert unsaved_preview.json()["data"]["body"] == "# 预览"
-    assert unsaved_preview.json()["data"]["category"] is None
-    assert unsaved_preview.json()["data"]["tag_ids"] == []
+    post_id = created.json()["data"]["id"]
+    assert not {
+        "seo_title",
+        "seo_description",
+        "canonical_url",
+        "og_image_url",
+    }.intersection(created.json()["data"])
+    assert "category" not in created.json()["data"]
+    assert "category_id" not in created.json()["data"]
+    assert created.json()["data"]["tag_ids"] == [tag_id]
+    assert (await mysql_client.get("/api/v1/posts")).json()["data"] == []
 
     published = await mysql_client.post(f"/api/v1/admin/posts/{post_id}/publish", headers=headers)
     assert published.status_code == 200
-    assert published.json()["data"]["status"] == "published"
-    assert published.json()["data"]["published_at"] is not None
-
-    filtered_admin = await mysql_client.get(
-        "/api/v1/admin/posts",
-        params={"category": "engineering", "tag": "unicode", "status": "published"},
-    )
-    assert filtered_admin.status_code == 200
-    assert [item["id"] for item in filtered_admin.json()["data"]] == [post_id]
-
-    listing = await mysql_client.get("/api/v1/posts", params={"q": "星空", "page_size": 1})
+    first_published_at = published.json()["data"]["published_at"]
+    listing = await mysql_client.get("/api/v1/posts", params={"q": "星空"})
     assert listing.status_code == 200
-    assert listing.json()["pagination"] == {
-        "page": 1,
-        "page_size": 1,
-        "total": 1,
-        "total_pages": 1,
-    }
-    assert listing.json()["data"][0]["category"]["post_count"] == 1
     assert listing.json()["data"][0]["tags"][0]["post_count"] == 1
+    assert "category" not in listing.json()["data"][0]
 
-    detail = await mysql_client.get("/api/v1/posts/api-under-stars")
-    assert detail.status_code == 200
-    assert detail.json()["data"]["body"] == "# 你好\n\n记录正文与 **Markdown**。"
+    by_tag = await mysql_client.get("/api/v1/tags/unicode/posts")
+    assert [item["slug"] for item in by_tag.json()["data"]] == ["api-under-stars"]
+    assert (await mysql_client.get("/api/v1/categories")).status_code == 404
 
-    categories = await mysql_client.get("/api/v1/categories")
-    assert categories.json()["data"][0]["slug"] == "engineering"
-    assert categories.json()["data"][0]["post_count"] == 1
-    category_posts = await mysql_client.get("/api/v1/categories/engineering/posts")
-    assert [item["slug"] for item in category_posts.json()["data"]] == ["api-under-stars"]
-    tag_posts = await mysql_client.get("/api/v1/tags/unicode/posts")
-    assert [item["slug"] for item in tag_posts.json()["data"]] == ["api-under-stars"]
-
-    already_published = await mysql_client.post(
-        f"/api/v1/admin/posts/{post_id}/publish", headers=headers
+    legacy_category = await mysql_client.post(
+        "/api/v1/admin/posts",
+        headers=headers,
+        json={
+            "title": "旧分类字段",
+            "slug": "retired-category",
+            "body": "category_id is retired",
+            "category_id": 5,
+        },
     )
-    assert already_published.status_code == 409
-    assert already_published.json()["error"]["code"] == "post_already_published"
+    assert legacy_category.status_code == 422
+
+    legacy_seo_fields = await mysql_client.post(
+        "/api/v1/admin/posts",
+        headers=headers,
+        json={
+            "title": "已移除的手动 SEO 字段",
+            "slug": "retired-manual-seo",
+            "body": "Fields should be rejected.",
+            "seo_title": "manual title",
+            "seo_description": "manual description",
+            "canonical_url": "https://example.com/override",
+            "og_image_url": "https://example.com/override.webp",
+        },
+    )
+    assert legacy_seo_fields.status_code == 422
 
     unpublished = await mysql_client.post(
         f"/api/v1/admin/posts/{post_id}/unpublish", headers=headers
     )
     assert unpublished.status_code == 200
-    assert unpublished.json()["data"]["published_at"] is None
+    assert unpublished.json()["data"]["published_at"] == first_published_at
     assert (await mysql_client.get("/api/v1/posts")).json()["data"] == []
-
-    already_draft = await mysql_client.post(
-        f"/api/v1/admin/posts/{post_id}/unpublish", headers=headers
-    )
-    assert already_draft.status_code == 409
-    assert already_draft.json()["error"]["code"] == "post_not_published"
-
-    category_in_use = await mysql_client.delete(
-        f"/api/v1/admin/categories/{category_id}", headers=headers
-    )
-    assert category_in_use.status_code == 409
-    assert category_in_use.json()["error"]["code"] == "category_in_use"
-    tag_in_use = await mysql_client.delete(f"/api/v1/admin/tags/{tag_id}", headers=headers)
-    assert tag_in_use.status_code == 409
-    assert tag_in_use.json()["error"]["code"] == "tag_in_use"
-
-    deleted = await mysql_client.delete(f"/api/v1/admin/posts/{post_id}", headers=headers)
-    assert deleted.status_code == 200
-    assert deleted.json() == {"data": {"deleted": True}}
-    assert (
-        await mysql_client.delete(f"/api/v1/admin/categories/{category_id}", headers=headers)
-    ).status_code == 200
-    assert (
-        await mysql_client.delete(f"/api/v1/admin/tags/{tag_id}", headers=headers)
-    ).status_code == 200
+    republished = await mysql_client.post(f"/api/v1/admin/posts/{post_id}/publish", headers=headers)
+    assert republished.status_code == 200
+    assert republished.json()["data"]["published_at"] == first_published_at
 
 
 @pytest.mark.asyncio
-async def test_post_and_taxonomy_validation_use_safe_conflicts_and_errors(
+async def test_post_tag_validation_and_slug_conflicts_remain_safe(
     mysql_client: AsyncClient,
     auth_admin: None,
     clean_post_taxonomy: None,
 ) -> None:
-    csrf = await _get_csrf(mysql_client)
-    csrf = await _login(mysql_client, csrf)
-    headers = {"X-CSRF-Token": csrf}
-
-    created_category = await mysql_client.post(
-        "/api/v1/admin/categories",
-        headers=headers,
-        json={"name": "分类", "slug": "category"},
+    headers = {"X-CSRF-Token": await _login(mysql_client)}
+    invalid_tag = await mysql_client.post(
+        "/api/v1/admin/tags", headers=headers, json={"name": "标签", "slug": "不安全"}
     )
-    assert created_category.status_code == 201
-    duplicate_category = await mysql_client.post(
-        "/api/v1/admin/categories",
+    assert invalid_tag.status_code == 422
+    missing_tag = await mysql_client.post(
+        "/api/v1/admin/posts",
         headers=headers,
-        json={"name": "另一个名字", "slug": "category"},
+        json={"title": "Invalid tag", "slug": "invalid-tag", "tag_ids": [999999]},
     )
-    assert duplicate_category.status_code == 409
-    assert duplicate_category.json()["error"]["code"] == "category_conflict"
+    assert missing_tag.status_code == 404
+    assert missing_tag.json()["error"]["code"] == "tag_not_found"
 
-    invalid_slug = await mysql_client.post(
+    first = await mysql_client.post(
+        "/api/v1/admin/posts",
+        headers=headers,
+        json={"title": "First", "slug": "same-slug", "body": "body"},
+    )
+    assert first.status_code == 201
+    duplicate = await mysql_client.post(
+        "/api/v1/admin/posts",
+        headers=headers,
+        json={"title": "Second", "slug": "same-slug", "body": "body"},
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "post_slug_conflict"
+
+
+@pytest.mark.asyncio
+async def test_unused_tag_can_be_deleted_from_admin_and_public_discovery(
+    mysql_client: AsyncClient,
+    auth_admin: None,
+    clean_post_taxonomy: None,
+) -> None:
+    headers = {"X-CSRF-Token": await _login(mysql_client)}
+    created = await mysql_client.post(
         "/api/v1/admin/tags",
         headers=headers,
-        json={"name": "标签", "slug": "不安全的 slug"},
+        json={"name": "Unused", "slug": "unused"},
     )
-    assert invalid_slug.status_code == 422
-    assert invalid_slug.json()["error"]["code"] == "validation_error"
+    assert created.status_code == 201
+    tag_id = created.json()["data"]["id"]
 
-    invalid_taxonomy = await mysql_client.post(
+    removed = await mysql_client.delete(f"/api/v1/admin/tags/{tag_id}", headers=headers)
+
+    assert removed.status_code == 200
+    assert removed.json()["data"] == {"deleted": True}
+    admin_tags = await mysql_client.get("/api/v1/admin/tags")
+    public_tags = await mysql_client.get("/api/v1/tags")
+    public_detail = await mysql_client.get("/api/v1/tags/unused")
+    assert all(tag["slug"] != "unused" for tag in admin_tags.json()["data"])
+    assert all(tag["slug"] != "unused" for tag in public_tags.json()["data"])
+    assert public_detail.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_referenced_tag_deletion_detaches_all_posts_and_preserves_them(
+    mysql_client: AsyncClient,
+    auth_admin: None,
+    clean_post_taxonomy: None,
+) -> None:
+    headers = {"X-CSRF-Token": await _login(mysql_client)}
+    tag = await mysql_client.post(
+        "/api/v1/admin/tags",
+        headers=headers,
+        json={"name": "Shared", "slug": "shared"},
+    )
+    tag_id = tag.json()["data"]["id"]
+    published = await mysql_client.post(
         "/api/v1/admin/posts",
         headers=headers,
         json={
-            "title": "Invalid taxonomy",
-            "slug": "invalid-taxonomy",
-            "body": "body",
-            "category_id": 999999999,
-            "tag_ids": [],
+            "title": "Published post",
+            "slug": "published-post",
+            "summary": "Preserve this summary",
+            "body": "Published body stays intact.",
+            "tag_ids": [tag_id],
         },
     )
-    assert invalid_taxonomy.status_code == 404
-    assert invalid_taxonomy.json()["error"]["code"] == "category_not_found"
-
-    too_large = await mysql_client.get("/api/v1/posts", params={"page_size": 101})
-    assert too_large.status_code == 422
-    assert too_large.json()["error"]["code"] == "validation_error"
-
-    duplicate_post = await mysql_client.post(
+    draft = await mysql_client.post(
         "/api/v1/admin/posts",
         headers=headers,
         json={
-            "title": "First",
-            "slug": "same-slug",
-            "body": "body",
+            "title": "Draft post",
+            "slug": "draft-post",
+            "summary": "Preserve this draft",
+            "body": "Draft body stays intact.",
+            "tag_ids": [tag_id],
         },
     )
-    assert duplicate_post.status_code == 201
-    second = await mysql_client.post(
+    published_id = published.json()["data"]["id"]
+    draft_id = draft.json()["data"]["id"]
+    published = await mysql_client.post(
+        f"/api/v1/admin/posts/{published_id}/publish", headers=headers
+    )
+    before = {
+        post_id: (await mysql_client.get(f"/api/v1/admin/posts/{post_id}")).json()["data"]
+        for post_id in (published_id, draft_id)
+    }
+    admin_tags = await mysql_client.get("/api/v1/admin/tags")
+    shared = next(item for item in admin_tags.json()["data"] if item["id"] == tag_id)
+    assert shared["post_count"] == 2
+
+    removed = await mysql_client.delete(f"/api/v1/admin/tags/{tag_id}", headers=headers)
+
+    assert removed.status_code == 200
+    assert removed.json()["data"] == {"deleted": True}
+    after = {
+        post_id: (await mysql_client.get(f"/api/v1/admin/posts/{post_id}")).json()["data"]
+        for post_id in (published_id, draft_id)
+    }
+    for post_id in (published_id, draft_id):
+        assert after[post_id]["tag_ids"] == []
+        for field in ("title", "slug", "summary", "body", "status", "published_at"):
+            assert after[post_id][field] == before[post_id][field]
+    assert after[published_id]["status"] == "published"
+    assert after[draft_id]["status"] == "draft"
+    assert (await mysql_client.get("/api/v1/tags/shared")).status_code == 404
+    assert all(
+        item["slug"] != "shared" for item in (await mysql_client.get("/api/v1/tags")).json()["data"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_referenced_tag_delete_database_failure_rolls_back_all_changes(
+    mysql_client: AsyncClient,
+    auth_admin: None,
+    clean_post_taxonomy: None,
+    isolated_mysql_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    headers = {"X-CSRF-Token": await _login(mysql_client)}
+    tag = await mysql_client.post(
+        "/api/v1/admin/tags",
+        headers=headers,
+        json={"name": "Rollback", "slug": "rollback"},
+    )
+    tag_id = tag.json()["data"]["id"]
+    created = await mysql_client.post(
         "/api/v1/admin/posts",
         headers=headers,
         json={
-            "title": "Second",
-            "slug": "same-slug",
-            "body": "body",
+            "title": "Rollback fixture",
+            "slug": "rollback-fixture",
+            "body": "Must keep its Tag association.",
+            "tag_ids": [tag_id],
         },
     )
-    assert second.status_code == 409
-    assert second.json()["error"]["code"] == "post_slug_conflict"
+    post_id = created.json()["data"]["id"]
+    original_commit = isolated_mysql_session.commit
+
+    async def fail_commit() -> None:
+        await isolated_mysql_session.flush()
+        raise IntegrityError("forced Tag delete failure", {}, RuntimeError("database unavailable"))
+
+    monkeypatch.setattr(isolated_mysql_session, "commit", fail_commit)
+
+    failed = await mysql_client.delete(f"/api/v1/admin/tags/{tag_id}", headers=headers)
+
+    assert failed.status_code == 500
+    assert failed.json()["error"]["code"] == "tag_delete_failed"
+    monkeypatch.setattr(isolated_mysql_session, "commit", original_commit)
+    assert any(
+        item["id"] == tag_id
+        for item in (await mysql_client.get("/api/v1/admin/tags")).json()["data"]
+    )
+    post = (await mysql_client.get(f"/api/v1/admin/posts/{post_id}")).json()["data"]
+    assert post["tag_ids"] == [tag_id]
+    assert post["body"] == "Must keep its Tag association."
 
 
-async def _get_csrf(client: AsyncClient) -> str:
-    response = await client.get("/api/v1/auth/csrf")
-    assert response.status_code == 200
-    return response.json()["data"]["token"]
-
-
-async def _login(client: AsyncClient, csrf: str) -> str:
+async def _login(client: AsyncClient) -> str:
+    csrf_response = await client.get("/api/v1/auth/csrf")
+    assert csrf_response.status_code == 200
+    csrf = csrf_response.json()["data"]["token"]
     response = await client.post(
         "/api/v1/auth/login",
         headers={"X-CSRF-Token": csrf},

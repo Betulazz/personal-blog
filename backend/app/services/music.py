@@ -1,4 +1,4 @@
-from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
@@ -6,15 +6,30 @@ from app.models.music import MusicTrack
 from app.repositories.music import MusicTrackRepository
 from app.schemas.music import (
     MusicTrackCreateRequest,
+    MusicTrackPreviewResponse,
     MusicTrackReorderRequest,
     MusicTrackUpdateRequest,
 )
+from app.services.netease_web import NetEaseLyrics, NetEaseTrackMetadata, NetEaseWebClient
+
+
+def provider_song_url(song_id: int) -> str:
+    return f"https://music.163.com/song?id={song_id}"
+
+
+def provider_media_url(song_id: int) -> str:
+    return f"https://music.163.com/song/media/outer/url?id={song_id}.mp3"
 
 
 class MusicTrackService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        provider: NetEaseWebClient | None = None,
+    ) -> None:
         self._session = session
         self._repository = MusicTrackRepository(session)
+        self._provider = provider or NetEaseWebClient()
 
     async def public_list(self, *, page: int, page_size: int) -> tuple[list[MusicTrack], int]:
         return (
@@ -37,38 +52,44 @@ class MusicTrackService:
     async def admin_detail(self, track_id: int) -> MusicTrack:
         return await self._require(track_id)
 
+    async def preview(self, song_id: str) -> MusicTrackPreviewResponse:
+        song_id_int = int(song_id)
+        metadata = await self._provider.get_track(song_id_int)
+        return _preview_response(
+            metadata,
+            already_added=(await self._repository.find_by_netease_song_id(song_id_int) is not None),
+        )
+
     async def create(self, request: MusicTrackCreateRequest) -> MusicTrack:
-        track = MusicTrack(**request.model_dump(mode="json"))
-        await self._repository.add(track)
-        await self._session.commit()
+        song_id = int(request.netease_song_id)
+        if await self._repository.find_by_netease_song_id(song_id) is not None:
+            raise _duplicate_song_error()
+        metadata = await self._provider.get_track(song_id)
+        track = MusicTrack(
+            netease_song_id=song_id,
+            title=metadata.title,
+            artist=metadata.artist,
+            album=metadata.album,
+            artwork_url=metadata.artwork_url,
+            artwork_alt=f"{metadata.title} 封面" if metadata.artwork_url else None,
+            duration_seconds=metadata.duration_seconds,
+            display_order=request.display_order,
+            is_enabled=request.is_enabled,
+        )
+        try:
+            await self._repository.add(track)
+            await self._session.commit()
+        except IntegrityError as exc:
+            await self._session.rollback()
+            if await self._repository.find_by_netease_song_id(song_id) is not None:
+                raise _duplicate_song_error() from exc
+            raise
         return await self._require(track.id)
 
     async def update(self, track_id: int, request: MusicTrackUpdateRequest) -> MusicTrack:
         track = await self._require(track_id)
-        values = request.model_dump(exclude_unset=True, mode="json")
-        merged = {
-            "title": track.title,
-            "artist": track.artist,
-            "album": track.album,
-            "source_strategy": track.source_strategy,
-            "source_url": track.source_url,
-            "artwork_url": track.artwork_url,
-            "artwork_alt": track.artwork_alt,
-            "duration_seconds": track.duration_seconds,
-            "display_order": track.display_order,
-            "is_enabled": track.is_enabled,
-        }
-        merged.update(values)
-        try:
-            normalized = MusicTrackCreateRequest.model_validate(merged)
-        except ValidationError as exc:
-            raise AppError(
-                code="invalid_music_source",
-                message="The Music Track source does not match its source strategy",
-                status_code=422,
-            ) from exc
-
-        for field, value in normalized.model_dump(mode="json").items():
+        values = request.model_dump(exclude_unset=True)
+        for field, value in values.items():
             setattr(track, field, value)
         await self._session.commit()
         return await self._require(track.id)
@@ -96,6 +117,17 @@ class MusicTrackService:
         await self._session.commit()
         return await self._require(track.id)
 
+    async def playback(self, track_id: int) -> MusicTrack:
+        track = await self._require(track_id)
+        if not track.is_enabled:
+            raise _track_not_found()
+        return track
+
+    async def lyrics(self, track_id: int) -> tuple[MusicTrack, NetEaseLyrics]:
+        track = await self.playback(track_id)
+        lyrics = await self._provider.get_lyrics(track.netease_song_id)
+        return track, lyrics
+
     async def delete(self, track_id: int) -> None:
         track = await self._require(track_id)
         await self._repository.delete(track)
@@ -104,9 +136,36 @@ class MusicTrackService:
     async def _require(self, track_id: int) -> MusicTrack:
         track = await self._repository.find_by_id(track_id)
         if track is None:
-            raise AppError(
-                code="music_track_not_found",
-                message="The requested Music Track does not exist",
-                status_code=404,
-            )
+            raise _track_not_found()
         return track
+
+
+def _preview_response(
+    metadata: NetEaseTrackMetadata, *, already_added: bool
+) -> MusicTrackPreviewResponse:
+    return MusicTrackPreviewResponse(
+        netease_song_id=str(metadata.song_id),
+        title=metadata.title,
+        artist=metadata.artist,
+        album=metadata.album,
+        artwork_url=metadata.artwork_url,
+        duration_seconds=metadata.duration_seconds,
+        provider_url=provider_song_url(metadata.song_id),
+        already_added=already_added,
+    )
+
+
+def _duplicate_song_error() -> AppError:
+    return AppError(
+        code="music_track_duplicate",
+        message="This NetEase song is already in the playlist",
+        status_code=409,
+    )
+
+
+def _track_not_found() -> AppError:
+    return AppError(
+        code="music_track_not_found",
+        message="The requested Music Track does not exist",
+        status_code=404,
+    )

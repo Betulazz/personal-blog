@@ -15,12 +15,12 @@ test('sitemap and robots expose crawlable public URLs', async ({ request }) => {
   )
   expect(sitemap).toContain('<lastmod>2026-09-14T08:00:00.000Z</lastmod>')
   expect(sitemap).toContain(
-    '<loc>https://example.com/notes/markdown-first</loc>',
+    '<loc>http://127.0.0.1:3000/posts/markdown-first</loc>',
   )
-  expect(sitemap).toContain(
-    '<loc>http://127.0.0.1:3000/categories/engineering</loc>',
-  )
-  expect(sitemap).toContain('<loc>http://127.0.0.1:3000/tags/markdown</loc>')
+  expect(sitemap).toContain('<loc>http://127.0.0.1:3000/moments</loc>')
+  expect(sitemap).toContain('<loc>http://127.0.0.1:3000/music</loc>')
+  expect(sitemap).not.toContain('/categories')
+  expect(sitemap).not.toContain('/tags')
   expect(sitemap).not.toContain('/admin')
   expect(sitemap).not.toContain('/search')
 

@@ -9,7 +9,6 @@ import type {
   HomepageChatter,
   HomepageCollectionResponse,
   HomepageContent,
-  HomepageMoment,
   HomepagePost,
   HomepageProject,
   HomepageSectionKey,
@@ -44,15 +43,6 @@ export async function useHomepageContent(provider?: HomepageContentProvider) {
     activeProvider.getChatter,
   )
   const {
-    data: moments,
-    error: momentsError,
-    pending: momentsPending,
-    refresh: refreshMoments,
-  } = useHomepageCollection<HomepageCollectionResponse<HomepageMoment>>(
-    'homepage-moments',
-    activeProvider.getMoments,
-  )
-  const {
     data: posts,
     error: postsError,
     pending: postsPending,
@@ -78,12 +68,6 @@ export async function useHomepageContent(provider?: HomepageContentProvider) {
       chatterError.value,
       '最近杂谈',
     ),
-    moments: toHomepageSection(
-      moments.value,
-      momentsPending.value,
-      momentsError.value,
-      '最近动态',
-    ),
     posts: toHomepageSection(
       posts.value,
       postsPending.value,
@@ -103,9 +87,9 @@ export async function useHomepageContent(provider?: HomepageContentProvider) {
         posts.value?.pagination.total ?? 0,
       ),
       createHomepageStat(
-        '最近动态',
-        '生活片段',
-        moments.value?.pagination.total ?? 0,
+        '公开杂谈',
+        '随心记录',
+        chatter.value?.pagination.total ?? 0,
       ),
       createHomepageStat(
         '精选项目',
@@ -117,7 +101,6 @@ export async function useHomepageContent(provider?: HomepageContentProvider) {
 
   const refreshers: Record<HomepageSectionKey, () => Promise<unknown>> = {
     chatter: refreshChatter,
-    moments: refreshMoments,
     posts: refreshPosts,
     projects: refreshProjects,
   }

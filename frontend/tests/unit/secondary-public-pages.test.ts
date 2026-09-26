@@ -23,6 +23,7 @@ describe('secondary public content contracts', () => {
           },
         ],
       },
+      backgroundGallery: [],
       contact: { email: 'live@example.com', note: '欢迎来信。' },
       description: '站点描述',
       footer: { copyright: '', icp: '', note: '页脚说明' },
@@ -36,12 +37,6 @@ describe('secondary public content contracts', () => {
       },
       name: '夜航手记',
       profile: '公开简介',
-      seoDefaults: {
-        description: 'SEO 描述',
-        keywords: [],
-        title: '夜航手记',
-        twitterCard: 'summary',
-      },
       socialLinks: [],
       tagline: '公开配置',
     }
@@ -88,6 +83,7 @@ describe('Project media fallback', () => {
             width: 100,
           },
           name: 'Missing Logo',
+          projectType: 'personal',
           stack: ['Vue'],
           status: 'active',
           timeSpan: '2026 — 至今',
@@ -99,6 +95,39 @@ describe('Project media fallback', () => {
 
     expect(wrapper.get('[role="img"]').text()).toContain('媒体暂不可用')
     expect(wrapper.text()).toContain('Missing Logo')
+  })
+})
+
+describe('GitHub Open-source Project presentation', () => {
+  it('shows a safe repository destination without Personal Project metadata', () => {
+    const wrapper = mount(ProjectCard, {
+      global: {
+        stubs: {
+          UiBadge: { template: '<span><slot /></span>' },
+        },
+      },
+      props: {
+        project: {
+          description: '人工维护的开源仓库介绍。',
+          featured: true,
+          id: 'github-project-test',
+          name: 'Open Source Archive',
+          projectType: 'github_open_source',
+          repositoryUrl: 'https://github.com/example/open-source-archive',
+        },
+      },
+    })
+
+    const repositoryLink = wrapper.get('a')
+    expect(wrapper.text()).toContain('GitHub 开源')
+    expect(repositoryLink.attributes('href')).toBe(
+      'https://github.com/example/open-source-archive',
+    )
+    expect(repositoryLink.attributes('rel')).toBe('noopener noreferrer')
+    expect(wrapper.find('.project-card__meta').exists()).toBe(false)
+    expect(wrapper.find('.project-card__stack').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('开发时间')
+    expect(wrapper.text()).not.toContain('暂无公开演示')
   })
 })
 

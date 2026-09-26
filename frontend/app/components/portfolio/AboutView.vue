@@ -209,7 +209,7 @@ const markAvatarUnavailable = () => {
 }
 
 .about-page__intro {
-  padding-top: clamp(10rem, 17vw, 14rem);
+  padding-top: var(--public-heading-offset);
   padding-bottom: var(--space-12);
 }
 
@@ -445,7 +445,6 @@ const markAvatarUnavailable = () => {
 
 @media (width <= 48rem) {
   .about-page__intro {
-    padding-top: 9rem;
     padding-bottom: var(--space-10);
   }
 

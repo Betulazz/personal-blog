@@ -114,13 +114,9 @@ test('native public route inventory, missing records, and media recovery work', 
       path: '/posts/live-acceptance-markdown',
       heading: 'Markdown 仍然是一条可迁移的路',
     },
-    { path: '/categories', heading: '文章分类' },
-    { path: '/categories/live-acceptance', heading: '分类：现场验收' },
-    { path: '/tags', heading: '文章标签' },
-    { path: '/tags/markdown', heading: '标签：Markdown' },
-    { path: '/search?q=portable', heading: '搜索：portable' },
     { path: '/moments', heading: '动态' },
     { path: '/chatter', heading: '杂谈' },
+    { path: '/music', heading: '音乐' },
     { path: '/projects', heading: '项目集' },
     { path: '/friends', heading: '友链' },
     {
@@ -139,6 +135,65 @@ test('native public route inventory, missing records, and media recovery work', 
     await assertNoHorizontalOverflow(page, route.path)
     await assertSafeExternalLinks(page)
   }
+
+  let navigation = page.getByRole('navigation', { name: '主导航' })
+  if (!(await navigation.isVisible())) {
+    const menuButton = page.getByRole('button', { name: '打开主导航' })
+    await expect(menuButton).toBeEnabled()
+    await menuButton.click()
+    navigation = page.getByRole('navigation', { name: '移动端主导航' })
+  }
+  await expect(navigation).toBeVisible()
+  const navigationHrefs = await navigation
+    .locator('a')
+    .evaluateAll((links) =>
+      links.map((link) => new URL((link as HTMLAnchorElement).href).pathname),
+    )
+  expect(navigationHrefs).toContain('/music')
+  expect(navigationHrefs).not.toEqual(
+    expect.arrayContaining(['/categories', '/tags', '/search']),
+  )
+
+  for (const route of ['/posts', '/chatter', '/moments']) {
+    await page.goto(route)
+    await expect(page.getByRole('searchbox')).toHaveCount(1)
+  }
+  for (const route of ['/', '/music', '/projects', '/friends', '/about']) {
+    await page.goto(route)
+    await expect(page.getByRole('searchbox')).toHaveCount(0)
+  }
+
+  await page.goto('/categories')
+  await expect(page).toHaveURL(/\/posts$/)
+  await page.goto('/tags/markdown')
+  await expect(page).toHaveURL(/\/posts\?tag=markdown$/)
+  await page.goto('/search?q=portable')
+  await expect(page).toHaveURL(/\/posts\?q=portable$/)
+
+  await page.goto('/moments')
+  const timeline = page.locator('.timeline__entry')
+  await expect(page.getByText('公开验收从真实内容开始')).toBeVisible()
+  await expect(page.getByText('真实数据抵达浏览器之后')).toBeVisible()
+  const timelineEntries = await timeline.allTextContents()
+  expect(
+    timelineEntries.join('\n').indexOf('公开验收从真实内容开始'),
+  ).toBeLessThan(timelineEntries.join('\n').indexOf('真实数据抵达浏览器之后'))
+
+  await page.goto('/posts?q=公开验收从真实内容开始')
+  await expect(page.getByRole('searchbox')).toHaveValue(
+    '公开验收从真实内容开始',
+  )
+  await expect(page.getByText('公开验收从真实内容开始')).toBeVisible()
+  await page.goto('/chatter?q=真实数据抵达浏览器之后')
+  await expect(page.getByRole('searchbox')).toHaveValue(
+    '真实数据抵达浏览器之后',
+  )
+  await expect(page.getByText('真实数据抵达浏览器之后')).toBeVisible()
+  await page.goto('/moments?q=真实数据抵达浏览器之后')
+  await expect(page.getByRole('searchbox')).toHaveValue(
+    '真实数据抵达浏览器之后',
+  )
+  await expect(page.getByText('真实数据抵达浏览器之后')).toBeVisible()
 
   await page.goto('/posts/live-acceptance-markdown')
   await expect(
@@ -175,8 +230,11 @@ test('native public pages hold layout at fixed viewports with separate screensho
     await page.setViewportSize(viewport)
     for (const route of [
       '/',
+      '/posts',
       '/posts/live-acceptance-markdown',
       '/moments',
+      '/chatter',
+      '/music',
       '/projects',
       '/about',
     ]) {
@@ -235,9 +293,19 @@ test('keyboard, touch targets, and reduced motion remain usable on native data',
     )
     .toBe(0)
 
+  await page.goto('/music')
+  await expect(page.getByRole('heading', { name: '音乐' })).toBeVisible()
+  await expect(
+    page.getByText('歌单暂时没有可播放的歌曲。').first(),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: '播放', exact: true }),
+  ).toBeDisabled()
+  await expect(page.locator('audio')).toHaveCount(1)
+
   const playerControls = await page
     .locator(
-      '[data-testid="music-player"] button, [data-testid="music-player"] input',
+      '[aria-label="唱片与播放控制"] button, [aria-label="唱片与播放控制"] input',
     )
     .evaluateAll((elements) =>
       elements.map((element) => {
@@ -270,6 +338,18 @@ test('native API errors and unavailable media stay safe at the page boundary', a
   )
   expect(emptySearchResponse.status()).toBe(200)
   expect((await emptySearchResponse.json()).data).toEqual([])
+
+  const emptyChatterSearch = await page.request.get(
+    'http://127.0.0.1:8000/api/v1/chatter?q=not-a-real-live-query',
+  )
+  expect(emptyChatterSearch.status()).toBe(200)
+  expect((await emptyChatterSearch.json()).data).toEqual([])
+
+  const emptyTimelineSearch = await page.request.get(
+    'http://127.0.0.1:8000/api/v1/moments?q=not-a-real-live-query',
+  )
+  expect(emptyTimelineSearch.status()).toBe(200)
+  expect((await emptyTimelineSearch.json()).data).toEqual([])
 
   const missingMediaResponse = await page.request.get(
     'http://127.0.0.1:8000/uploads/live-acceptance/missing-moment.webp',
@@ -304,9 +384,11 @@ test('native sitemap and robots expose the live public origin', async ({
   expect(sitemap).toContain(
     '<loc>http://127.0.0.1:3000/posts/live-acceptance-markdown</loc>',
   )
-  expect(sitemap).toContain(
-    '<loc>http://127.0.0.1:3000/categories/live-acceptance</loc>',
-  )
+  expect(sitemap).toContain('<loc>http://127.0.0.1:3000/moments</loc>')
+  expect(sitemap).toContain('<loc>http://127.0.0.1:3000/chatter</loc>')
+  expect(sitemap).toContain('<loc>http://127.0.0.1:3000/music</loc>')
+  expect(sitemap).not.toContain('/categories')
+  expect(sitemap).not.toContain('/tags')
   expect(sitemap).not.toContain('/admin')
 
   const robotsResponse = await request.get('/robots.txt')

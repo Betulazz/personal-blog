@@ -11,6 +11,7 @@ const fallbackSettings: PublicSiteSettings = {
     story: [],
     timeline: [],
   },
+  backgroundGallery: [],
   contact: { email: '', note: '' },
   description: siteIdentity.description,
   footer: { copyright: '', icp: '', note: siteIdentity.footerNote },
@@ -24,12 +25,6 @@ const fallbackSettings: PublicSiteSettings = {
   },
   name: siteIdentity.name,
   profile: '',
-  seoDefaults: {
-    description: siteIdentity.description,
-    keywords: [],
-    title: siteIdentity.name,
-    twitterCard: 'summary',
-  },
   socialLinks: siteIdentity.socialLinks,
   tagline: siteIdentity.tagline,
 }

@@ -2,22 +2,20 @@
 
 from app.db.base import Base
 from app.models.auth import RefreshToken, User
-from app.models.chatter import Chatter, ChatterStatus, chatter_tags
+from app.models.chatter import Chatter, ChatterImage, ChatterStatus
 from app.models.media import MediaAsset
-from app.models.moment import Moment, MomentImage, MomentStatus, moment_tags
+from app.models.migration_archive import ContentMigrationArchive
 from app.models.music import MusicTrack
 from app.models.portfolio import FriendLink, Project, ProjectStatus, SiteSettings
 from app.models.post import Post, PostStatus, post_tags
-from app.models.taxonomy import Category, Tag
+from app.models.taxonomy import Tag
 
 __all__ = [
     "Base",
-    "Category",
+    "ContentMigrationArchive",
     "Chatter",
+    "ChatterImage",
     "ChatterStatus",
-    "Moment",
-    "MomentImage",
-    "MomentStatus",
     "MusicTrack",
     "MediaAsset",
     "Post",
@@ -29,7 +27,5 @@ __all__ = [
     "SiteSettings",
     "Tag",
     "User",
-    "chatter_tags",
-    "moment_tags",
     "post_tags",
 ]

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user, get_db_session, require_csrf
 from app.core.exceptions import AppError
 from app.models.auth import User
-from app.models.portfolio import FriendLink, Project, ProjectStatus, SiteSettings
+from app.models.portfolio import FriendLink, Project, ProjectStatus, ProjectType, SiteSettings
 from app.schemas.common import ApiResponse, PaginationMeta
 from app.schemas.portfolio import (
     AdminFriendLinkCollectionResponse,
@@ -17,11 +17,14 @@ from app.schemas.portfolio import (
     FriendLinkCreateRequest,
     FriendLinkPublicResponse,
     FriendLinkUpdateRequest,
+    GithubOpenSourceProjectAdminResponse,
+    GithubOpenSourceProjectPublicResponse,
     HomepageVisibility,
+    PersonalProjectAdminResponse,
+    PersonalProjectPublicResponse,
     ProjectAdminResponse,
     ProjectCollectionResponse,
     ProjectCreateRequest,
-    ProjectPublicResponse,
     ProjectUpdateRequest,
     SiteSettingsFields,
     SiteSettingsResponse,
@@ -54,13 +57,16 @@ async def list_admin_projects(
     page_size: int = Query(default=20, ge=1, le=100),
     q: str | None = Query(default=None, min_length=1, max_length=80),
     status_filter: str | None = Query(default=None, alias="status"),
+    project_type_filter: str | None = Query(default=None, alias="project_type"),
 ) -> AdminProjectCollectionResponse:
     _validate_project_status(status_filter)
+    _validate_project_type(project_type_filter)
     projects, total = await ProjectService(session).admin_list(
         page=page,
         page_size=page_size,
         search=_normalize_query(q),
         status=status_filter,
+        project_type=project_type_filter,
     )
     return AdminProjectCollectionResponse(
         data=[_admin_project(project) for project in projects],
@@ -236,29 +242,43 @@ async def update_admin_settings(
     return ApiResponse(data=_admin_settings(await SiteSettingsService(session).update(payload)))
 
 
-def _public_project(project: Project) -> ProjectPublicResponse:
-    return ProjectPublicResponse(
-        id=project.id,
-        name=project.name,
-        description=project.description,
-        logo_url=project.logo_url,
-        logo_alt=project.logo_alt,
-        technology=project.technology,
-        time_span=project.time_span,
+def _public_project(
+    project: Project,
+) -> PersonalProjectPublicResponse | GithubOpenSourceProjectPublicResponse:
+    shared = {
+        "id": project.id,
+        "name": project.name,
+        "description": project.description,
+        "logo_url": project.logo_url,
+        "logo_alt": project.logo_alt,
+        "featured": project.featured,
+        "display_order": project.display_order,
+    }
+    if project.project_type == ProjectType.GITHUB_OPEN_SOURCE:
+        return GithubOpenSourceProjectPublicResponse(
+            **shared,
+            project_type="github_open_source",
+            repository_url=project.repository_url or "",
+        )
+    return PersonalProjectPublicResponse(
+        **shared,
+        project_type="personal",
+        technology=project.technology or [],
+        time_span=project.time_span or "",
         source_url=project.source_url,
         demo_url=project.demo_url,
-        status=project.status,
-        featured=project.featured,
-        display_order=project.display_order,
+        status=project.status or ProjectStatus.ACTIVE,
     )
 
 
-def _admin_project(project: Project) -> ProjectAdminResponse:
-    return ProjectAdminResponse(
-        **_public_project(project).model_dump(),
-        created_at=project.created_at,
-        updated_at=project.updated_at,
-    )
+def _admin_project(
+    project: Project,
+) -> PersonalProjectAdminResponse | GithubOpenSourceProjectAdminResponse:
+    fields = _public_project(project).model_dump()
+    dates = {"created_at": project.created_at, "updated_at": project.updated_at}
+    if project.project_type == ProjectType.GITHUB_OPEN_SOURCE:
+        return GithubOpenSourceProjectAdminResponse(**fields, **dates)
+    return PersonalProjectAdminResponse(**fields, **dates)
 
 
 def _public_friend(friend: FriendLink) -> FriendLinkPublicResponse:
@@ -308,10 +328,10 @@ def _settings_fields(settings: SiteSettings) -> SiteSettingsFields:
         avatar_alt=settings.avatar_alt,
         favicon_url=settings.favicon_url,
         social_links=settings.social_links,
-        seo_defaults=settings.seo_defaults,
         footer=settings.footer,
         contact=settings.contact,
         homepage_visibility=HomepageVisibility.model_validate(settings.homepage_visibility),
+        background_gallery=settings.background_gallery or [],
     )
 
 
@@ -336,5 +356,14 @@ def _validate_project_status(value: str | None) -> None:
         raise AppError(
             code="invalid_project_status",
             message="status must be developing, active, or archived",
+            status_code=422,
+        )
+
+
+def _validate_project_type(value: str | None) -> None:
+    if value is not None and value not in {item.value for item in ProjectType}:
+        raise AppError(
+            code="invalid_project_type",
+            message="project_type must be personal or github_open_source",
             status_code=422,
         )

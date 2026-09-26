@@ -4,9 +4,9 @@ from typing import cast
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.chatter import Chatter
+from app.models.chatter import Chatter, ChatterImage
 from app.models.media import MediaAsset
-from app.models.moment import MomentImage
+from app.models.migration_archive import ContentMigrationArchive
 from app.models.music import MusicTrack
 from app.models.portfolio import FriendLink, Project, SiteSettings
 from app.models.post import Post
@@ -88,19 +88,19 @@ class MediaAssetRepository:
             if _contains_media(body, key, public_url)
         )
 
-        moment_values = await self._session.execute(
-            select(MomentImage.id, MomentImage.src).where(MomentImage.src.in_([key, public_url]))
+        chatter_image_values = await self._session.execute(
+            select(ChatterImage.id, ChatterImage.src).where(ChatterImage.src.in_([key, public_url]))
         )
         references.extend(
-            MediaReference("moment_image", image_id, "src")
-            for image_id, src in moment_values
+            MediaReference("chatter_image", image_id, "src")
+            for image_id, src in chatter_image_values
             if _contains_media(src, key, public_url)
         )
 
         for model, resource_type, fields in (
             (Project, "project", ("logo_url",)),
             (FriendLink, "friend_link", ("avatar_url",)),
-            (MusicTrack, "music_track", ("source_url", "artwork_url")),
+            (MusicTrack, "music_track", ("artwork_url",)),
         ):
             columns = [getattr(model, field) for field in fields]
             values = await self._session.execute(
@@ -114,11 +114,31 @@ class MediaAssetRepository:
                     if _contains_media(row[index], key, public_url):
                         references.append(MediaReference(resource_type, resource_id, field))
 
+        archived_music = await self._session.execute(
+            select(ContentMigrationArchive.source_key, ContentMigrationArchive.payload).where(
+                ContentMigrationArchive.source_type == "legacy_music_track"
+            )
+        )
+        for source_key, payload in archived_music:
+            try:
+                resource_id = int(source_key)
+            except (TypeError, ValueError):
+                continue
+            for field in ("source_url", "artwork_url"):
+                if _contains_media(payload.get(field), key, public_url):
+                    references.append(MediaReference("archived_music_track", resource_id, field))
+
         settings = await self._session.scalar(select(SiteSettings))
         if settings is not None:
             for field in ("avatar_url", "favicon_url"):
                 if _contains_media(getattr(settings, field), key, public_url):
                     references.append(MediaReference("site_settings", settings.id, field))
+            for entry in settings.background_gallery or []:
+                reference = entry.get("url") if isinstance(entry, dict) else None
+                if isinstance(reference, str) and _contains_media(reference, key, public_url):
+                    references.append(
+                        MediaReference("site_settings", settings.id, "background_gallery")
+                    )
 
         return references
 

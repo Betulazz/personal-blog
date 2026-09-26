@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 
-const { identity } = await usePublicSiteSettings()
+const { identity, settings } = await usePublicSiteSettings()
 
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
@@ -13,7 +13,6 @@ const {
   refresh,
 } = await usePostDiscovery()
 const {
-  categories,
   error: taxonomyError,
   pending: taxonomyPending,
   refresh: refreshTaxonomy,
@@ -28,13 +27,15 @@ const refreshAll = async () => {
 
 useSeoMeta({
   title: `文章 · ${identity.value.name}`,
-  description: '按时间、分类、标签和关键词发现这里的公开文章。',
-  ogDescription: '按时间、分类、标签和关键词发现这里的公开文章。',
+  description: '按时间、标签和关键词发现这里的公开文章。',
+  ogDescription: '按时间、标签和关键词发现这里的公开文章。',
+  ogImage: () => settings.value.avatarUrl,
   ogTitle: `文章 · ${identity.value.name}`,
   ogType: 'website',
   ogUrl: `${siteUrl}/posts`,
-  twitterCard: 'summary',
-  twitterDescription: '按时间、分类、标签和关键词发现这里的公开文章。',
+  twitterCard: 'summary_large_image',
+  twitterDescription: '按时间、标签和关键词发现这里的公开文章。',
+  twitterImage: () => settings.value.avatarUrl,
   twitterTitle: `文章 · ${identity.value.name}`,
 })
 
@@ -46,7 +47,6 @@ useHead({
 <template>
   <BlogPostDiscoveryView
     base-path="/posts"
-    :categories="categories"
     description="正式写作、技术实践和那些值得过一段时间再读的记录。"
     eyebrow="LATEST WRITING"
     :error="pageError"

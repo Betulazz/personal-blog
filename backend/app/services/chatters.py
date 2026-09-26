@@ -1,11 +1,9 @@
-from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
-from app.models.chatter import Chatter, ChatterStatus
-from app.models.taxonomy import Tag
+from app.models.chatter import Chatter, ChatterImage, ChatterStatus
 from app.repositories.chatters import ChatterRepository
 from app.schemas.chatters import ChatterCreateRequest, ChatterUpdateRequest
 
@@ -16,13 +14,14 @@ class ChatterService:
         self._repository = ChatterRepository(session)
 
     async def create(self, request: ChatterCreateRequest) -> Chatter:
-        tags = await self._require_tags(request.tag_ids)
         chatter = Chatter(
             title=request.title,
-            lead=request.lead,
             body=request.body,
             mood=request.mood,
-            tags=tags,
+            images=[
+                ChatterImage(**image.model_dump(), position=position)
+                for position, image in enumerate(request.images)
+            ],
         )
         await self._repository.add(chatter)
         await self._session.commit()
@@ -31,8 +30,15 @@ class ChatterService:
     async def update(self, chatter_id: int, request: ChatterUpdateRequest) -> Chatter:
         chatter = await self._require_chatter(chatter_id)
         values = request.model_dump(exclude_unset=True)
-        if "tag_ids" in values:
-            chatter.tags = await self._require_tags(values.pop("tag_ids") or [])
+        if "images" in values:
+            image_values = values.pop("images")
+            if image_values is not None:
+                chatter.images = []
+                await self._session.flush()
+                chatter.images = [
+                    ChatterImage(**{**image, "alt": image.get("alt") or ""}, position=position)
+                    for position, image in enumerate(image_values)
+                ]
         for field, value in values.items():
             setattr(chatter, field, value)
         await self._session.commit()
@@ -54,27 +60,16 @@ class ChatterService:
         return chatters, total
 
     async def public_list(
-        self, *, page: int, page_size: int, tag_slug: str | None, search: str | None
+        self, *, page: int, page_size: int, search: str | None, entry: int | None = None
     ) -> tuple[list[Chatter], int]:
-        total = await self._repository.count_public(tag_slug=tag_slug, search=search)
+        total = await self._repository.count_public(search=search, entry=entry)
         chatters = await self._repository.list_public(
-            tag_slug=tag_slug,
             search=search,
+            entry=entry,
             offset=(page - 1) * page_size,
             limit=page_size,
         )
         return chatters, total
-
-    async def public_tags(self, *, page: int, page_size: int) -> tuple[list[tuple[Tag, int]], int]:
-        return (
-            await self._repository.list_public_tags((page - 1) * page_size, page_size),
-            await self._repository.count_public_tags(),
-        )
-
-    async def public_tag_counts(self, chatters: Sequence[Chatter]) -> dict[int, int]:
-        return await self._repository.public_tag_counts(
-            [tag.id for chatter in chatters for tag in chatter.tags]
-        )
 
     async def publish(self, chatter_id: int) -> Chatter:
         chatter = await self._require_chatter(chatter_id)
@@ -91,7 +86,8 @@ class ChatterService:
                 status_code=422,
             )
         chatter.status = ChatterStatus.PUBLISHED
-        chatter.published_at = datetime.now(UTC).replace(tzinfo=None)
+        if chatter.published_at is None:
+            chatter.published_at = datetime.now(UTC).replace(tzinfo=None, microsecond=0)
         await self._session.commit()
         return await self._require_chatter(chatter.id)
 
@@ -104,7 +100,6 @@ class ChatterService:
                 status_code=409,
             )
         chatter.status = ChatterStatus.DRAFT
-        chatter.published_at = None
         await self._session.commit()
         return await self._require_chatter(chatter.id)
 
@@ -122,15 +117,3 @@ class ChatterService:
                 status_code=404,
             )
         return chatter
-
-    async def _require_tags(self, tag_ids: Sequence[int]) -> list[Tag]:
-        tags = await self._repository.find_tags_by_ids(tag_ids)
-        tag_map = {tag.id: tag for tag in tags}
-        missing = next((tag_id for tag_id in tag_ids if tag_id not in tag_map), None)
-        if missing is not None:
-            raise AppError(
-                code="tag_not_found",
-                message="The requested Tag does not exist",
-                status_code=404,
-            )
-        return [tag_map[tag_id] for tag_id in tag_ids]

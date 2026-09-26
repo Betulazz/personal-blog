@@ -36,80 +36,12 @@ test('renders Post summaries with durable pagination and navigation destinations
   await expect(page.getByText('给生活留一点空白')).toBeVisible()
 })
 
-test('search and taxonomy filters remain represented in the URL', async ({
-  page,
-}) => {
-  await page.goto('/search')
-  const searchInput = page.getByRole('search').getByLabel('搜索文章')
-  await searchInput.fill('Markdown')
-  await expect(searchInput).toHaveValue('Markdown')
-  await page.getByRole('search').getByRole('button', { name: '搜索' }).click()
-
-  await expect(page).toHaveURL(/\/search\?q=Markdown$/)
-  await expect(page.getByText('Markdown 是一条可迁移的路')).toBeVisible()
-  await expect(page.getByText('1 篇公开文章')).toBeVisible()
-
-  await page.goto('/posts?category=engineering')
-  await expect(page).toHaveURL(/\/posts\?category=engineering$/)
-  await expect(page.getByText('3 篇公开文章')).toBeVisible()
-
-  await page.goto('/search?category=engineering')
-  await expect(page).toHaveURL(/\/search\?category=engineering$/)
-  await expect(page.getByText('3 篇公开文章')).toBeVisible()
-
-  await page.goto('/search?tag=nuxt')
-  await expect(page).toHaveURL(/\/search\?tag=nuxt$/)
-  await expect(page.getByText('2 篇公开文章')).toBeVisible()
-
-  await page.goto('/search?q=Nuxt&category=engineering&tag=nuxt')
-  await expect(page).toHaveURL(
-    /\/search\?q=Nuxt&category=engineering&tag=nuxt$/,
-  )
-  await expect(page.getByText('1 篇公开文章')).toBeVisible()
-
-  await page.goto('/search?category=engineering&tag=nuxt')
-  await page.getByRole('search').getByLabel('搜索文章').fill('Nuxt')
-  await page.getByRole('search').getByRole('button', { name: '搜索' }).click()
-  await expect(page).toHaveURL(
-    /\/search\?q=Nuxt&category=engineering&tag=nuxt$/,
-  )
-  await expect(page.getByText('1 篇公开文章')).toBeVisible()
-
-  await page.goto('/posts')
-  const categorySelect = page.getByRole('combobox', { name: '分类' })
-  await categorySelect.focus()
-  await expect(categorySelect).toBeFocused()
-
-  await page.goto('/categories')
-  const engineeringLink = page.getByRole('link', { name: '工程实践' })
-  await engineeringLink.focus()
-  await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/categories\/engineering$/)
-  await expect(
-    page.getByRole('heading', { name: '分类：工程实践' }),
-  ).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: 'Nuxt', exact: true }).first(),
-  ).toHaveAttribute('href', '/tags/nuxt')
-
-  await page.goto('/tags/nuxt?category=engineering&page=2')
-  await expect(page).toHaveURL(/\/tags\/nuxt\?category=engineering&page=2$/)
-  await expect(page.getByText('这一页暂不存在')).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: '返回可用页面' }),
-  ).toHaveAttribute('href', '/tags/nuxt?category=engineering')
-})
-
-test('invalid taxonomy links recover with an intentional not-found state', async ({
-  page,
-}) => {
+test('retired category links fall back to Posts', async ({ page }) => {
   await page.goto('/categories/not-a-real-category')
-
-  await expect(page.getByRole('heading', { name: '分类未找到' })).toBeVisible()
-  await expect(page.getByText('没有找到这个分类')).toBeVisible()
+  await expect(page).toHaveURL('/posts')
   await expect(
-    page.getByRole('link', { name: '返回文章发现' }),
-  ).toHaveAttribute('href', '/categories')
+    page.getByRole('heading', { name: '文章', exact: true }),
+  ).toBeVisible()
 })
 
 test('invalid and stale pagination values recover without breaking discovery', async ({

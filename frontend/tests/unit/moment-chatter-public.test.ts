@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import PublicCollectionState from '../../app/components/public/PublicCollectionState.vue'
-import MomentCard from '../../app/components/moments/MomentCard.vue'
+import ChatterCard from '../../app/components/chatter/ChatterCard.vue'
 import {
   buildPublicFeedQuery,
   buildPublicFeedRouteQuery,
@@ -14,13 +14,11 @@ describe('public feed query contract', () => {
       buildPublicFeedQuery({
         page: 'not-a-number',
         q: '  夜里  ',
-        tag: 'building-notes',
       }),
     ).toEqual({
       page: 1,
       pageSize: 12,
       q: '夜里',
-      tag: 'building-notes',
     })
 
     expect(
@@ -28,9 +26,8 @@ describe('public feed query contract', () => {
         page: 1,
         pageSize: 12,
         q: '夜里',
-        tag: 'building-notes',
       }),
-    ).toEqual({ q: '夜里', tag: 'building-notes' })
+    ).toEqual({ q: '夜里' })
   })
 })
 
@@ -83,39 +80,49 @@ describe('public collection states', () => {
   })
 })
 
-describe('Moment media fallback', () => {
-  it('turns a failed optional image into an accessible fallback', async () => {
-    const wrapper = mount(MomentCard, {
+describe('Chatter inline content', () => {
+  it('renders body-only entries with images and expands long entries accessibly', async () => {
+    const body = '随手记下的想法。'.repeat(50)
+    const wrapper = mount(ChatterCard, {
       global: {
         stubs: {
-          NuxtLink: {
-            props: { to: { type: [String, Object], required: true } },
-            template: '<a><slot /></a>',
-          },
+          UiGlassCard: { template: '<article><slot /></article>' },
           UiBadge: { template: '<span><slot /></span>' },
+          UiButton: { template: '<button><slot /></button>' },
+          NuxtLink: { template: '<a><slot /></a>' },
         },
       },
       props: {
-        moment: {
-          body: '一段带有图片的动态。',
-          id: 'moment-media-test',
+        chatter: {
+          id: '42',
+          body,
+          publishedAt: '2026-09-24T08:00:00Z',
           images: [
-            {
-              alt: '测试媒体',
-              height: 100,
-              src: '/missing-image.webp',
-              width: 100,
-            },
+            { src: '/uploads/a.webp', alt: '照片', width: 640, height: 480 },
           ],
-          publishedAt: '2026-09-18T08:00:00.000Z',
-          tags: [{ name: '测试', slug: 'test' }],
         },
       },
     })
-
-    await wrapper.get('img').trigger('error')
-
-    expect(wrapper.get('[role="img"]').text()).toContain('媒体暂不可用')
-    expect(wrapper.text()).toContain('一段带有图片的动态。')
+    expect(wrapper.find('h2').exists()).toBe(false)
+    expect(wrapper.get('p').text()).not.toBe(body)
+    expect(wrapper.get('img').attributes('alt')).toBe('照片')
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.get('p').text()).toBe(body)
+    expect(wrapper.get('button').attributes('aria-expanded')).toBe('true')
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.get('button').attributes('aria-expanded')).toBe('false')
+  })
+  it('bounds search and page values and preserves entry permalinks', () => {
+    expect(
+      buildPublicFeedQuery({
+        q: 'x'.repeat(100),
+        page: '999999999999999999999',
+      }),
+    ).toMatchObject({ q: 'x'.repeat(80), page: 1 })
+    expect(
+      buildPublicFeedRouteQuery(
+        buildPublicFeedQuery({ entry: '42', tag: 'retired' }),
+      ),
+    ).toEqual({ entry: '42' })
   })
 })

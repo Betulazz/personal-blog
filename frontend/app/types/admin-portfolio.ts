@@ -1,10 +1,14 @@
-import type { AboutSettings, PublicSiteSettings, SiteSocialLink } from './site'
+import type {
+  AboutSettings,
+  AdminBackgroundGalleryImage,
+  PublicSiteSettings,
+  SiteSocialLink,
+} from './site'
 
 export type AdminProjectStatus = 'active' | 'archived' | 'developing'
 
-export interface AdminProject {
+interface AdminProjectBase {
   createdAt: string
-  demoUrl: string | null
   description: string
   displayOrder: number
   featured: boolean
@@ -12,30 +16,55 @@ export interface AdminProject {
   logoAlt: string | null
   logoUrl: string | null
   name: string
+  updatedAt: string
+}
+
+export interface AdminPersonalProject extends AdminProjectBase {
+  demoUrl: string | null
+  projectType: 'personal'
   sourceUrl: string | null
   stack: string[]
   status: AdminProjectStatus
   timeSpan: string
-  updatedAt: string
 }
 
-export interface AdminProjectInput {
-  demo_url: string | null
+export interface AdminGithubOpenSourceProject extends AdminProjectBase {
+  projectType: 'github_open_source'
+  repositoryUrl: string
+}
+
+export type AdminProject = AdminPersonalProject | AdminGithubOpenSourceProject
+
+interface AdminProjectInputBase {
   description: string
   display_order: number
   featured: boolean
   logo_alt: string | null
   logo_url: string | null
   name: string
+}
+
+export interface AdminPersonalProjectInput extends AdminProjectInputBase {
+  demo_url: string | null
+  project_type: 'personal'
   source_url: string | null
   status: AdminProjectStatus
   technology: string[]
   time_span: string
 }
 
+export interface AdminGithubOpenSourceProjectInput extends AdminProjectInputBase {
+  project_type: 'github_open_source'
+  repository_url: string
+}
+
+export type AdminProjectInput =
+  AdminPersonalProjectInput | AdminGithubOpenSourceProjectInput
+
 export interface AdminProjectQuery {
   page: number
   pageSize: number
+  projectType?: 'personal' | 'github_open_source'
   q?: string
   status?: AdminProjectStatus
 }
@@ -90,7 +119,11 @@ export interface AdminFriendLinkCollection {
   }
 }
 
-export interface AdminSiteSettings extends PublicSiteSettings {
+export interface AdminSiteSettings extends Omit<
+  PublicSiteSettings,
+  'backgroundGallery'
+> {
+  backgroundGallery: AdminBackgroundGalleryImage[]
   createdAt: string
   id: string
   updatedAt: string
@@ -100,6 +133,7 @@ export interface AdminSiteSettingsInput {
   about?: AboutSettings
   avatar_alt: string | null
   avatar_url: string | null
+  background_gallery: Array<{ alt: string; url: string }>
   contact: {
     email: string
     note: string
@@ -121,14 +155,6 @@ export interface AdminSiteSettingsInput {
   }
   name: string
   profile: string
-  seo_defaults: {
-    canonical_url: string | null
-    description: string
-    keywords: string[]
-    og_image_url: string | null
-    title: string
-    twitter_card: 'summary' | 'summary_large_image'
-  }
   social_links: SiteSocialLink[]
   tagline: string
 }

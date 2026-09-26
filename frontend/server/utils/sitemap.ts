@@ -4,14 +4,11 @@ export interface SitemapEntry {
 }
 
 export interface SitemapSource {
-  categories: string[]
   posts: Array<{
-    canonicalUrl?: string | null
     slug: string
     updatedAt?: string | null
   }>
   siteUrl: string
-  tags: string[]
 }
 
 export const normalizeSiteUrl = (siteUrl: string): string =>
@@ -20,10 +17,9 @@ export const normalizeSiteUrl = (siteUrl: string): string =>
 export const SITEMAP_STATIC_PATHS = [
   '/',
   '/posts',
-  '/categories',
-  '/tags',
   '/moments',
   '/chatter',
+  '/music',
   '/projects',
   '/friends',
   '/about',
@@ -38,10 +34,8 @@ export const escapeSitemapValue = (value: string): string =>
     .replaceAll("'", '&apos;')
 
 export const buildSitemapEntries = ({
-  categories,
   posts,
   siteUrl,
-  tags,
 }: SitemapSource): SitemapEntry[] => {
   const base = normalizeSiteUrl(siteUrl)
   const entries: SitemapEntry[] = SITEMAP_STATIC_PATHS.map((path) => ({
@@ -50,15 +44,9 @@ export const buildSitemapEntries = ({
 
   for (const post of posts) {
     entries.push({
-      loc: post.canonicalUrl?.trim() || `${base}/posts/${post.slug}`,
+      loc: `${base}/posts/${post.slug}`,
       ...(post.updatedAt ? { lastmod: post.updatedAt } : {}),
     })
-  }
-  for (const category of categories) {
-    entries.push({ loc: `${base}/categories/${category}` })
-  }
-  for (const tag of tags) {
-    entries.push({ loc: `${base}/tags/${tag}` })
   }
 
   return entries

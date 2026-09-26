@@ -6,12 +6,10 @@ export const POST_PAGE_SIZE = 4
 export const POST_MAX_PAGE_SIZE = 20
 
 export interface PostQueryContext {
-  categorySlug?: string
   tagSlug?: string
 }
 
 export interface PostRouteQueryOptions {
-  categoryIsPath?: boolean
   tagIsPath?: boolean
 }
 
@@ -50,7 +48,6 @@ export function buildPostQuery(
   context: PostQueryContext = {},
 ): PostQuery {
   return {
-    category: safeSlug(context.categorySlug) ?? safeSlug(input.category),
     page: safePage(input.page),
     pageSize: POST_PAGE_SIZE,
     q: safeSearch(input.q),
@@ -69,9 +66,6 @@ export function buildPostRouteQuery(
   }
   if (query.q) {
     routeQuery.q = query.q
-  }
-  if (query.category && !options.categoryIsPath) {
-    routeQuery.category = query.category
   }
   if (query.tag && !options.tagIsPath) {
     routeQuery.tag = query.tag

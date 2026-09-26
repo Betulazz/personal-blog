@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.post import PostStatus
 from app.schemas.common import PaginationMeta
@@ -17,20 +17,16 @@ def _strip_required(value: str) -> str:
 
 
 class PostWriteFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(min_length=1, max_length=200)
     slug: str = Field(min_length=1, max_length=120, pattern=SLUG_PATTERN)
     summary: str = Field(default="", max_length=500)
     body: str = Field(default="")
-    category_id: int | None = Field(default=None, gt=0)
     tag_ids: list[int] = Field(default_factory=list, max_length=20)
     is_pinned: bool = False
-    reading_time_minutes: int = Field(default=0, ge=0, le=1440)
     cover_url: str | None = Field(default=None, max_length=2048)
     cover_alt: str | None = Field(default=None, max_length=200)
-    seo_title: str | None = Field(default=None, max_length=200)
-    seo_description: str | None = Field(default=None, max_length=500)
-    canonical_url: str | None = Field(default=None, max_length=2048)
-    og_image_url: str | None = Field(default=None, max_length=2048)
 
     @field_validator(
         "title",
@@ -38,10 +34,6 @@ class PostWriteFields(BaseModel):
         "summary",
         "cover_url",
         "cover_alt",
-        "seo_title",
-        "seo_description",
-        "canonical_url",
-        "og_image_url",
     )
     @classmethod
     def strip_text(cls, value: str | None) -> str | None:
@@ -70,20 +62,16 @@ class PostCreateRequest(PostWriteFields):
 
 
 class PostUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str | None = Field(default=None, min_length=1, max_length=200)
     slug: str | None = Field(default=None, min_length=1, max_length=120, pattern=SLUG_PATTERN)
     summary: str | None = Field(default=None, max_length=500)
     body: str | None = None
-    category_id: int | None = Field(default=None, gt=0)
     tag_ids: list[int] | None = Field(default=None, max_length=20)
     is_pinned: bool | None = None
-    reading_time_minutes: int | None = Field(default=None, ge=0, le=1440)
     cover_url: str | None = Field(default=None, max_length=2048)
     cover_alt: str | None = Field(default=None, max_length=200)
-    seo_title: str | None = Field(default=None, max_length=200)
-    seo_description: str | None = Field(default=None, max_length=500)
-    canonical_url: str | None = Field(default=None, max_length=2048)
-    og_image_url: str | None = Field(default=None, max_length=2048)
 
     @field_validator(
         "title",
@@ -91,10 +79,6 @@ class PostUpdateRequest(BaseModel):
         "summary",
         "cover_url",
         "cover_alt",
-        "seo_title",
-        "seo_description",
-        "canonical_url",
-        "og_image_url",
     )
     @classmethod
     def strip_text(cls, value: str | None) -> str | None:
@@ -131,14 +115,9 @@ class PostSummaryResponse(BaseModel):
     reading_time_minutes: int
     cover_url: str | None
     cover_alt: str | None
-    seo_title: str | None
-    seo_description: str | None
-    canonical_url: str | None
-    og_image_url: str | None
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
-    category: "PublicTaxonomyResponse | None"
     tags: list["PublicTaxonomyResponse"]
 
 
@@ -147,7 +126,6 @@ class PostDetailResponse(PostSummaryResponse):
 
 
 class PostAdminResponse(PostDetailResponse):
-    category_id: int | None
     tag_ids: list[int]
 
 

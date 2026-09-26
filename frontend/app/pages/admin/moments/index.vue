@@ -1,4 +1,5 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin' })
+await navigateTo('/admin/chatter', { redirectCode: 301, replace: true })
 </script>
-<template><AdminNoteList resource="moments" label="Moment" /></template>
+<template><span /></template>

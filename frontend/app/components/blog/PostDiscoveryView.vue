@@ -5,20 +5,13 @@ import {
   buildPostRouteQuery,
   isPostQueryPageOutOfRange,
 } from '~/utils/post-discovery'
-import type {
-  PostCategory,
-  PostCollectionResponse,
-  PostQuery,
-  PostTag,
-} from '~/types/posts'
+import type { PostCollectionResponse, PostQuery, PostTag } from '~/types/posts'
 
-type QueryChange = Partial<Pick<PostQuery, 'category' | 'page' | 'q' | 'tag'>>
+type QueryChange = Partial<Pick<PostQuery, 'page' | 'q' | 'tag'>>
 
 const props = withDefaults(
   defineProps<{
     basePath: string
-    categories: PostCategory[]
-    categoryIsPath?: boolean
     description: string
     emptyRecoveryHref?: string
     error?: unknown
@@ -27,7 +20,6 @@ const props = withDefaults(
     notFoundLabel?: string
     query: PostQuery
     response: PostCollectionResponse | null
-    showCategoryFilter?: boolean
     showSearch?: boolean
     showTagFilter?: boolean
     tagIsPath?: boolean
@@ -37,12 +29,10 @@ const props = withDefaults(
     pending: boolean
   }>(),
   {
-    categoryIsPath: false,
     emptyRecoveryHref: '/posts',
     error: undefined,
     notFound: false,
     notFoundLabel: '文章集合',
-    showCategoryFilter: true,
     showSearch: true,
     showTagFilter: true,
     tagIsPath: false,
@@ -58,7 +48,6 @@ const route = useRoute()
 const router = useRouter()
 
 const routeOptions = computed(() => ({
-  categoryIsPath: props.categoryIsPath,
   tagIsPath: props.tagIsPath,
 }))
 
@@ -129,7 +118,7 @@ const resultsDescription = computed(() => {
 })
 
 const routeHasExtraState = computed(() =>
-  Boolean(route.query.q || route.query.category || route.query.tag),
+  Boolean(route.query.q || route.query.tag),
 )
 </script>
 
@@ -161,15 +150,12 @@ const routeHasExtraState = computed(() =>
       aria-label="文章发现"
     >
       <BlogPostDiscoveryControls
-        :categories="categories"
         :query="query"
-        search-action="/search"
-        :show-category="showCategoryFilter"
+        :search-action="basePath"
         :show-search="showSearch"
         :show-tag="showTagFilter"
         :tags="tags"
-        @update-category="navigateWith({ category: $event, page: 1 })"
-        @update-tag="navigateWith({ page: 1, tag: $event })"
+        @search="navigateWith({ q: $event.trim() || undefined, page: 1 })"
       />
 
       <BlogPostCollectionState
@@ -202,7 +188,7 @@ const routeHasExtraState = computed(() =>
 }
 
 .post-discovery-page__intro {
-  padding-top: clamp(10rem, 17vw, 14rem);
+  padding-top: var(--public-heading-offset);
   padding-bottom: var(--space-12);
 }
 
@@ -242,7 +228,6 @@ const routeHasExtraState = computed(() =>
 
 @media (width <= 48rem) {
   .post-discovery-page__intro {
-    padding-top: 9rem;
     padding-bottom: var(--space-10);
   }
 

@@ -1,6 +1,16 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Index, Integer, String, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -9,10 +19,7 @@ from app.db.base import Base
 class MusicTrack(Base):
     __tablename__ = "music_tracks"
     __table_args__ = (
-        CheckConstraint(
-            "source_strategy IN ('remote_url', 'local_media', 's3_media')",
-            name="source_strategy_values",
-        ),
+        UniqueConstraint("netease_song_id", name="uq_music_tracks_netease_song_id"),
         CheckConstraint(
             "duration_seconds IS NULL OR duration_seconds > 0",
             name="duration_seconds_positive",
@@ -27,11 +34,10 @@ class MusicTrack(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    netease_song_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     artist: Mapped[str] = mapped_column(String(200), nullable=False)
     album: Mapped[str | None] = mapped_column(String(200))
-    source_strategy: Mapped[str] = mapped_column(String(32), nullable=False)
-    source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     artwork_url: Mapped[str | None] = mapped_column(String(2048))
     artwork_alt: Mapped[str | None] = mapped_column(String(200))
     duration_seconds: Mapped[int | None] = mapped_column(Integer)

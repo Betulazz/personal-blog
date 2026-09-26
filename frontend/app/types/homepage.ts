@@ -31,10 +31,6 @@ export interface HomepageCover {
 }
 
 export interface HomepagePost {
-  category: {
-    name: string
-    slug: string
-  }
   cover?: HomepageCover
   id: string
   publishedAt: string
@@ -45,36 +41,32 @@ export interface HomepagePost {
   title: string
 }
 
-export interface HomepageMoment {
-  body: string
-  id: string
-  location?: string
-  mood?: string
-  publishedAt: string
-  tags: string[]
-}
-
-export interface HomepageChatter {
-  id: string
-  lead: string
-  mood?: string
-  publishedAt: string
-  tags: string[]
-  title: string
-}
+export type HomepageChatter = import('./chatter').Chatter
 
 export type HomepageProjectStatus = 'active' | 'archived' | 'developing'
 
-export interface HomepageProject {
-  demoUrl?: string
+interface HomepageProjectBase {
   description: string
-  githubUrl?: string
   id: string
   name: string
   selected: boolean
+}
+
+export interface HomepagePersonalProject extends HomepageProjectBase {
+  demoUrl?: string
+  projectType: 'personal'
+  sourceUrl?: string
   stack: string[]
   status: HomepageProjectStatus
 }
+
+export interface HomepageGithubOpenSourceProject extends HomepageProjectBase {
+  projectType: 'github_open_source'
+  repositoryUrl: string
+}
+
+export type HomepageProject =
+  HomepagePersonalProject | HomepageGithubOpenSourceProject
 
 export interface HomepageStat {
   detail: string
@@ -84,7 +76,6 @@ export interface HomepageStat {
 
 export interface HomepageContent {
   chatter: HomepageSection<HomepageChatter>
-  moments: HomepageSection<HomepageMoment>
   posts: HomepageSection<HomepagePost>
   projects: HomepageSection<HomepageProject>
   stats: HomepageStat[]
@@ -92,5 +83,5 @@ export interface HomepageContent {
 
 export type HomepageSectionKey = keyof Pick<
   HomepageContent,
-  'chatter' | 'moments' | 'posts' | 'projects'
+  'chatter' | 'posts' | 'projects'
 >

@@ -2,6 +2,17 @@ import { expect, test, type Page } from '@playwright/test'
 
 const mockControl = 'http://127.0.0.1:8787/__control'
 
+type MockAdminPost = {
+  body: string
+  id: number
+  published_at: string | null
+  slug: string
+  status: string
+  summary: string
+  tag_ids: number[]
+  title: string
+}
+
 test.beforeEach(async ({ page }) => {
   await page.request.get(`${mockControl}/reset`)
 })
@@ -24,15 +35,13 @@ test('administrator can create, edit, preview, publish, and unpublish a Post', a
   await page
     .getByLabel('Markdown 正文')
     .fill('# 新的正文\n\n这里保留 **Markdown**。')
-  const categorySelect = page.getByRole('combobox', { name: '分类' })
-  await categorySelect.click()
-  const engineeringOption = page.getByRole('option', { name: /工程实践/ })
-  await expect(engineeringOption).toBeVisible()
-  await engineeringOption.press('Enter')
-  await expect(categorySelect).toContainText('工程实践')
-  await page
-    .getByLabel('SEO 标题', { exact: true })
-    .fill('一篇新的夜间记录 | 夜航手记')
+  await expect(page.getByRole('combobox', { name: '分类' })).toHaveCount(0)
+  await expect(page.getByLabel('SEO 标题', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('SEO 描述', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Canonical URL', { exact: true })).toHaveCount(0)
+  await expect(
+    page.getByLabel('Open Graph 图片 URL', { exact: true }),
+  ).toHaveCount(0)
 
   await page.getByRole('button', { name: '预览' }).click()
   await expect(
@@ -74,16 +83,16 @@ test('taxonomy management explains references and preserves responsive keyboard 
   page,
 }) => {
   await login(page)
-  await page.goto('/admin/categories')
+  await page.goto('/admin/tags')
 
-  await expect(page.getByRole('heading', { name: '分类管理' })).toBeVisible()
-  await expect(page.getByText(/当前有 3 篇内容引用/).first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: '标签管理' })).toBeVisible()
+  await expect(page.getByText(/当前有 2 篇内容引用/).first()).toBeVisible()
   const referencedDelete = page.getByRole('button', { name: '删除' }).first()
-  await expect(referencedDelete).toBeDisabled()
+  await expect(referencedDelete).toBeEnabled()
 
-  await page.getByLabel('分类名称').fill('夜间记录')
+  await page.getByLabel('标签名称').fill('夜间记录')
   await page.getByLabel('Slug').fill('night-notes')
-  await page.getByRole('button', { name: '创建分类' }).click()
+  await page.getByRole('button', { name: '创建标签' }).click()
   await expect(page.getByText('夜间记录')).toBeVisible()
 
   await page.setViewportSize({ width: 430, height: 932 })
@@ -165,11 +174,7 @@ test('admin Post collection stays keyboard reachable across fixed viewports', as
     { height: 1080, width: 1920 },
   ]) {
     await page.setViewportSize(viewport)
-    for (const route of [
-      '/admin/posts',
-      '/admin/posts/new',
-      '/admin/categories',
-    ]) {
+    for (const route of ['/admin/posts', '/admin/posts/new', '/admin/tags']) {
       await page.goto(route)
       const dimensions = await page.evaluate(() => ({
         clientWidth: document.documentElement.clientWidth,
@@ -197,12 +202,172 @@ test('admin Post collection stays keyboard reachable across fixed viewports', as
         await expect(page.getByLabel('Markdown 正文')).toBeVisible()
       } else {
         await expect(
-          page.getByRole('heading', { name: '分类管理' }),
+          page.getByRole('heading', { name: '标签管理' }),
         ).toBeVisible()
       }
     }
   }
   expect(consoleProblems).toEqual([])
+})
+
+test('an unused Tag is named in confirmation and disappears after deletion', async ({
+  page,
+}) => {
+  await login(page)
+  await page.goto('/admin/tags')
+  await page.getByLabel('标签名称').fill('未使用标签')
+  await page.getByLabel('Slug').fill('unused-tag')
+  await page.getByRole('button', { name: '创建标签' }).click()
+
+  const row = page.getByRole('listitem').filter({ hasText: '未使用标签' })
+  await row.getByRole('button', { name: '删除' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认删除这个标签？' })
+  await expect(dialog).toContainText('未使用标签')
+  await expect(dialog).toContainText('0')
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect(
+    page.locator('.admin-taxonomy-row').filter({ hasText: '未使用标签' }),
+  ).toHaveCount(0)
+
+  const adminTags = await page.request.get(
+    'http://127.0.0.1:8787/api/v1/admin/tags',
+  )
+  const publicTags = await page.request.get('http://127.0.0.1:8787/api/v1/tags')
+  expect((await adminTags.json()).data).not.toContainEqual(
+    expect.objectContaining({ slug: 'unused-tag' }),
+  )
+  expect((await publicTags.json()).data).not.toContainEqual(
+    expect.objectContaining({ slug: 'unused-tag' }),
+  )
+})
+
+test('a referenced Tag can be cancelled or atomically detached and deleted', async ({
+  page,
+}) => {
+  await login(page)
+  await page.goto('/admin/tags')
+  const postsBeforeResponse = await page.request.get(
+    'http://127.0.0.1:8787/api/v1/admin/posts?page_size=100',
+  )
+  expect(postsBeforeResponse.status()).toBe(200)
+  const postsBefore = (await postsBeforeResponse.json()).data
+  const tagsResponse = await page.request.get(
+    'http://127.0.0.1:8787/api/v1/admin/tags',
+  )
+  const tag = (await tagsResponse.json()).data.find(
+    (item: { slug: string }) => item.slug === 'nuxt',
+  )
+  if (!tag) throw new Error('The Nuxt Tag fixture is missing')
+  expect(tag.post_count).toBe(2)
+
+  const row = page.getByRole('listitem').filter({ hasText: 'Nuxt' })
+  let deleteRequests = 0
+  page.on('request', (request) => {
+    if (
+      request.method() === 'DELETE' &&
+      request.url().includes(`/admin/tags/${tag.id}`)
+    ) {
+      deleteRequests += 1
+    }
+  })
+  await row.getByRole('button', { name: '删除' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认删除这个标签？' })
+  await expect(dialog).toContainText('Nuxt')
+  await expect(dialog).toContainText('2 篇 Post')
+  await expect(dialog).toContainText('发布状态')
+  const evidenceDirectory = process.env.TAG_DELETE_EVIDENCE_DIR
+  if (evidenceDirectory) {
+    await page.screenshot({
+      path: `${evidenceDirectory}/referenced-tag-confirmation.png`,
+      fullPage: false,
+    })
+  }
+  await dialog.getByRole('button', { name: '取消' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(row).toBeVisible()
+  expect(deleteRequests).toBe(0)
+
+  await row.getByRole('button', { name: '删除' }).click()
+  const confirm = page.getByRole('dialog', { name: '确认删除这个标签？' })
+  const deletion = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'DELETE' &&
+      response.url().includes(`/admin/tags/${tag.id}`),
+  )
+  await confirm.getByRole('button', { name: '确认删除', exact: true }).click()
+  expect((await deletion).status()).toBe(200)
+  await expect(confirm).toBeHidden()
+  await expect(
+    page.locator('.admin-taxonomy-row').filter({ hasText: 'Nuxt' }),
+  ).toHaveCount(0)
+
+  const postsAfterResponse = await page.request.get(
+    'http://127.0.0.1:8787/api/v1/admin/posts?page_size=100',
+  )
+  const postsAfter = (await postsAfterResponse.json()).data
+  expect(postsAfter).toHaveLength(postsBefore.length)
+  const preservedPostData = (post: MockAdminPost) => ({
+    id: post.id,
+    title: post.title,
+    slug: post.slug,
+    summary: post.summary,
+    body: post.body,
+    status: post.status,
+    published_at: post.published_at,
+    tag_ids: post.tag_ids.filter((id) => id !== tag.id),
+  })
+  expect(postsAfter.map(preservedPostData)).toEqual(
+    postsBefore.map(preservedPostData),
+  )
+  expect(
+    postsAfter.every(
+      (post: { tag_ids: number[] }) => !post.tag_ids.includes(tag.id),
+    ),
+  ).toBe(true)
+})
+
+test('a failed Tag deletion keeps its confirmation open and offers retry', async ({
+  page,
+}) => {
+  await login(page)
+  await page.goto('/admin/tags')
+  const tagsResponse = await page.request.get(
+    'http://127.0.0.1:8787/api/v1/admin/tags',
+  )
+  const tag = (await tagsResponse.json()).data.find(
+    (item: { slug: string }) => item.slug === 'nuxt',
+  )
+  if (!tag) throw new Error('The Nuxt Tag fixture is missing')
+  const row = page.getByRole('listitem').filter({ hasText: 'Nuxt' })
+  await row.getByRole('button', { name: '删除' }).click()
+  const dialog = page.getByRole('dialog', { name: '确认删除这个标签？' })
+  await expect(dialog).toContainText('2 篇 Post')
+  await page.request.get(`${mockControl}/failure?resource=admin`)
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click()
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('alert')).toContainText('重试')
+
+  await page.request.get(`${mockControl}/clear-failures`)
+  const retainedTags = await page.request.get(
+    'http://127.0.0.1:8787/api/v1/admin/tags',
+  )
+  expect((await retainedTags.json()).data).toContainEqual(
+    expect.objectContaining({ id: tag.id, slug: 'nuxt' }),
+  )
+  const retainedPosts = await page.request.get(
+    'http://127.0.0.1:8787/api/v1/admin/posts?page_size=100',
+  )
+  expect(
+    (await retainedPosts.json()).data.filter((post: MockAdminPost) =>
+      post.tag_ids.includes(tag.id),
+    ),
+  ).toHaveLength(2)
+  await dialog.getByRole('button', { name: '重试删除' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(
+    page.locator('.admin-taxonomy-row').filter({ hasText: 'Nuxt' }),
+  ).toHaveCount(0)
 })
 
 async function login(page: Page) {

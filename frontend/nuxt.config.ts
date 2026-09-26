@@ -46,7 +46,8 @@ export default defineNuxtConfig({
   },
   typescript: {
     strict: true,
-    typeCheck: true,
+    // Dedicated browser tests run static type checking separately.
+    typeCheck: process.env.NUXT_E2E_DISABLE_TYPECHECK === 'true' ? false : true,
   },
   vite: {
     plugins: [tailwindcss()],

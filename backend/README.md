@@ -30,6 +30,13 @@ Pop-Location
 Application startup only opens a connection when a request needs one; it never
 creates or upgrades schema implicitly.
 
+Migration `0012_content_model_and_migration` converts legacy Moments into
+Chatters, moves their ordered image metadata, and preserves retired fields and
+tag/category relationships in the private `content_migration_archive` table.
+It does not move or delete uploaded files. Chatter images are now first-class
+references for media deletion checks, and Post/Chatter publication timestamps
+retain their first-publication value across unpublish and republish.
+
 ## Administrator authentication
 
 After applying migrations, create the first Administrator interactively. There
@@ -47,6 +54,24 @@ HttpOnly cookies. Login, refresh, and logout require the non-HttpOnly CSRF token
 from `/csrf` in the `X-CSRF-Token` header. Refresh tokens are rotated and stored
 server-side only as SHA-256 digests; reusing a rotated token revokes the user's
 remaining refresh sessions.
+
+## NetEase Music
+
+The public playlist is `GET /api/v1/music-tracks`. Visitors resolve a browser
+media URL with `GET /api/v1/music-tracks/{id}/playback` and parsed line lyrics
+with `GET /api/v1/music-tracks/{id}/lyrics`; these routes do not require a
+NetEase login. Administrators use `POST /api/v1/admin/music-tracks/preview`
+and `POST /api/v1/admin/music-tracks` with a decimal `netease_song_id`; both
+require administrator authentication and CSRF protection. Playlist edits only
+change order or enabled state.
+
+This implementation follows the owner's approved reference-repository fallback
+and calls fixed NetEase website endpoints for metadata and lyrics. Those
+endpoints are private and undocumented, not partner OpenAPI; the media URL is
+the website's outer-song URL. The adapter sends no account cookies and reads no
+AppID/AppSecret/PubKey/PrivateKey settings. Visitors do not scan a login QR
+code. Migration `0013_netease_music_tracks` archives legacy track rows before
+removing the old source fields; it does not delete uploaded media.
 
 ## Media Assets
 
@@ -89,3 +114,37 @@ test database to `base` (or tolerates an absent `alembic_version` table), then
 upgrades it to `head`. If `TEST_DATABASE_ADMIN_URL` points to an administrative
 connection on the `mysql` system database, the fixture recreates and drops the
 dedicated `_test` database around the session for a genuinely fresh smoke run.
+
+## v2 content behavior
+
+The current database head is `0016_background_gallery`. Project records use a
+Personal or GitHub variant with validated variant-specific fields. The GitHub
+variant is manually authored; it does not call the GitHub API or synchronize
+repository data. Site Identity stores an ordered Background Gallery of at most
+12 entries, each a credential-free HTTPS URL or existing Media Asset path with
+alt text. Saving Post Markdown stores its canonical form and derives reading
+time on the backend. Tag deletion detaches Post references in the same
+transaction as deleting the Tag after the administrator confirms.
+
+These contracts were exercised with the local MySQL integration suite and
+production browser acceptance. See the [administrator guide](../docs/administrator-guide.md)
+for the verified editing workflows and
+[`deployment.md`](../docs/deployment.md#v2-polish-integrated-acceptance-record-2026-09-26)
+for exact acceptance commands and evidence limits.
+
+## v2 content behavior
+
+The current database head is `0016_background_gallery`. Project records use a
+Personal or GitHub variant with validated variant-specific fields. The GitHub
+variant is manually authored; it does not call the GitHub API or synchronize
+repository data. Site Identity stores an ordered Background Gallery of at most
+12 entries, each a credential-free HTTPS URL or existing Media Asset path with
+alt text. Saving Post Markdown stores its canonical form and derives reading
+time on the backend. Tag deletion detaches Post references in the same
+transaction as deleting the Tag after the administrator confirms.
+
+These contracts were exercised with the local MySQL integration suite and
+production browser acceptance. See the [administrator guide](../docs/administrator-guide.md)
+for the verified editing workflows and
+[`deployment.md`](../docs/deployment.md#v2-polish-integrated-acceptance-record-2026-09-26)
+for exact acceptance commands and evidence limits.

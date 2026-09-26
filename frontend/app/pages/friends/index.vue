@@ -10,11 +10,13 @@ useSeoMeta({
   title: () => `友链 · ${identity.value.name}`,
   description: '人工整理的个人网站链接，以及本站友链申请说明。',
   ogDescription: '人工整理的个人网站链接，以及本站友链申请说明。',
+  ogImage: () => settings.value.avatarUrl,
   ogTitle: () => `友链 · ${identity.value.name}`,
   ogType: 'website',
   ogUrl: `${siteUrl}/friends`,
-  twitterCard: 'summary',
+  twitterCard: 'summary_large_image',
   twitterDescription: '人工整理的个人网站链接，以及本站友链申请说明。',
+  twitterImage: () => settings.value.avatarUrl,
   twitterTitle: () => `友链 · ${identity.value.name}`,
 })
 

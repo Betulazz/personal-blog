@@ -19,7 +19,6 @@ const countCards = computed(() => {
     { label: '文章总数', value: counts.posts, note: '全部文章' },
     { label: '已发布', value: counts.publishedPosts, note: '公开可见' },
     { label: '草稿', value: counts.draftPosts, note: '等待继续编辑' },
-    { label: 'Moment', value: counts.moments, note: '生活动态' },
     { label: 'Chatter', value: counts.chatter, note: '短篇记录' },
     { label: '项目', value: counts.projects, note: '作品集项目' },
     { label: '友链', value: counts.friends, note: '已维护链接' },
@@ -34,7 +33,6 @@ const countCards = computed(() => {
 const activityLabel: Record<AdminActivityType, string> = {
   chatter: 'Chatter',
   friend: '友链',
-  moment: 'Moment',
   post: '文章',
   project: '项目',
 }
@@ -42,7 +40,6 @@ const activityLabel: Record<AdminActivityType, string> = {
 const activityHref: Record<AdminActivityType, string> = {
   chatter: '/admin/chatter',
   friend: '/admin/friends',
-  moment: '/admin/moments',
   post: '/admin/posts',
   project: '/admin/projects',
 }

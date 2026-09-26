@@ -6,10 +6,11 @@ from wave import open as wave_open
 import pytest
 from httpx import AsyncClient
 from PIL import Image
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.models.chatter import ChatterImage
 from app.models.media import MediaAsset
 from app.models.music import MusicTrack
 from app.models.portfolio import Project
@@ -101,6 +102,7 @@ async def test_media_references_report_content_that_still_uses_an_asset(
     mysql_client: AsyncClient,
     auth_admin: None,
     clean_media_library: None,
+    isolated_mysql_session: AsyncSession,
 ) -> None:
     unauthenticated = await mysql_client.get("/api/v1/admin/media/1/references")
     assert unauthenticated.status_code == 401
@@ -137,6 +139,38 @@ async def test_media_references_report_content_that_still_uses_an_asset(
     )
     assert blocked.status_code == 409
     assert blocked.json()["error"]["code"] == "media_asset_referenced"
+
+    chatter = await mysql_client.post(
+        "/api/v1/admin/chatter",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "body": "图片作为独立的 Chatter 媒体保存。",
+            "images": [
+                {
+                    "src": asset["url"],
+                    "alt": "夜色中的标志",
+                    "width": asset["width"],
+                    "height": asset["height"],
+                }
+            ],
+        },
+    )
+    assert chatter.status_code == 201
+    chatter_id = chatter.json()["data"]["id"]
+    image_id = await isolated_mysql_session.scalar(
+        select(ChatterImage.id).where(ChatterImage.chatter_id == chatter_id)
+    )
+    image_references = await mysql_client.get(f"/api/v1/admin/media/{asset['id']}/references")
+    assert {
+        "resource_type": "chatter_image",
+        "resource_id": image_id,
+        "field": "src",
+    } in image_references.json()["data"]
+    assert (
+        await mysql_client.delete(
+            f"/api/v1/admin/chatter/{chatter_id}", headers={"X-CSRF-Token": csrf}
+        )
+    ).status_code == 200
 
     missing = await mysql_client.get("/api/v1/admin/media/999999/references")
     assert missing.status_code == 404

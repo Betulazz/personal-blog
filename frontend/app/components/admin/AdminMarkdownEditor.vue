@@ -412,7 +412,7 @@ watch(
 }
 
 .admin-markdown-editor :deep(.admin-markdown-editor__content) {
-  min-height: 28rem;
+  min-height: max(38rem, 64vh);
   padding: var(--space-5);
   outline: none;
   color: var(--color-text);
@@ -427,10 +427,67 @@ watch(
   margin-bottom: 0;
 }
 
-.admin-markdown-editor :deep(.admin-markdown-editor__content h1),
-.admin-markdown-editor :deep(.admin-markdown-editor__content h2),
-.admin-markdown-editor :deep(.admin-markdown-editor__content h3) {
+.admin-markdown-editor :deep(.admin-markdown-editor__content h1) {
+  margin-block: var(--space-8) var(--space-4);
+  color: var(--color-text);
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+}
+
+.admin-markdown-editor :deep(.admin-markdown-editor__content h2) {
+  margin-block: var(--space-8) var(--space-3);
+  color: var(--color-text);
+  font-size: clamp(1.625rem, 2.4vw, 2rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.025em;
   line-height: 1.25;
+}
+
+.admin-markdown-editor :deep(.admin-markdown-editor__content h3) {
+  margin-block: var(--space-6) var(--space-2);
+  color: var(--color-text);
+  font-size: 1.375rem;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.admin-markdown-editor :deep(.admin-markdown-editor__content ul),
+.admin-markdown-editor :deep(.admin-markdown-editor__content ol) {
+  margin-block: 0 var(--space-4);
+  padding-inline-start: 1.6em;
+}
+
+.admin-markdown-editor
+  :deep(.admin-markdown-editor__content ul:not([data-type='taskList'])) {
+  list-style-type: disc;
+}
+
+.admin-markdown-editor
+  :deep(.admin-markdown-editor__content ul:not([data-type='taskList']) ul) {
+  list-style-type: circle;
+}
+
+.admin-markdown-editor
+  :deep(.admin-markdown-editor__content ul:not([data-type='taskList']) ul ul) {
+  list-style-type: square;
+}
+
+.admin-markdown-editor :deep(.admin-markdown-editor__content ol) {
+  list-style-type: decimal;
+}
+
+.admin-markdown-editor :deep(.admin-markdown-editor__content ol ol) {
+  list-style-type: lower-alpha;
+}
+
+.admin-markdown-editor :deep(.admin-markdown-editor__content ol ol ol) {
+  list-style-type: lower-roman;
+}
+
+.admin-markdown-editor :deep(.admin-markdown-editor__content li + li) {
+  margin-block-start: var(--space-2);
 }
 
 .admin-markdown-editor :deep(.admin-markdown-editor__content blockquote) {
@@ -465,6 +522,7 @@ watch(
 
 .admin-markdown-editor
   :deep(.admin-markdown-editor__content ul[data-type='taskList']) {
+  margin-block: 0 var(--space-4);
   padding-inline-start: 0;
   list-style: none;
 }
@@ -474,6 +532,7 @@ watch(
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
+  list-style: none;
 }
 
 .admin-markdown-editor
@@ -484,9 +543,25 @@ watch(
   align-items: center;
 }
 
+.admin-markdown-editor
+  :deep(
+    .admin-markdown-editor__content
+      ul[data-type='taskList']
+      input[type='checkbox']
+  ) {
+  accent-color: var(--color-accent-soft);
+}
+
+.admin-markdown-editor
+  :deep(.admin-markdown-editor__content li[data-checked='true'] > div) {
+  color: var(--color-text-subtle);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-accent-soft);
+}
+
 @media (width <= 30rem) {
   .admin-markdown-editor :deep(.admin-markdown-editor__content) {
-    min-height: 22rem;
+    min-height: max(22rem, 64svh);
     padding: var(--space-4);
   }
 }

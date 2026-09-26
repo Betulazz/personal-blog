@@ -6,6 +6,12 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.music import MusicTrack
+from app.services.netease_web import (
+    NetEaseLyricLine,
+    NetEaseLyrics,
+    NetEaseTrackMetadata,
+    NetEaseWebClient,
+)
 
 
 @pytest.fixture
@@ -20,310 +26,171 @@ async def clean_music_tracks(
 
 
 @pytest.mark.asyncio
-async def test_music_track_playlist_is_ordered_filtered_and_publicly_safe(
+async def test_public_playlist_and_runtime_resolution_are_anonymous_and_safe(
     mysql_client: AsyncClient,
     auth_admin: None,
     clean_music_tracks: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    async def get_track(_: NetEaseWebClient, song_id: int) -> NetEaseTrackMetadata:
+        return NetEaseTrackMetadata(
+            song_id=song_id,
+            title=f"歌曲 {song_id}",
+            artist="网易云示例歌手",
+            album="示例专辑",
+            artwork_url="https://p1.music.126.net/example/cover.jpg",
+            duration_seconds=214,
+        )
+
+    async def get_lyrics(_: NetEaseWebClient, song_id: int) -> NetEaseLyrics:
+        if song_id == 789:
+            return NetEaseLyrics(available=False, lines=[])
+        return NetEaseLyrics(
+            available=True,
+            lines=[
+                NetEaseLyricLine(0, "第一句", "First line"),
+                NetEaseLyricLine(1250, "第二句", None),
+            ],
+        )
+
+    monkeypatch.setattr(NetEaseWebClient, "get_track", get_track)
+    monkeypatch.setattr(NetEaseWebClient, "get_lyrics", get_lyrics)
+
     assert (await mysql_client.get("/api/v1/music-tracks")).json() == {
         "data": [],
         "pagination": {"page": 1, "page_size": 20, "total": 0, "total_pages": 0},
     }
-
-    unauthenticated = await mysql_client.get("/api/v1/admin/music-tracks")
-    assert unauthenticated.status_code == 401
-    assert unauthenticated.json()["error"]["code"] == "authentication_required"
+    assert (await mysql_client.get("/api/v1/music-tracks/999/playback")).status_code == 404
+    assert (await mysql_client.get("/api/v1/music-tracks/999/lyrics")).status_code == 404
+    assert (await mysql_client.get("/api/v1/admin/music-tracks")).status_code == 401
 
     csrf_response = await mysql_client.get("/api/v1/auth/csrf")
     assert csrf_response.status_code == 200
     csrf_header = {"X-CSRF-Token": csrf_response.json()["data"]["token"]}
-    for method, path, kwargs in (
-        (
-            "patch",
-            "/api/v1/admin/music-tracks/1",
-            {"json": {"title": "无权修改"}},
-        ),
-        (
-            "post",
-            "/api/v1/admin/music-tracks/reorder",
-            {"json": {"track_ids": [1]}},
-        ),
-        ("post", "/api/v1/admin/music-tracks/1/enable", {}),
-        ("post", "/api/v1/admin/music-tracks/1/disable", {}),
-        ("delete", "/api/v1/admin/music-tracks/1", {}),
-    ):
-        response = await getattr(mysql_client, method)(path, headers=csrf_header, **kwargs)
-        assert response.status_code == 401
-        assert response.json()["error"]["code"] == "authentication_required"
-
-    csrf = await _login(mysql_client)
-    headers = {"X-CSRF-Token": csrf}
-
-    remote = await mysql_client.post(
-        "/api/v1/admin/music-tracks",
-        headers=headers,
-        json={
-            "title": "远方的灯",
-            "artist": "夜航乐队",
-            "album": "静默航线",
-            "source_strategy": "remote_url",
-            "source_url": "https://cdn.example.com/music/far-lights.mp3",
-            "artwork_url": "https://cdn.example.com/art/far-lights.webp",
-            "artwork_alt": "远方的灯封面",
-            "duration_seconds": 214,
-            "display_order": 2,
-        },
-    )
-    assert remote.status_code == 201
-    remote_track = remote.json()["data"]
-    remote_id = remote_track["id"]
-    assert remote_track["source_strategy"] == "remote_url"
-    assert remote_track["duration_seconds"] == 214
-    assert remote_track["is_enabled"] is True
-
-    local = await mysql_client.post(
-        "/api/v1/admin/music-tracks",
-        headers=headers,
-        json={
-            "title": "窗边雨声",
-            "artist": "本地示例音源",
-            "source_strategy": "local_media",
-            "source_url": "/uploads/audio/window-rain.mp3",
-            "display_order": 1,
-        },
-    )
-    assert local.status_code == 201
-    local_id = local.json()["data"]["id"]
-
-    updated_local = await mysql_client.patch(
-        f"/api/v1/admin/music-tracks/{local_id}",
-        headers=headers,
-        json={"title": "窗边的雨声", "album": "本地样本", "duration_seconds": 181},
-    )
-    assert updated_local.status_code == 200
-    assert updated_local.json()["data"]["title"] == "窗边的雨声"
-    assert updated_local.json()["data"]["album"] == "本地样本"
-    assert updated_local.json()["data"]["duration_seconds"] == 181
-
-    disabled = await mysql_client.post(
-        "/api/v1/admin/music-tracks",
-        headers=headers,
-        json={
-            "title": "暂不播放",
-            "artist": "本地示例音源",
-            "source_strategy": "s3_media",
-            "source_url": "https://storage.example.com/music/disabled.mp3",
-            "display_order": 0,
-            "is_enabled": False,
-        },
-    )
-    assert disabled.status_code == 201
-    disabled_id = disabled.json()["data"]["id"]
-
-    public = await mysql_client.get("/api/v1/music-tracks")
-    assert public.status_code == 200
-    assert [item["id"] for item in public.json()["data"]] == [local_id, remote_id]
-    assert public.json()["pagination"] == {
-        "page": 1,
-        "page_size": 20,
-        "total": 2,
-        "total_pages": 1,
-    }
-    assert public.json()["data"][0]["source_url"] == "/uploads/audio/window-rain.mp3"
-    assert "source_strategy" not in public.json()["data"][0]
-    assert "is_enabled" not in public.json()["data"][0]
-    assert "created_at" not in public.json()["data"][0]
-
-    second_page = await mysql_client.get("/api/v1/music-tracks", params={"page": 2, "page_size": 1})
-    assert second_page.status_code == 200
-    assert [item["id"] for item in second_page.json()["data"]] == [remote_id]
-    assert second_page.json()["pagination"] == {
-        "page": 2,
-        "page_size": 1,
-        "total": 2,
-        "total_pages": 2,
-    }
-
-    invalid_page = await mysql_client.get("/api/v1/music-tracks", params={"page_size": 101})
-    assert invalid_page.status_code == 422
-    assert invalid_page.json()["error"]["code"] == "validation_error"
-
-    reordered = await mysql_client.post(
-        "/api/v1/admin/music-tracks/reorder",
-        headers=headers,
-        json={"track_ids": [remote_id, disabled_id, local_id]},
-    )
-    assert reordered.status_code == 200
-    assert [item["id"] for item in reordered.json()["data"]] == [
-        remote_id,
-        disabled_id,
-        local_id,
-    ]
-
-    enabled = await mysql_client.post(
-        f"/api/v1/admin/music-tracks/{disabled_id}/enable",
-        headers=headers,
-    )
-    assert enabled.status_code == 200
-    assert enabled.json()["data"]["is_enabled"] is True
-    public_after_enable = await mysql_client.get("/api/v1/music-tracks")
-    assert [item["id"] for item in public_after_enable.json()["data"]] == [
-        remote_id,
-        disabled_id,
-        local_id,
-    ]
-
-    disabled_remote = await mysql_client.post(
-        f"/api/v1/admin/music-tracks/{remote_id}/disable",
-        headers=headers,
-    )
-    assert disabled_remote.status_code == 200
-    public_after_disable = await mysql_client.get("/api/v1/music-tracks")
-    assert [item["id"] for item in public_after_disable.json()["data"]] == [
-        disabled_id,
-        local_id,
-    ]
-
-    deleted = await mysql_client.delete(
-        f"/api/v1/admin/music-tracks/{local_id}",
-        headers=headers,
-    )
-    assert deleted.status_code == 200
-    assert deleted.json() == {"data": {"deleted": True}}
-    public_after_delete = await mysql_client.get("/api/v1/music-tracks")
-    assert [item["id"] for item in public_after_delete.json()["data"]] == [disabled_id]
-
-
-@pytest.mark.asyncio
-async def test_music_track_sources_reorder_and_failures_are_validated_safely(
-    mysql_client: AsyncClient,
-    auth_admin: None,
-    clean_music_tracks: None,
-) -> None:
     missing_csrf = await mysql_client.post(
         "/api/v1/admin/music-tracks",
-        json={
-            "title": "未经授权",
-            "artist": "示例",
-            "source_strategy": "remote_url",
-            "source_url": "https://cdn.example.com/unauthorized.mp3",
-        },
+        json={"netease_song_id": "123"},
     )
     assert missing_csrf.status_code == 403
     assert missing_csrf.json()["error"]["code"] == "csrf_invalid"
-
+    unauthenticated_preview = await mysql_client.post(
+        "/api/v1/admin/music-tracks/preview",
+        headers=csrf_header,
+        json={"netease_song_id": "123"},
+    )
+    assert unauthenticated_preview.status_code == 401
     csrf = await _login(mysql_client)
     headers = {"X-CSRF-Token": csrf}
 
-    invalid_sources = [
-        {
-            "title": "错误远程源",
-            "artist": "示例",
-            "source_strategy": "remote_url",
-            "source_url": "/uploads/audio/not-remote.mp3",
-        },
-        {
-            "title": "带签名源",
-            "artist": "示例",
-            "source_strategy": "remote_url",
-            "source_url": "https://cdn.example.com/music.mp3?X-Amz-Credential=secret",
-        },
-        {
-            "title": "错误本地源",
-            "artist": "示例",
-            "source_strategy": "local_media",
-            "source_url": "/uploads/../secrets.mp3",
-        },
-        {
-            "title": "带令牌本地源",
-            "artist": "示例",
-            "source_strategy": "local_media",
-            "source_url": "/uploads/audio/music.mp3?token=secret",
-        },
-        {
-            "title": "错误 artwork",
-            "artist": "示例",
-            "source_strategy": "remote_url",
-            "source_url": "https://cdn.example.com/music.mp3",
-            "artwork_url": "/etc/passwd",
-        },
-        {
-            "title": "错误 S3 源",
-            "artist": "示例",
-            "source_strategy": "s3_media",
-            "source_url": "s3://private-bucket/music.mp3",
-        },
-        {
-            "title": "不支持的策略",
-            "artist": "示例",
-            "source_strategy": "catalog_proxy",
-            "source_url": "https://example.com/music.mp3",
-        },
-    ]
-    for payload in invalid_sources:
+    for invalid_song_id in ("0", "-1", "1.2", "9223372036854775808"):
         response = await mysql_client.post(
-            "/api/v1/admin/music-tracks",
+            "/api/v1/admin/music-tracks/preview",
             headers=headers,
-            json=payload,
+            json={"netease_song_id": invalid_song_id},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "validation_error"
-        assert "SQL" not in response.text
-        assert "Traceback" not in response.text
 
-    first = await _create_track(mysql_client, headers, "第一首", 0)
-    second = await _create_track(mysql_client, headers, "第二首", 1)
+    preview = await mysql_client.post(
+        "/api/v1/admin/music-tracks/preview",
+        headers=headers,
+        json={"netease_song_id": "456"},
+    )
+    assert preview.status_code == 200
+    assert preview.json()["data"] == {
+        "album": "示例专辑",
+        "already_added": False,
+        "artist": "网易云示例歌手",
+        "artwork_url": "https://p1.music.126.net/example/cover.jpg",
+        "duration_seconds": 214,
+        "netease_song_id": "456",
+        "provider_url": "https://music.163.com/song?id=456",
+        "title": "歌曲 456",
+    }
+
+    first_id = await _create_track(mysql_client, headers, "456", 1)
+    duplicate = await mysql_client.post(
+        "/api/v1/admin/music-tracks",
+        headers=headers,
+        json={"netease_song_id": "456"},
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "music_track_duplicate"
+
+    second_id = await _create_track(mysql_client, headers, "123", 0)
+    disabled_id = await _create_track(mysql_client, headers, "789", 2, enabled=False)
+    public = await mysql_client.get("/api/v1/music-tracks")
+    assert public.status_code == 200
+    assert [item["id"] for item in public.json()["data"]] == [second_id, first_id]
+    first_public = public.json()["data"][1]
+    assert first_public["netease_song_id"] == "456"
+    assert first_public["provider_url"] == "https://music.163.com/song?id=456"
+    assert "media_url" not in first_public
+    assert "source_url" not in first_public
+    assert "source_strategy" not in first_public
+
+    playback = await mysql_client.get(f"/api/v1/music-tracks/{first_id}/playback")
+    assert playback.status_code == 200
+    assert playback.headers["cache-control"] == "no-store"
+    assert playback.json()["data"]["media_url"] == (
+        "https://music.163.com/song/media/outer/url?id=456.mp3"
+    )
+
+    lyrics = await mysql_client.get(f"/api/v1/music-tracks/{first_id}/lyrics")
+    assert lyrics.status_code == 200
+    assert lyrics.json()["data"] == {
+        "track_id": first_id,
+        "status": "available",
+        "lines": [
+            {"time_ms": 0, "text": "第一句", "translation": "First line"},
+            {"time_ms": 1250, "text": "第二句", "translation": None},
+        ],
+    }
+    missing_lyrics = await mysql_client.get(f"/api/v1/music-tracks/{disabled_id}/lyrics")
+    assert missing_lyrics.status_code == 404
+
+    updated = await mysql_client.patch(
+        f"/api/v1/admin/music-tracks/{first_id}",
+        headers=headers,
+        json={"display_order": 3},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["data"]["netease_song_id"] == "456"
+    assert "source_url" not in updated.json()["data"]
 
     duplicate_order = await mysql_client.post(
         "/api/v1/admin/music-tracks/reorder",
         headers=headers,
-        json={"track_ids": [first, first]},
+        json={"track_ids": [first_id, first_id]},
     )
     assert duplicate_order.status_code == 422
-    assert duplicate_order.json()["error"]["code"] == "validation_error"
-
     incomplete_order = await mysql_client.post(
         "/api/v1/admin/music-tracks/reorder",
         headers=headers,
-        json={"track_ids": [first]},
+        json={"track_ids": [first_id]},
     )
     assert incomplete_order.status_code == 422
     assert incomplete_order.json()["error"]["code"] == "music_track_reorder_mismatch"
 
-    invalid_update = await mysql_client.patch(
-        f"/api/v1/admin/music-tracks/{first}",
-        headers=headers,
-        json={
-            "source_strategy": "local_media",
-            "source_url": "https://cdn.example.com/remote.mp3",
-        },
-    )
-    assert invalid_update.status_code == 422
-    assert invalid_update.json()["error"]["code"] == "invalid_music_source"
-
-    missing = await mysql_client.delete(
-        "/api/v1/admin/music-tracks/999999999",
+    deleted = await mysql_client.delete(
+        f"/api/v1/admin/music-tracks/{first_id}",
         headers=headers,
     )
-    assert missing.status_code == 404
-    assert missing.json()["error"]["code"] == "music_track_not_found"
-
-    assert second != first
+    assert deleted.status_code == 200
+    assert (await mysql_client.get(f"/api/v1/music-tracks/{first_id}/playback")).status_code == 404
 
 
 async def _create_track(
-    client: AsyncClient, headers: dict[str, str], title: str, order: int
+    client: AsyncClient,
+    headers: dict[str, str],
+    song_id: str,
+    order: int,
+    *,
+    enabled: bool = True,
 ) -> int:
     response = await client.post(
         "/api/v1/admin/music-tracks",
         headers=headers,
-        json={
-            "title": title,
-            "artist": "示例音源",
-            "source_strategy": "remote_url",
-            "source_url": f"https://cdn.example.com/{order}.mp3",
-            "display_order": order,
-        },
+        json={"netease_song_id": song_id, "display_order": order, "is_enabled": enabled},
     )
     assert response.status_code == 201
     return response.json()["data"]["id"]

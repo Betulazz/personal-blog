@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', key: (route) => route.fullPath })
-const route = useRoute()
+definePageMeta({ layout: 'admin' })
+await navigateTo('/admin/chatter', { redirectCode: 301, replace: true })
 </script>
-<template><AdminMomentEditor :id="String(route.params.id)" /></template>
+<template><span /></template>

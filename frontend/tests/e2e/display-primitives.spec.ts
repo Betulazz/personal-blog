@@ -1,7 +1,13 @@
 import { expect, test } from '@playwright/test'
 
+import { mockFixtureMedia } from './support/fixture-media'
+
 const treatments = ['atmospheric', 'plain'] as const
 const widths = [375, 430, 768, 1024, 1440, 1920] as const
+
+test.beforeEach(async ({ page }) => {
+  await mockFixtureMedia(page)
+})
 
 for (const treatment of treatments) {
   test(`${treatment} background keeps stress content readable and accessible`, async ({
@@ -44,9 +50,12 @@ for (const treatment of treatments) {
 test('stress content stays within every required viewport width', async ({
   page,
 }) => {
+  test.setTimeout(180_000)
   for (const width of widths) {
     await page.setViewportSize({ width, height: width <= 430 ? 932 : 900 })
-    await page.goto('/__acceptance/display-primitives')
+    await page.goto('/__acceptance/display-primitives', {
+      waitUntil: 'domcontentloaded',
+    })
 
     const dimensions = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,

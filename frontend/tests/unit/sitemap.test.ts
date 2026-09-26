@@ -11,10 +11,8 @@ import {
 describe('sitemap entries', () => {
   it('lists every static public route under the site origin', () => {
     const entries = buildSitemapEntries({
-      categories: [],
       posts: [],
       siteUrl: 'https://blog.example.com/',
-      tags: [],
     })
 
     expect(entries.map((entry) => entry.loc)).toEqual(
@@ -26,15 +24,13 @@ describe('sitemap entries', () => {
     )
   })
 
-  it('appends published Posts, Categories, and Tags in order', () => {
+  it('includes the active v2 routes and published Posts', () => {
     const entries = buildSitemapEntries({
-      categories: ['engineering', 'life'],
       posts: [
         { slug: 'first-post', updatedAt: '2026-09-21T08:00:00.000Z' },
         { slug: 'second-post' },
       ],
       siteUrl: 'https://blog.example.com',
-      tags: ['markdown'],
     })
 
     expect(entries.slice(SITEMAP_STATIC_PATHS.length)).toEqual([
@@ -43,29 +39,13 @@ describe('sitemap entries', () => {
         lastmod: '2026-09-21T08:00:00.000Z',
       },
       { loc: 'https://blog.example.com/posts/second-post' },
-      { loc: 'https://blog.example.com/categories/engineering' },
-      { loc: 'https://blog.example.com/categories/life' },
-      { loc: 'https://blog.example.com/tags/markdown' },
     ])
-  })
-
-  it('prefers a Post canonical override over the local slug URL', () => {
-    const entries = buildSitemapEntries({
-      categories: [],
-      posts: [
-        { canonicalUrl: 'https://example.com/notes/syndicated', slug: 'copy' },
-        { canonicalUrl: '   ', slug: 'blank-canonical' },
-        { canonicalUrl: null, slug: 'local-only' },
-      ],
-      siteUrl: 'https://blog.example.com',
-      tags: [],
-    })
-
-    expect(entries.slice(SITEMAP_STATIC_PATHS.length)).toEqual([
-      { loc: 'https://example.com/notes/syndicated' },
-      { loc: 'https://blog.example.com/posts/blank-canonical' },
-      { loc: 'https://blog.example.com/posts/local-only' },
-    ])
+    const locations = entries.map((entry) => entry.loc)
+    expect(locations).toContain('https://blog.example.com/moments')
+    expect(locations).toContain('https://blog.example.com/music')
+    expect(locations.some((loc) => /\/(categories|tags)(\/|$)/.test(loc))).toBe(
+      false,
+    )
   })
 
   it('normalizes trailing slashes on the site origin', () => {

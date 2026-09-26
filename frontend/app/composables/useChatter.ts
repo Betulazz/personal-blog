@@ -5,18 +5,14 @@ import type {
   ChatterCollectionResponse,
   ChatterProvider,
 } from '~/types/chatter'
-import type { PublicFeedQuery, PublicTag } from '~/types/public-content'
+import type { PublicFeedQuery } from '~/types/public-content'
 import { buildPublicFeedQuery } from '~/utils/public-content'
 
 export function createChatterProvider(
-  client: Pick<
-    ReturnType<typeof useApiClient>,
-    'listChatter' | 'listChatterTags'
-  >,
+  client: Pick<ReturnType<typeof useApiClient>, 'listChatter'>,
 ): ChatterProvider {
   return {
     listChatter: client.listChatter,
-    listTags: client.listChatterTags,
   }
 }
 
@@ -24,7 +20,7 @@ export function useChatter(provider?: ChatterProvider) {
   const activeProvider = provider ?? createChatterProvider(useApiClient())
   const route = useRoute()
   const query = computed<PublicFeedQuery>(() =>
-    buildPublicFeedQuery(route.query),
+    buildPublicFeedQuery({ ...route.query, tag: undefined }),
   )
 
   const collection = useAsyncData<ChatterCollectionResponse | null>(
@@ -36,20 +32,14 @@ export function useChatter(provider?: ChatterProvider) {
       watch: [query],
     },
   )
-  const taxonomy = useAsyncData<PublicTag[]>(
-    'chatter-tags',
-    (_nuxtApp, { signal }) => activeProvider.listTags(signal),
-    { deep: false, default: () => [] },
-  )
 
   return {
     data: collection.data,
-    error: computed(() => collection.error.value ?? taxonomy.error.value),
-    pending: computed(() => collection.pending.value || taxonomy.pending.value),
+    error: computed(() => collection.error.value),
+    pending: computed(() => collection.pending.value),
     query,
     refresh: async () => {
-      await Promise.all([collection.refresh(), taxonomy.refresh()])
+      await collection.refresh()
     },
-    tags: taxonomy.data,
   }
 }

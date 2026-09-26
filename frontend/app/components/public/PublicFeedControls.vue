@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-import type { PublicFeedQuery, PublicTag } from '~/types/public-content'
+import type { PublicFeedQuery } from '~/types/public-content'
 import { buildPublicFeedRouteQuery } from '~/utils/public-content'
 
 const props = defineProps<{
@@ -9,7 +9,6 @@ const props = defineProps<{
   contentLabel: string
   placeholder: string
   query: PublicFeedQuery
-  tags: PublicTag[]
 }>()
 
 const searchValue = ref(props.query.q ?? '')
@@ -22,15 +21,15 @@ watch(
   },
 )
 
-const tagHref = (tag?: string) =>
-  router.resolve({
+const search = () =>
+  router.push({
     path: props.basePath,
     query: buildPublicFeedRouteQuery({
-      ...props.query,
       page: 1,
-      ...(tag ? { tag } : { tag: undefined }),
+      pageSize: props.query.pageSize,
+      q: searchValue.value.trim() || undefined,
     }),
-  }).href
+  })
 </script>
 
 <template>
@@ -46,6 +45,7 @@ const tagHref = (tag?: string) =>
       :action="props.basePath"
       method="get"
       role="search"
+      @submit.prevent="search"
     >
       <UiInput
         :id="`${props.contentLabel}-search`"
@@ -54,42 +54,10 @@ const tagHref = (tag?: string) =>
         name="q"
         :placeholder="props.placeholder"
         type="search"
-      />
-      <input
-        v-if="props.query.tag"
-        type="hidden"
-        name="tag"
-        :value="props.query.tag"
+        maxlength="80"
       />
       <UiButton type="submit" size="large" variant="secondary">搜索</UiButton>
     </form>
-
-    <nav
-      class="public-feed-controls__tags"
-      :aria-label="`${props.contentLabel}标签`"
-    >
-      <span class="public-feed-controls__label">按标签浏览</span>
-      <NuxtLink
-        class="public-feed-controls__tag"
-        :class="{ 'public-feed-controls__tag--active': !props.query.tag }"
-        :to="tagHref()"
-        :aria-current="!props.query.tag ? 'page' : undefined"
-      >
-        全部
-      </NuxtLink>
-      <NuxtLink
-        v-for="tag in props.tags"
-        :key="tag.slug"
-        class="public-feed-controls__tag"
-        :class="{
-          'public-feed-controls__tag--active': props.query.tag === tag.slug,
-        }"
-        :to="tagHref(tag.slug)"
-        :aria-current="props.query.tag === tag.slug ? 'page' : undefined"
-      >
-        {{ tag.name }}
-      </NuxtLink>
-    </nav>
   </UiGlassPanel>
 </template>
 

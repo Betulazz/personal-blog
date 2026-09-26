@@ -4,6 +4,8 @@
 
 Accepted
 
+For the v2 domain, partially superseded by [ADR-0003](0003-chatter-and-activity-timeline.md). The original decision below records the v1 design; v2 retires independent Moments while keeping Posts and Chatter separate.
+
 ## Context
 
 The site publishes three kinds of content that can appear superficially similar because each has text, tags, and a timestamp. Their meaning, editorial lifecycle, fields, presentation, and expected queries differ:
@@ -24,4 +26,3 @@ Post, Chatter, and Moment are separate domain and persistence models. Shared tec
 - Cross-content search and home aggregation require explicit composition.
 - Some implementation patterns will be repeated or abstracted carefully rather than forced through one universal model.
 - A future new content type will be evaluated on its meaning and lifecycle instead of automatically joining a generic table.
-

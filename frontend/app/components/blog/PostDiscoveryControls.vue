@@ -1,21 +1,35 @@
 <script setup lang="ts">
-import type { PostCategory, PostQuery, PostTag } from '~/types/posts'
+import type { PostQuery, PostTag } from '~/types/posts'
 
 const props = defineProps<{
-  categories: PostCategory[]
   query: PostQuery
   searchAction: string
-  showCategory: boolean
   showSearch: boolean
   showTag: boolean
   tags: PostTag[]
 }>()
 
 const allFilterValue = '__all__'
+const router = useRouter()
+const selectedTag = ref(props.query.tag ?? allFilterValue)
+
+watch(
+  () => props.query.tag,
+  (value) => {
+    selectedTag.value = value ?? allFilterValue
+  },
+)
+
+watch(selectedTag, (value) => {
+  const query = {
+    ...(props.query.q ? { q: props.query.q } : {}),
+    ...(value !== allFilterValue ? { tag: value } : {}),
+  }
+  void router.push({ path: props.searchAction, query })
+})
 
 const emit = defineEmits<{
-  'update-category': [value: string | undefined]
-  'update-tag': [value: string | undefined]
+  search: [value: string]
 }>()
 
 const searchValue = ref(props.query.q ?? '')
@@ -26,22 +40,6 @@ watch(
     searchValue.value = value ?? ''
   },
 )
-
-const categoryOptions = computed(() => [
-  { label: '全部分类', value: allFilterValue },
-  ...props.categories.map((category) => ({
-    label: `${category.name} · ${category.postCount}`,
-    value: category.slug,
-  })),
-])
-
-const tagOptions = computed(() => [
-  { label: '全部标签', value: allFilterValue },
-  ...props.tags.map((tag) => ({
-    label: `${tag.name} · ${tag.postCount}`,
-    value: tag.slug,
-  })),
-])
 </script>
 
 <template>
@@ -58,6 +56,7 @@ const tagOptions = computed(() => [
       :action="searchAction"
       method="get"
       role="search"
+      @submit.prevent="emit('search', searchValue)"
     >
       <UiInput
         id="post-search"
@@ -66,45 +65,25 @@ const tagOptions = computed(() => [
         name="q"
         placeholder="搜索标题、摘要、正文或标签"
         type="search"
-      />
-      <input
-        v-if="query.category"
-        type="hidden"
-        name="category"
-        :value="query.category"
+        maxlength="80"
       />
       <input v-if="query.tag" type="hidden" name="tag" :value="query.tag" />
       <UiButton type="submit" size="large" variant="secondary"> 搜索 </UiButton>
     </form>
 
-    <div
-      v-if="showCategory || showTag"
-      class="post-discovery-controls__filters"
+    <label
+      v-if="showTag"
+      class="post-discovery-controls__tag-filter"
+      for="post-tag-filter"
     >
-      <UiSelect
-        v-if="showCategory"
-        id="post-category-filter"
-        :model-value="query.category ?? allFilterValue"
-        :options="categoryOptions"
-        label="分类"
-        @update:model-value="
-          emit(
-            'update-category',
-            $event === allFilterValue ? undefined : $event,
-          )
-        "
-      />
-      <UiSelect
-        v-if="showTag"
-        id="post-tag-filter"
-        :model-value="query.tag ?? allFilterValue"
-        :options="tagOptions"
-        label="标签"
-        @update:model-value="
-          emit('update-tag', $event === allFilterValue ? undefined : $event)
-        "
-      />
-    </div>
+      <span>按标签筛选</span>
+      <select id="post-tag-filter" v-model="selectedTag" class="field__control">
+        <option :value="allFilterValue">全部标签</option>
+        <option v-for="tag in tags" :key="tag.slug" :value="tag.slug">
+          {{ tag.name }} · {{ tag.postCount }}
+        </option>
+      </select>
+    </label>
   </UiGlassPanel>
 </template>
 
@@ -125,6 +104,14 @@ const tagOptions = computed(() => [
   min-width: 0;
 }
 
+.post-discovery-controls__tag-filter {
+  display: grid;
+  max-width: 24rem;
+  gap: var(--space-2);
+  color: var(--color-text-subtle);
+  font-size: var(--text-caption);
+}
+
 .post-discovery-controls__filters {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -138,6 +125,14 @@ const tagOptions = computed(() => [
 
   .post-discovery-controls__search :deep(.button) {
     width: 100%;
+  }
+
+  .post-discovery-controls__tag-filter {
+    display: grid;
+    max-width: 24rem;
+    gap: var(--space-2);
+    color: var(--color-text-subtle);
+    font-size: var(--text-caption);
   }
 
   .post-discovery-controls__filters {

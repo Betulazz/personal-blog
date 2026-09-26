@@ -8,7 +8,7 @@ from app.api.dependencies import get_current_user, get_db_session, require_csrf
 from app.core.exceptions import AppError
 from app.models.auth import User
 from app.models.post import Post
-from app.models.taxonomy import Category, Tag
+from app.models.taxonomy import Tag
 from app.schemas.common import ApiResponse, PaginationMeta
 from app.schemas.posts import (
     AdminPostCollectionResponse,
@@ -33,18 +33,15 @@ async def list_posts(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    category: str | None = Query(default=None, min_length=1, max_length=120),
     tag: str | None = Query(default=None, min_length=1, max_length=120),
     q: str | None = Query(default=None, min_length=1, max_length=80),
 ) -> PostCollectionResponse:
     service = PostService(session)
-    category_slug = _normalize_query(category)
     tag_slug = _normalize_query(tag)
     search = _normalize_query(q)
     posts, total = await service.public_list(
         page=page,
         page_size=page_size,
-        category_slug=category_slug,
         tag_slug=tag_slug,
         search=search,
     )
@@ -57,7 +54,6 @@ async def list_posts(
         filters={
             key: value
             for key, value in (
-                ("category", category_slug),
                 ("tag", tag_slug),
                 ("q", search),
             )
@@ -85,7 +81,6 @@ async def list_admin_posts(
     page_size: int = Query(default=20, ge=1, le=100),
     q: str | None = Query(default=None, min_length=1, max_length=80),
     status_filter: str | None = Query(default=None, alias="status"),
-    category: str | None = Query(default=None, min_length=1, max_length=120),
     tag: str | None = Query(default=None, min_length=1, max_length=120),
 ) -> AdminPostCollectionResponse:
     if status_filter is not None and status_filter not in {"draft", "published"}:
@@ -100,7 +95,6 @@ async def list_admin_posts(
         page_size=page_size,
         search=_normalize_query(q),
         status=status_filter,
-        category_slug=_normalize_query(category),
         tag_slug=_normalize_query(tag),
     )
     return AdminPostCollectionResponse(
@@ -165,7 +159,6 @@ async def preview_admin_post(
         data=_post_admin(
             preview.post,
             values=preview.values,
-            category=preview.category,
             tags=preview.tags,
         )
     )
@@ -185,7 +178,6 @@ async def get_admin_post_preview(
         data=_post_admin(
             preview.post,
             values=preview.values,
-            category=preview.category,
             tags=preview.tags,
         )
     )
@@ -252,7 +244,6 @@ async def _public_collection_response(
 
 @dataclass(frozen=True, slots=True)
 class _PublicCounts:
-    categories: dict[int, int]
     tags: dict[int, int]
 
 
@@ -260,9 +251,8 @@ _UNSET = object()
 
 
 async def _public_counts(service: PostService, posts: list[Post]) -> _PublicCounts:
-    category_counts = await service.public_category_counts(posts)
     tag_counts = await service.public_tag_counts(posts)
-    return _PublicCounts(categories=category_counts, tags=tag_counts)
+    return _PublicCounts(tags=tag_counts)
 
 
 def _post_summary(
@@ -270,24 +260,10 @@ def _post_summary(
     counts: _PublicCounts,
     *,
     values: dict[str, object] | None = None,
-    category_override: Category | None | object = _UNSET,
     tags_override: list[Tag] | object = _UNSET,
 ) -> PostSummaryResponse:
     values = values or {}
-    category_value = cast(
-        Category | None, post.category if category_override is _UNSET else category_override
-    )
     tags_value = cast(list[Tag], post.tags if tags_override is _UNSET else tags_override)
-    category = (
-        PublicTaxonomyResponse(
-            id=category_value.id,
-            name=category_value.name,
-            slug=category_value.slug,
-            post_count=counts.categories.get(category_value.id, 0),
-        )
-        if category_value is not None
-        else None
-    )
     tags = [
         PublicTaxonomyResponse(
             id=tag.id,
@@ -310,14 +286,9 @@ def _post_summary(
         ),
         cover_url=cast(str | None, values.get("cover_url", post.cover_url)),
         cover_alt=cast(str | None, values.get("cover_alt", post.cover_alt)),
-        seo_title=cast(str | None, values.get("seo_title", post.seo_title)),
-        seo_description=cast(str | None, values.get("seo_description", post.seo_description)),
-        canonical_url=cast(str | None, values.get("canonical_url", post.canonical_url)),
-        og_image_url=cast(str | None, values.get("og_image_url", post.og_image_url)),
         published_at=post.published_at,
         created_at=post.created_at,
         updated_at=post.updated_at,
-        category=category,
         tags=tags,
     )
 
@@ -330,24 +301,20 @@ def _post_admin(
     post: Post,
     *,
     values: dict[str, object] | None = None,
-    category: Category | None = None,
     tags: list[Tag] | None = None,
 ) -> PostAdminResponse:
     values = values or {}
-    category = post.category if category is None and "category_id" not in values else category
     tags = post.tags if tags is None and "tag_ids" not in values else (tags or [])
     summary = _post_summary(
         post,
-        _PublicCounts(categories={}, tags={}),
+        _PublicCounts(tags={}),
         values=values,
-        category_override=category,
         tags_override=tags,
     )
     return PostAdminResponse(
         **PostDetailResponse(
             **summary.model_dump(), body=cast(str, values.get("body", post.body))
         ).model_dump(),
-        category_id=category.id if category is not None else None,
         tag_ids=[tag.id for tag in tags],
     )
 

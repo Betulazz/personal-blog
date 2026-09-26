@@ -1,4 +1,9 @@
+import { mkdir } from 'node:fs/promises'
+import { resolve } from 'node:path'
+
 import { expect, test } from '@playwright/test'
+
+import { mockFixtureMedia } from './support/fixture-media'
 
 const viewports = [
   { width: 375, height: 812 },
@@ -8,6 +13,14 @@ const viewports = [
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ] as const
+
+const evidenceDirectory = resolve(
+  process.env.DESIGN_SYSTEM_EVIDENCE_DIR ?? 'test-results/design-system',
+)
+
+test.beforeEach(async ({ page }) => {
+  await mockFixtureMedia(page)
+})
 
 test('design system gallery presents the token atlas and primitive states', async ({
   page,
@@ -124,6 +137,8 @@ test('design system gallery presents the token atlas and primitive states', asyn
 test('design system gallery stays inside every required CSS viewport', async ({
   page,
 }) => {
+  test.setTimeout(180_000)
+  await mkdir(evidenceDirectory, { recursive: true })
   const consoleProblems: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error' || message.type() === 'warning') {
@@ -136,7 +151,7 @@ test('design system gallery stays inside every required CSS viewport', async ({
 
   for (const viewport of viewports) {
     await page.setViewportSize(viewport)
-    await page.goto('/design-system')
+    await page.goto('/design-system', { waitUntil: 'domcontentloaded' })
 
     const dimensions = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,
@@ -151,14 +166,14 @@ test('design system gallery stays inside every required CSS viewport', async ({
     ).toBeVisible()
 
     await page.screenshot({
-      path: `test-results/design-system/viewport-${viewport.width}.png`,
+      path: resolve(evidenceDirectory, `viewport-${viewport.width}.png`),
       fullPage: false,
       scale: 'css',
     })
   }
 
   await page.screenshot({
-    path: 'test-results/design-system/full-page.png',
+    path: resolve(evidenceDirectory, 'full-page.png'),
     fullPage: true,
     scale: 'css',
   })

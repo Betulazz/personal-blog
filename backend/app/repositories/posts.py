@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.models.post import Post
-from app.models.taxonomy import Category, Tag
+from app.models.taxonomy import Tag
 
 
 class PostRepository:
@@ -38,12 +38,10 @@ class PostRepository:
     async def count_public(
         self,
         *,
-        category_slug: str | None = None,
         tag_slug: str | None = None,
         search: str | None = None,
     ) -> int:
         statement = self._public_statement(
-            category_slug=category_slug,
             tag_slug=tag_slug,
             search=search,
             select_columns=func.count(Post.id),
@@ -53,14 +51,12 @@ class PostRepository:
     async def list_public(
         self,
         *,
-        category_slug: str | None = None,
         tag_slug: str | None = None,
         search: str | None = None,
         offset: int,
         limit: int,
     ) -> list[Post]:
         statement = self._public_statement(
-            category_slug=category_slug,
             tag_slug=tag_slug,
             search=search,
             select_columns=Post,
@@ -77,14 +73,11 @@ class PostRepository:
         *,
         search: str | None = None,
         status: str | None = None,
-        category_slug: str | None = None,
         tag_slug: str | None = None,
     ) -> int:
         statement = select(func.count(Post.id))
         if status:
             statement = statement.where(Post.status == status)
-        if category_slug:
-            statement = statement.where(Post.category.has(Category.slug == category_slug))
         if tag_slug:
             statement = statement.where(Post.tags.any(Tag.slug == tag_slug))
         if search:
@@ -96,7 +89,6 @@ class PostRepository:
         *,
         search: str | None = None,
         status: str | None = None,
-        category_slug: str | None = None,
         tag_slug: str | None = None,
         offset: int,
         limit: int,
@@ -104,8 +96,6 @@ class PostRepository:
         statement = self._with_relationships(select(Post))
         if status:
             statement = statement.where(Post.status == status)
-        if category_slug:
-            statement = statement.where(Post.category.has(Category.slug == category_slug))
         if tag_slug:
             statement = statement.where(Post.tags.any(Tag.slug == tag_slug))
         if search:
@@ -114,18 +104,6 @@ class PostRepository:
             statement.order_by(Post.updated_at.desc(), Post.id.desc()).offset(offset).limit(limit)
         )
         return list((await self._session.scalars(statement)).unique().all())
-
-    async def public_category_counts(self, category_ids: Sequence[int]) -> dict[int, int]:
-        if not category_ids:
-            return {}
-        rows = await self._session.execute(
-            select(Post.category_id, func.count(Post.id))
-            .where(Post.category_id.in_(category_ids), Post.status == "published")
-            .group_by(Post.category_id)
-        )
-        return {
-            int(category_id): int(count) for category_id, count in rows if category_id is not None
-        }
 
     async def public_tag_counts(self, tag_ids: Sequence[int]) -> dict[int, int]:
         if not tag_ids:
@@ -142,19 +120,16 @@ class PostRepository:
 
     @staticmethod
     def _with_relationships(statement: Select[Any]) -> Select[Any]:
-        return statement.options(selectinload(Post.category), selectinload(Post.tags))
+        return statement.options(selectinload(Post.tags))
 
     def _public_statement(
         self,
         *,
-        category_slug: str | None,
         tag_slug: str | None,
         search: str | None,
         select_columns: Any,
     ) -> Select[Any]:
         statement = select(select_columns).where(Post.status == "published")
-        if category_slug:
-            statement = statement.where(Post.category.has(Category.slug == category_slug))
         if tag_slug:
             statement = statement.where(Post.tags.any(Tag.slug == tag_slug))
         if search:
@@ -171,6 +146,5 @@ class PostRepository:
             Post.title.like(pattern, escape="\\"),
             Post.summary.like(pattern, escape="\\"),
             Post.body.like(pattern, escape="\\"),
-            Post.category.has(Category.name.like(pattern, escape="\\")),
             Post.tags.any(Tag.name.like(pattern, escape="\\")),
         )

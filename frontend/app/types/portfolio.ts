@@ -10,20 +10,32 @@ export interface PortfolioMedia {
 
 export type ProjectStatus = 'active' | 'archived' | 'developing'
 
-export interface Project {
+export interface PersonalProject {
   demoUrl?: string
   description: string
   featured: boolean
-  githubUrl?: string
   id: string
   logo?: PortfolioMedia
   name: string
   highlights?: string[]
+  projectType: 'personal'
   sourceUrl?: string
   stack: string[]
   status: ProjectStatus
   timeSpan: string
 }
+
+export interface GithubOpenSourceProject {
+  description: string
+  featured: boolean
+  id: string
+  logo?: PortfolioMedia
+  name: string
+  projectType: 'github_open_source'
+  repositoryUrl: string
+}
+
+export type Project = PersonalProject | GithubOpenSourceProject
 
 export interface ProjectCollectionResponse {
   data: Project[]

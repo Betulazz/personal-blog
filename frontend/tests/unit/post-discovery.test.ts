@@ -2,7 +2,6 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import PostCollectionState from '../../app/components/blog/PostCollectionState.vue'
-import PostTaxonomyIndex from '../../app/components/blog/PostTaxonomyIndex.vue'
 import {
   buildPostQuery,
   buildPostRouteQuery,
@@ -15,13 +14,11 @@ describe('post discovery query contract', () => {
   it('normalizes unsafe and empty URL values to a safe first page', () => {
     expect(
       buildPostQuery({
-        category: 'design-notes',
         page: 'not-a-number',
         q: '  Markdown  ',
         tag: 'unsafe value',
       }),
     ).toEqual({
-      category: 'design-notes',
       page: 1,
       pageSize: 4,
       q: 'Markdown',
@@ -31,17 +28,16 @@ describe('post discovery query contract', () => {
   it('keeps path taxonomy filters while preserving linkable query filters', () => {
     const query = buildPostQuery(
       { page: '2', q: 'Nuxt', tag: 'typescript' },
-      { categorySlug: 'engineering' },
+      { tagSlug: 'typescript' },
     )
 
     expect(query).toEqual({
-      category: 'engineering',
       page: 2,
       pageSize: 4,
       q: 'Nuxt',
       tag: 'typescript',
     })
-    expect(buildPostRouteQuery(query, { categoryIsPath: true })).toEqual({
+    expect(buildPostRouteQuery(query)).toEqual({
       page: '2',
       q: 'Nuxt',
       tag: 'typescript',
@@ -56,13 +52,12 @@ describe('post discovery query contract', () => {
   it('omits default values from generated links and preserves useful filters', () => {
     expect(
       buildPostRouteQuery({
-        category: 'engineering',
         page: 1,
         pageSize: 4,
         q: 'Nuxt',
         tag: 'typescript',
       }),
-    ).toEqual({ category: 'engineering', q: 'Nuxt', tag: 'typescript' })
+    ).toEqual({ q: 'Nuxt', tag: 'typescript' })
   })
 })
 
@@ -125,60 +120,6 @@ describe('Post collection states', () => {
     expect(notFound.text()).toContain('没有找到这个分类')
     await error.get('[aria-label="重新加载"]').trigger('click')
     expect(error.emitted('retry')).toHaveLength(1)
-  })
-})
-
-describe('Post taxonomy states', () => {
-  const global = {
-    stubs: {
-      NuxtLink: {
-        name: 'NuxtLink',
-        props: { to: { type: String, required: true } },
-        template: '<a :href="to"><slot /></a>',
-      },
-      UiButton: {
-        name: 'UiButton',
-        emits: ['click'],
-        template:
-          '<button aria-label="重新加载" @click="$emit(\'click\')"><slot /></button>',
-      },
-      UiGlassCard: { name: 'UiGlassCard', template: '<div><slot /></div>' },
-      UiPageContainer: {
-        name: 'UiPageContainer',
-        template: '<div><slot /></div>',
-      },
-      UiSectionHeader: { name: 'UiSectionHeader', template: '<div />' },
-    },
-  }
-  const props = {
-    description: '按主题浏览',
-    items: [],
-    itemLabel: '分类',
-    itemPath: '/categories',
-    pending: false,
-    title: '文章分类',
-  }
-
-  it('exposes loading skeleton state through an accessible status', () => {
-    const wrapper = mount(PostTaxonomyIndex, {
-      global,
-      props: { ...props, pending: true },
-    })
-
-    expect(wrapper.get('[role="status"]').attributes('aria-busy')).toBe('true')
-    expect(wrapper.text()).toContain('正在加载分类')
-  })
-
-  it('keeps taxonomy errors safe and exposes retry recovery', async () => {
-    const wrapper = mount(PostTaxonomyIndex, {
-      global,
-      props: { ...props, error: new Error('SQL secret traceback') },
-    })
-
-    expect(wrapper.text()).toContain('暂时无法加载分类')
-    expect(wrapper.text()).not.toContain('SQL secret traceback')
-    await wrapper.get('[aria-label="重新加载"]').trigger('click')
-    expect(wrapper.emitted('retry')).toHaveLength(1)
   })
 })
 

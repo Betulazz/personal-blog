@@ -6,37 +6,23 @@ export interface AdminNoteMetadata {
   created_at: string
   updated_at: string
   published_at: string | null
-  tags: Array<{ id: number; name: string; slug: string }>
 }
 
-export interface MomentImageInput {
+export interface ChatterImageInput {
   src: string
   alt: string
   width: number
   height: number
 }
 
-export interface AdminMomentInput {
-  body: string
-  location: string | null
-  mood: string | null
-  tag_ids: number[]
-  images: MomentImageInput[]
-}
-
-export interface AdminMoment
-  extends AdminNoteMetadata, Omit<AdminMomentInput, 'tag_ids'> {}
-
 export interface AdminChatterInput {
   title: string | null
-  lead: string | null
   body: string
   mood: string | null
-  tag_ids: number[]
+  images: ChatterImageInput[]
 }
 
-export interface AdminChatter
-  extends AdminNoteMetadata, Omit<AdminChatterInput, 'tag_ids'> {}
+export interface AdminChatter extends AdminNoteMetadata, AdminChatterInput {}
 
 export interface AdminNoteQuery {
   page: number

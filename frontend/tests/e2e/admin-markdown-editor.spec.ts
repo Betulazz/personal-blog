@@ -1,9 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { mockFixtureMedia } from './support/fixture-media'
+
 const mockControl = 'http://127.0.0.1:8787/__control'
 const apiBase = 'http://127.0.0.1:8787/api/v1'
 
 test.beforeEach(async ({ page }) => {
+  await mockFixtureMedia(page)
   await page.request.get(`${mockControl}/reset`)
 })
 
@@ -87,7 +90,9 @@ test('editor loads canonical Markdown and preserves it across save and reload', 
   await expect(editor).toContainText('霓虹 🚀')
   await expect(editor.locator('input[type="checkbox"]')).toHaveCount(1)
 
-  await page.getByRole('button', { name: '保存草稿' }).click()
+  const saveButton = page.getByRole('button', { name: '保存草稿' })
+  await saveButton.click()
+  await expect(saveButton).toBeEnabled()
   await expect(page.getByText('有未保存的更改')).toHaveCount(0)
   await page.reload()
 
@@ -220,6 +225,11 @@ test('disallowed HTML, unsafe links, and unsupported syntax follow the safe poli
   await login(page)
   await patchPostBody(page, '2', unsafe)
   await page.goto('/admin/posts/2/edit')
+  await page.waitForLoadState('networkidle')
+  await expect(page.locator('.admin-post-form')).toHaveAttribute(
+    'data-markdown-editor-ready',
+    'true',
+  )
 
   const notice = page.getByTestId('markdown-policy-notice')
   await expect(notice).toBeVisible()
@@ -232,7 +242,9 @@ test('disallowed HTML, unsafe links, and unsupported syntax follow the safe poli
   await expect(editor.locator('script')).toHaveCount(0)
   await expect(editor).toContainText('脚注引用[^1]')
 
-  await page.getByRole('button', { name: '保存草稿' }).click()
+  const saveButton = page.getByRole('button', { name: '保存草稿' })
+  await saveButton.click()
+  await expect(saveButton).toBeEnabled()
   await expect(page.getByText('有未保存的更改')).toHaveCount(0)
 
   const stored = await readPostBody(page, '2')

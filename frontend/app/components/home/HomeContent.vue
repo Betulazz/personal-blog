@@ -17,12 +17,6 @@ const isVisible = (section: keyof HomepageVisibility) =>
         <HomeReveal v-if="isVisible('posts')">
           <HomePostsSection :section="content.posts" @retry="retry('posts')" />
         </HomeReveal>
-        <HomeReveal v-if="isVisible('moments')">
-          <HomeMomentsSection
-            :section="content.moments"
-            @retry="retry('moments')"
-          />
-        </HomeReveal>
         <HomeReveal v-if="isVisible('chatter')">
           <HomeChatterSection
             :section="content.chatter"

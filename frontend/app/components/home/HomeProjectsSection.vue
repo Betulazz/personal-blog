@@ -2,6 +2,7 @@
 import { Github, SquareArrowOutUpRight } from 'lucide-vue-next'
 
 import type { HomepageProject, HomepageSection } from '~/types/homepage'
+import { getSafeExternalUrl } from '~/utils/external-links'
 
 const props = defineProps<{
   section: HomepageSection<HomepageProject>
@@ -52,20 +53,43 @@ const statusLabels = {
               {{ project.name.slice(0, 1) }}
             </span>
             <UiBadge
+              v-if="project.projectType === 'personal'"
               :tone="project.status === 'active' ? 'success' : 'neutral'"
             >
               {{ statusLabels[project.status] }}
             </UiBadge>
+            <UiBadge v-else tone="accent">GitHub 开源</UiBadge>
           </div>
           <h3>{{ project.name }}</h3>
           <p>{{ project.description }}</p>
-          <ul class="home-project-card__stack" aria-label="技术栈">
+          <ul
+            v-if="project.projectType === 'personal'"
+            class="home-project-card__stack"
+            aria-label="技术栈"
+          >
             <li v-for="item in project.stack" :key="item">{{ item }}</li>
           </ul>
           <footer class="home-project-card__footer">
             <a
-              v-if="project.githubUrl"
-              :href="project.githubUrl"
+              v-if="
+                project.projectType === 'github_open_source' &&
+                getSafeExternalUrl(project.repositoryUrl)
+              "
+              :href="getSafeExternalUrl(project.repositoryUrl)"
+              :aria-label="`${project.name} GitHub 仓库（外部链接）`"
+              target="_blank"
+              rel="noopener noreferrer"
+              referrerpolicy="no-referrer"
+            >
+              <Github :size="16" aria-hidden="true" />
+              GitHub 仓库
+            </a>
+            <a
+              v-else-if="
+                project.projectType === 'personal' &&
+                getSafeExternalUrl(project.sourceUrl)
+              "
+              :href="getSafeExternalUrl(project.sourceUrl)"
               :aria-label="`${project.name} 源码（外部链接）`"
               target="_blank"
               rel="noopener noreferrer"
@@ -75,8 +99,11 @@ const statusLabels = {
               Source
             </a>
             <a
-              v-if="project.demoUrl"
-              :href="project.demoUrl"
+              v-if="
+                project.projectType === 'personal' &&
+                getSafeExternalUrl(project.demoUrl)
+              "
+              :href="getSafeExternalUrl(project.demoUrl)"
               :aria-label="`${project.name} 演示（外部链接）`"
               target="_blank"
               rel="noopener noreferrer"

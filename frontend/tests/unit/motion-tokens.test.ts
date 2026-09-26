@@ -91,6 +91,7 @@ describe('motion tokens', () => {
     expect(read('--motion-duration-slow')).toBeLessThan(
       read('--motion-duration-shimmer'),
     )
+    expect(read('--motion-duration-background-crossfade')).toBe(1200)
 
     const reducedMotion = tokens.slice(
       tokens.indexOf('@media (prefers-reduced-motion: reduce)'),
@@ -101,6 +102,7 @@ describe('motion tokens', () => {
       '--motion-duration-slow',
       '--motion-duration-shimmer',
       '--motion-delay-entry-stagger',
+      '--motion-duration-background-crossfade',
     ]) {
       expect(reducedMotion).toContain(token)
     }

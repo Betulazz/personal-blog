@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import AdminTaxonomyPage from '~/components/admin/AdminTaxonomyPage.vue'
-
 definePageMeta({ layout: 'admin' })
+await navigateTo('/admin/posts', { redirectCode: 301, replace: true })
 </script>
-
-<template>
-  <AdminTaxonomyPage kind="category" />
-</template>
+<template><span /></template>

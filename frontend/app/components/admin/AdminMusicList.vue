@@ -8,10 +8,6 @@ import {
 } from '~/composables/useAdminMusic'
 import { useAdminSession } from '~/stores/adminSession'
 import type { AdminMusicTrack } from '~/types/admin-music'
-import {
-  musicSourceStrategyLabel,
-  validateMusicSource,
-} from '~/utils/music-source'
 
 const api = useApiClient()
 const session = useAdminSession()
@@ -28,13 +24,6 @@ let loadController: AbortController | null = null
 const isBusy = computed(() => reordering.value || busyId.value !== null)
 const enabledCount = computed(
   () => tracks.value.filter((track) => track.isEnabled).length,
-)
-const invalidCount = computed(
-  () =>
-    tracks.value.filter(
-      (track) =>
-        !validateMusicSource(track.sourceStrategy, track.sourceUrl).valid,
-    ).length,
 )
 
 const load = async () => {
@@ -54,9 +43,6 @@ const load = async () => {
     loading.value = false
   }
 }
-
-const validationFor = (track: AdminMusicTrack) =>
-  validateMusicSource(track.sourceStrategy, track.sourceUrl)
 
 const move = async (index: number, direction: -1 | 1) => {
   const targetIndex = index + direction
@@ -155,9 +141,8 @@ function isAbortError(error: unknown) {
         <p class="admin-resource-heading__eyebrow">Ambient playlist</p>
         <h1>音乐管理</h1>
         <p>
-          维护公开播放器使用的合法音源，并调整排序、启用状态与封面。这里只接受
-          /uploads/ 媒体、远程 URL 和 S3 兼容存储，不提供任何抓取、目录搜索或代
-          理流程。
+          通过网易云歌曲 ID
+          导入歌曲，并调整播放顺序与启用状态。网易云网页端点属于非官方接口，服务变化时可能暂时无法播放。
         </p>
       </div>
       <NuxtLink class="admin-resource-heading__create" to="/admin/music/new"
@@ -180,7 +165,7 @@ function isAbortError(error: unknown) {
     </section>
     <section v-else-if="!tracks.length" class="admin-resource-state">
       <strong>还没有配置音乐</strong>
-      <p>创建后，公开播放器会按这里的顺序播放已启用的合法音源。</p>
+      <p>添加歌曲 ID 后，访客无需登录网易云账号即可使用博客播放器。</p>
       <NuxtLink to="/admin/music/new">新建音乐</NuxtLink>
     </section>
     <template v-else>
@@ -191,7 +176,6 @@ function isAbortError(error: unknown) {
       <div class="admin-music-summary">
         <span>共 {{ tracks.length }} 首</span>
         <span>公开播放列表：{{ enabledCount }} 首已启用</span>
-        <span v-if="invalidCount">需要检查：{{ invalidCount }} 首</span>
       </div>
 
       <ol class="admin-music-list" aria-label="音乐列表">
@@ -241,21 +225,17 @@ function isAbortError(error: unknown) {
                 <template v-if="track.album"> · {{ track.album }}</template>
               </span>
               <small>
-                {{ musicSourceStrategyLabel(track.sourceStrategy) }} ·
-                {{ track.sourceUrl }} ·
+                网易云 ID {{ track.neteaseSongId }} ·
                 {{ formatDuration(track.durationSeconds) }}
               </small>
+              <a :href="track.providerUrl" target="_blank" rel="noreferrer">
+                在网易云音乐查看
+              </a>
             </div>
 
             <div class="admin-music-badges">
               <UiBadge :tone="track.isEnabled ? 'success' : 'neutral'">
                 {{ track.isEnabled ? '已启用' : '已停用' }}
-              </UiBadge>
-              <UiBadge
-                :tone="validationFor(track).valid ? 'success' : 'accent'"
-                :title="validationFor(track).message || undefined"
-              >
-                {{ validationFor(track).valid ? '音源有效' : '需要检查' }}
               </UiBadge>
             </div>
 
@@ -286,13 +266,6 @@ function isAbortError(error: unknown) {
               </UiButton>
             </div>
           </div>
-          <p
-            v-if="!validationFor(track).valid"
-            class="admin-music-warning"
-            role="status"
-          >
-            {{ validationFor(track).message }}
-          </p>
         </li>
       </ol>
     </template>

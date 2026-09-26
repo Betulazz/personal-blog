@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+import {
+  musicPlaybackKey,
+  useMusicPlaybackController,
+} from '~/composables/musicPlayback'
 
 const {
   error: settingsError,
@@ -7,6 +11,10 @@ const {
   refresh: refreshSettings,
 } = await usePublicSiteSettings()
 const isHydrated = ref(false)
+const audioElement = ref<HTMLAudioElement | null>(null)
+const musicPlayback = useMusicPlaybackController(audioElement)
+
+provide(musicPlaybackKey, musicPlayback)
 
 onMounted(() => {
   isHydrated.value = true
@@ -41,6 +49,18 @@ onMounted(() => {
     <main id="main-content" class="public-main" tabindex="-1">
       <slot />
     </main>
+    <audio
+      ref="audioElement"
+      class="music-engine"
+      data-testid="music-engine"
+      preload="none"
+      aria-hidden="true"
+      tabindex="-1"
+      @ended="musicPlayback.handleAudioEnded"
+      @error.stop="musicPlayback.handleAudioError"
+      @loadedmetadata="musicPlayback.handleLoadedMetadata"
+      @timeupdate="musicPlayback.handleTimeUpdate"
+    />
     <VisualPublicFooter />
     <VisualMusicPlayer />
   </div>
@@ -55,6 +75,15 @@ onMounted(() => {
   flex-direction: column;
   padding-bottom: var(--public-shell-safe-bottom);
   isolation: isolate;
+}
+
+.music-engine {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .public-main {

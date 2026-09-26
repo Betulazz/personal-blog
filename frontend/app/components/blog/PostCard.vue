@@ -36,12 +36,6 @@ const formatPostDate = (value: string) =>
     </template>
     <div class="post-card__body">
       <div class="post-card__meta">
-        <NuxtLink
-          class="post-card__category"
-          :to="`/categories/${post.category.slug}`"
-        >
-          {{ post.category.name }}
-        </NuxtLink>
         <div class="post-card__date">
           <span v-if="post.pinned" class="post-card__pinned">
             <Pin :size="14" aria-hidden="true" />
@@ -66,7 +60,7 @@ const formatPostDate = (value: string) =>
           v-for="tag in post.tags"
           :key="tag.slug"
           class="post-card__tag"
-          :to="`/tags/${tag.slug}`"
+          :to="{ path: '/posts', query: { tag: tag.slug } }"
         >
           {{ tag.name }}
         </NuxtLink>

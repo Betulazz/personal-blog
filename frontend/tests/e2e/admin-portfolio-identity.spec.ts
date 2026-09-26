@@ -1,8 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { mockFixtureMedia } from './support/fixture-media'
+
 const control = 'http://127.0.0.1:8787/__control'
 
 test.beforeEach(async ({ page }) => {
+  await mockFixtureMedia(page)
   await page.request.get(`${control}/reset`)
 })
 
@@ -95,9 +98,9 @@ test('Site Identity preserves configuration and explains its public preview', as
   await page.getByLabel('个人简介').fill('一个喜欢清晰边界的独立作者。')
   await page.getByLabel('头像 URL').fill('/uploads/avatar.webp')
   await page.getByLabel('Favicon URL').fill('https://example.com/favicon.ico')
-  await page.getByLabel('默认 SEO 标题').fill('夜航档案 | 默认 SEO')
-  await page.getByLabel('默认 SEO 描述').fill('默认搜索摘要。')
-  await page.getByLabel('SEO 关键词').fill('博客, 工程, 阅读')
+  await expect(page.getByLabel('默认 SEO 标题')).toHaveCount(0)
+  await expect(page.getByLabel('SEO 关键词')).toHaveCount(0)
+  await expect(page.getByLabel('Canonical URL')).toHaveCount(0)
   await page.getByLabel('页脚说明').fill('一个安静的个人出版空间。')
   await page.getByLabel('联系邮箱').fill('hello@example.com')
   await page.getByLabel('社交链接名称 1').fill('GitHub')
@@ -113,6 +116,17 @@ test('Site Identity preserves configuration and explains its public preview', as
     page.getByRole('region', { name: '公开呈现预览' }),
   ).toContainText('把长期工作写得清楚')
   await expect(page.getByLabel('网站名称')).toHaveValue('夜航档案')
+
+  await page.goto('/')
+  await expect(page).toHaveTitle('夜航档案')
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    'content',
+    '关于工程、阅读与日常维护的公开记录。',
+  )
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    'href',
+    `${new URL(page.url()).origin}/`,
+  )
 })
 
 test('portfolio administration preserves failed input and stays usable on mobile', async ({

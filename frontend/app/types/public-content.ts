@@ -11,6 +11,7 @@ export interface PublicCollectionPagination {
 }
 
 export interface PublicFeedQuery {
+  entry?: string
   page: number
   pageSize: number
   q?: string

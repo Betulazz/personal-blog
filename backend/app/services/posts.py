@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
 from app.models.post import Post, PostStatus
-from app.models.taxonomy import Category, Tag
+from app.models.taxonomy import Tag
 from app.repositories.posts import PostRepository
 from app.schemas.posts import PostCreateRequest, PostUpdateRequest
+from app.services.automatic_metadata import calculate_reading_time_minutes
 from app.services.taxonomy import TaxonomyService
 
 
@@ -17,7 +18,6 @@ from app.services.taxonomy import TaxonomyService
 class PostPreview:
     post: Post
     values: dict[str, object]
-    category: Category | None
     tags: list[Tag]
 
 
@@ -29,23 +29,17 @@ class PostService:
 
     async def create(self, request: PostCreateRequest) -> Post:
         await self._ensure_slug_available(request.slug)
-        category = await self._optional_category(request.category_id)
         tags = await self._taxonomy.require_tags(request.tag_ids)
         post = Post(
             title=request.title,
             slug=request.slug,
             summary=request.summary,
             body=request.body,
-            category=category,
             tags=tags,
             is_pinned=request.is_pinned,
-            reading_time_minutes=request.reading_time_minutes,
+            reading_time_minutes=calculate_reading_time_minutes(request.body),
             cover_url=request.cover_url,
             cover_alt=request.cover_alt,
-            seo_title=request.seo_title,
-            seo_description=request.seo_description,
-            canonical_url=request.canonical_url,
-            og_image_url=request.og_image_url,
         )
         try:
             await self._repository.add(post)
@@ -61,10 +55,11 @@ class PostService:
         values = request.model_dump(exclude_unset=True)
         if "slug" in values and values["slug"] != post.slug:
             await self._ensure_slug_available(values["slug"], excluding_id=post.id)
-        if "category_id" in values:
-            post.category = await self._optional_category(values.pop("category_id"))
         if "tag_ids" in values:
             post.tags = await self._taxonomy.require_tags(values.pop("tag_ids") or [])
+        body = values.get("body")
+        if isinstance(body, str):
+            post.reading_time_minutes = calculate_reading_time_minutes(body)
         for field, value in values.items():
             setattr(post, field, value)
         try:
@@ -78,16 +73,16 @@ class PostService:
     async def preview(self, post_id: int, request: PostUpdateRequest | None = None) -> PostPreview:
         post = await self._require_post(post_id)
         values = request.model_dump(exclude_unset=True) if request is not None else {}
-        category = post.category
+        body = values.get("body")
+        if isinstance(body, str):
+            values["reading_time_minutes"] = calculate_reading_time_minutes(body)
         tags = post.tags
-        if "category_id" in values:
-            category = await self._optional_category(values["category_id"])
         if "tag_ids" in values:
             tag_ids = values["tag_ids"]
             if not isinstance(tag_ids, list):
                 raise TypeError("tag_ids preview value must be a list")
             tags = await self._taxonomy.require_tags(tag_ids)
-        return PostPreview(post=post, values=values, category=category, tags=tags)
+        return PostPreview(post=post, values=values, tags=tags)
 
     async def admin_detail(self, post_id: int) -> Post:
         return await self._require_post(post_id)
@@ -106,14 +101,9 @@ class PostService:
                 message="A Post needs Markdown content before publishing",
                 status_code=422,
             )
-        if post.category_id is None:
-            raise AppError(
-                code="post_category_required",
-                message="A published Post must have a Category",
-                status_code=422,
-            )
         post.status = PostStatus.PUBLISHED
-        post.published_at = datetime.now(UTC).replace(tzinfo=None)
+        if post.published_at is None:
+            post.published_at = datetime.now(UTC).replace(tzinfo=None, microsecond=0)
         await self._session.commit()
         return await self._require_post(post.id)
 
@@ -126,7 +116,6 @@ class PostService:
                 status_code=409,
             )
         post.status = PostStatus.DRAFT
-        post.published_at = None
         await self._session.commit()
         return await self._require_post(post.id)
 
@@ -140,17 +129,14 @@ class PostService:
         *,
         page: int,
         page_size: int,
-        category_slug: str | None = None,
         tag_slug: str | None = None,
         search: str | None = None,
     ) -> tuple[list[Post], int]:
         total = await self._repository.count_public(
-            category_slug=category_slug,
             tag_slug=tag_slug,
             search=search,
         )
         posts = await self._repository.list_public(
-            category_slug=category_slug,
             tag_slug=tag_slug,
             search=search,
             offset=(page - 1) * page_size,
@@ -165,19 +151,16 @@ class PostService:
         page_size: int,
         search: str | None = None,
         status: str | None = None,
-        category_slug: str | None = None,
         tag_slug: str | None = None,
     ) -> tuple[list[Post], int]:
         total = await self._repository.count_all(
             search=search,
             status=status,
-            category_slug=category_slug,
             tag_slug=tag_slug,
         )
         posts = await self._repository.list_all(
             search=search,
             status=status,
-            category_slug=category_slug,
             tag_slug=tag_slug,
             offset=(page - 1) * page_size,
             limit=page_size,
@@ -190,24 +173,11 @@ class PostService:
             raise _post_not_found()
         return post
 
-    async def category_posts(
-        self, slug: str, *, page: int, page_size: int, search: str | None = None
-    ) -> tuple[list[Post], int]:
-        await self._taxonomy.get_public_category(slug)
-        return await self.public_list(
-            page=page, page_size=page_size, category_slug=slug, search=search
-        )
-
     async def tag_posts(
         self, slug: str, *, page: int, page_size: int, search: str | None = None
     ) -> tuple[list[Post], int]:
         await self._taxonomy.get_public_tag(slug)
         return await self.public_list(page=page, page_size=page_size, tag_slug=slug, search=search)
-
-    async def public_category_counts(self, posts: Sequence[Post]) -> dict[int, int]:
-        return await self._repository.public_category_counts(
-            [post.category_id for post in posts if post.category_id is not None]
-        )
 
     async def public_tag_counts(self, posts: Sequence[Post]) -> dict[int, int]:
         tag_ids = [tag.id for post in posts for tag in post.tags]
@@ -223,11 +193,6 @@ class PostService:
         existing = await self._repository.find_by_slug(slug)
         if existing is not None and existing.id != excluding_id:
             raise _slug_conflict()
-
-    async def _optional_category(self, category_id: int | None) -> Category | None:
-        if category_id is None:
-            return None
-        return await self._taxonomy.require_category(category_id)
 
 
 def _post_not_found() -> AppError:

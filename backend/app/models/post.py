@@ -45,7 +45,6 @@ class Post(Base):
         CheckConstraint("reading_time_minutes >= 0", name="reading_time_non_negative"),
         UniqueConstraint("slug", name="uq_posts_slug"),
         Index("ix_posts_public_listing", "status", "is_pinned", "published_at"),
-        Index("ix_posts_category_public", "category_id", "status", "published_at"),
         {
             "mysql_engine": "InnoDB",
             "mysql_charset": "utf8mb4",
@@ -72,13 +71,6 @@ class Post(Base):
     )
     cover_url: Mapped[str | None] = mapped_column(String(2048))
     cover_alt: Mapped[str | None] = mapped_column(String(200))
-    seo_title: Mapped[str | None] = mapped_column(String(200))
-    seo_description: Mapped[str | None] = mapped_column(String(500))
-    canonical_url: Mapped[str | None] = mapped_column(String(2048))
-    og_image_url: Mapped[str | None] = mapped_column(String(2048))
-    category_id: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("categories.id", ondelete="SET NULL"), index=True
-    )
     published_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.current_timestamp()
@@ -90,7 +82,6 @@ class Post(Base):
         onupdate=func.current_timestamp(),
     )
 
-    category: Mapped["Category | None"] = relationship(back_populates="posts")
     tags: Mapped[list["Tag"]] = relationship(
         secondary=post_tags,
         back_populates="posts",
@@ -98,4 +89,4 @@ class Post(Base):
     )
 
 
-from app.models.taxonomy import Category, Tag  # noqa: E402  # resolve relationship types
+from app.models.taxonomy import Tag  # noqa: E402  # resolve relationship types

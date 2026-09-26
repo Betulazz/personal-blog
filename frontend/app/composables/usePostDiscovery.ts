@@ -7,7 +7,6 @@ import {
   type PostQueryContext,
 } from '~/utils/post-discovery'
 import type {
-  PostCategory,
   PostCollectionResponse,
   PostDetail,
   PostDiscoveryProvider,
@@ -20,14 +19,12 @@ const createPostApiProvider = (): PostDiscoveryProvider => {
   const client = useApiClient()
   return {
     getPostBySlug: client.getPostBySlug,
-    listCategories: client.listCategories,
     listPosts: client.listPosts,
     listTags: client.listTags,
   }
 }
 
 export interface UsePostDiscoveryOptions {
-  categorySlug?: MaybeRefOrGetter<string | undefined>
   enabled?: MaybeRefOrGetter<boolean>
   tagSlug?: MaybeRefOrGetter<string | undefined>
 }
@@ -48,7 +45,6 @@ export async function usePostDiscovery(
   const activeProvider = provider ?? createPostApiProvider()
   const route = useRoute()
   const context = computed<PostQueryContext>(() => ({
-    categorySlug: toValue(options.categorySlug),
     tagSlug: toValue(options.tagSlug),
   }))
   const query = computed(() => buildPostQuery(route.query, context.value))
@@ -78,23 +74,18 @@ export async function usePostDiscovery(
 export async function usePostTaxonomy(provider?: PostDiscoveryProvider) {
   const activeProvider = provider ?? createPostApiProvider()
   const result = await useAsyncData<{
-    categories: TaxonomyCollectionResponse<PostCategory>
     tags: TaxonomyCollectionResponse<PostTag>
   }>(
     'post-taxonomy',
     async (_nuxtApp, { signal }) => {
-      const [categories, tags] = await Promise.all([
-        activeProvider.listCategories(signal),
-        activeProvider.listTags(signal),
-      ])
+      const tags = await activeProvider.listTags(signal)
 
-      return { categories, tags }
+      return { tags }
     },
     { deep: false },
   )
 
   return {
-    categories: computed(() => result.data.value?.categories.data ?? []),
     error: result.error,
     pending: result.pending,
     refresh: result.refresh,

@@ -2,19 +2,14 @@
 import { useApiClient } from '~/api/client'
 import { adminNoteError } from '~/composables/useAdminNoteEditor'
 import { useAdminSession } from '~/stores/adminSession'
-import type {
-  AdminChatter,
-  AdminMoment,
-  AdminNoteQuery,
-} from '~/types/admin-notes'
+import type { AdminChatter, AdminNoteQuery } from '~/types/admin-notes'
 
-const props = defineProps<{ resource: 'moments' | 'chatter'; label: string }>()
+const props = defineProps<{ resource: 'chatter'; label: string }>()
 const api = useApiClient()
-const resourceApi =
-  props.resource === 'moments' ? api.adminMoments : api.adminChatter
+const resourceApi = api.adminChatter
 const session = useAdminSession()
 const route = useRoute()
-const entries = ref<Array<AdminMoment | AdminChatter>>([])
+const entries = ref<AdminChatter[]>([])
 const pagination = ref({ page: 1, pageSize: 10, total: 0, totalPages: 0 })
 const loading = ref(true)
 const error = ref('')
@@ -98,11 +93,7 @@ function isAbortError(error: unknown) {
       <div>
         <h1>{{ label }} 管理</h1>
         <p>
-          {{
-            resource === 'moments'
-              ? '按创建时间浏览生活动态，轻量记录每一刻。'
-              : '搜索想法与片段，继续整理简短而完整的表达。'
-          }}
+          {{ '搜索想法与片段，继续整理简短而完整的表达。' }}
         </p>
       </div>
       <NuxtLink :to="`/admin/${resource}/new`" class="admin-note-list-link"
@@ -121,7 +112,7 @@ function isAbortError(error: unknown) {
           label="搜索 Chatter"
           type="search"
           maxlength="80"
-          placeholder="标题、引言、正文或标签"
+          placeholder="标题或正文"
         /><UiSelect
           v-model="status"
           label="状态"
@@ -154,20 +145,12 @@ function isAbortError(error: unknown) {
                 new Date(entry.created_at).toLocaleString('zh-CN')
               }}</time>
               <h2>
-                {{
-                  'title' in entry
-                    ? entry.title || entry.lead || entry.body
-                    : entry.body
-                }}
+                {{ entry.title || entry.body }}
               </h2>
               <p v-if="'title' in entry">{{ entry.body }}</p>
               <p>
                 {{
-                  [
-                    'location' in entry ? entry.location : null,
-                    entry.mood,
-                    ...entry.tags.map((tag) => tag.name),
-                  ]
+                  ['location' in entry ? entry.location : null, entry.mood]
                     .filter(Boolean)
                     .join(' · ')
                 }}

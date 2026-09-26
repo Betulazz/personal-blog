@@ -34,20 +34,32 @@ class ProjectRepository:
         )
         return list(await self._session.scalars(statement.offset(offset).limit(limit)))
 
-    async def count_all(self, *, search: str | None, status: str | None) -> int:
+    async def count_all(
+        self, *, search: str | None, status: str | None, project_type: str | None
+    ) -> int:
         statement = select(func.count(Project.id))
         if status:
             statement = statement.where(Project.status == status)
+        if project_type:
+            statement = statement.where(Project.project_type == project_type)
         if search:
             statement = statement.where(self._search_clause(search))
         return int(await self._session.scalar(statement) or 0)
 
     async def list_all(
-        self, *, search: str | None, status: str | None, offset: int, limit: int
+        self,
+        *,
+        search: str | None,
+        status: str | None,
+        project_type: str | None,
+        offset: int,
+        limit: int,
     ) -> list[Project]:
         statement = select(Project)
         if status:
             statement = statement.where(Project.status == status)
+        if project_type:
+            statement = statement.where(Project.project_type == project_type)
         if search:
             statement = statement.where(self._search_clause(search))
         statement = statement.order_by(
@@ -63,7 +75,11 @@ class ProjectRepository:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         pattern = f"%{escaped}%"
         return or_(
-            Project.name.like(pattern, escape="\\"), Project.description.like(pattern, escape="\\")
+            Project.name.like(pattern, escape="\\"),
+            Project.description.like(pattern, escape="\\"),
+            Project.source_url.like(pattern, escape="\\"),
+            Project.demo_url.like(pattern, escape="\\"),
+            Project.repository_url.like(pattern, escape="\\"),
         )
 
 

@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { ArrowUpRight, MessageCircle } from 'lucide-vue-next'
-
-import { formatHomepageDate } from '~/utils/homepage'
 import type { HomepageChatter, HomepageSection } from '~/types/homepage'
 
 const props = defineProps<{
@@ -21,7 +18,7 @@ defineEmits<{
     <HomeSectionHeader
       eyebrow="CHATTER"
       title="最近杂谈"
-      description="比动态更完整，比文章更轻盈的想法。"
+      description="随手记下的想法与生活片段。"
       link-label="进入杂谈"
       title-id="home-chatter-title"
       to="/chatter"
@@ -34,37 +31,11 @@ defineEmits<{
       @retry="$emit('retry')"
     >
       <div class="home-chatter__grid">
-        <UiGlassCard
+        <ChatterCard
           v-for="chatter in props.section.items"
           :key="chatter.id"
-          as="article"
-          class="home-chatter-card"
-          padding="compact"
-          hoverable
-        >
-          <a class="home-chatter-card__link" href="/chatter">
-            <div class="home-chatter-card__topline">
-              <UiBadge v-if="chatter.mood" tone="accent">{{
-                chatter.mood
-              }}</UiBadge>
-              <time :datetime="chatter.publishedAt">{{
-                formatHomepageDate(chatter.publishedAt)
-              }}</time>
-            </div>
-            <h3>{{ chatter.title }}</h3>
-            <p>{{ chatter.lead }}</p>
-            <footer>
-              <span>
-                <MessageCircle :size="15" aria-hidden="true" />
-                杂谈记录
-              </span>
-              <ul aria-label="杂谈标签">
-                <li v-for="tag in chatter.tags" :key="tag">#{{ tag }}</li>
-              </ul>
-              <ArrowUpRight :size="17" aria-hidden="true" />
-            </footer>
-          </a>
-        </UiGlassCard>
+          :chatter="chatter"
+        />
       </div>
     </HomeSectionState>
   </section>

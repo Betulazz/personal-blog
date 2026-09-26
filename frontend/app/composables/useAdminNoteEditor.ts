@@ -1,6 +1,5 @@
-import { BlogApiError, useApiClient } from '~/api/client'
+import { BlogApiError } from '~/api/client'
 import { useAdminSession } from '~/stores/adminSession'
-import type { AdminTaxonomy } from '~/types/admin'
 import type { AdminNoteMetadata, AdminResourceApi } from '~/types/admin-notes'
 
 export function adminNoteError(error: unknown) {
@@ -14,7 +13,7 @@ export function adminNoteError(error: unknown) {
   if (error.status === 404) return '这条内容已经不存在，可能已被删除。'
   if (error.status === 409)
     return '内容状态已改变，请重新加载状态后重试。未保存输入仍会保留。'
-  if (error.status === 422) return '请检查正文、标签和图片字段的格式与长度。'
+  if (error.status === 422) return '请检查正文和图片字段的格式与长度。'
   return '后台服务暂时无法响应，当前输入仍然保留，请稍后重试。'
 }
 
@@ -22,20 +21,18 @@ export function useAdminNoteEditor<
   T extends AdminNoteMetadata,
   Input extends object,
 >(options: {
-  resource: 'moments' | 'chatter'
+  resource: 'chatter'
   id?: string
   api: AdminResourceApi<T, Input>
   empty: () => Input
   toInput: (record: T) => Input
 }) {
   const session = useAdminSession()
-  const api = useApiClient()
   // Memory-only drafts survive the layout's refresh/login cycle; no credentials are stored.
   const draftKey = `admin-draft:${options.resource}:${options.id ?? 'new'}`
   const form = useState<Input>(draftKey, options.empty)
   const initialized = useState(`${draftKey}:initialized`, () => !options.id)
   const record = ref<T | null>(null)
-  const tags = ref<AdminTaxonomy[]>([])
   const loading = ref(true)
   const loadFailed = ref(false)
   const busy = ref(false)
@@ -51,15 +48,11 @@ export function useAdminNoteEditor<
     loadFailed.value = false
     error.value = ''
     try {
-      const [loadedTags, loaded] = await session.withSession(() =>
-        Promise.all([
-          api.listAdminTags(controller.signal),
-          options.id
-            ? options.api.get(options.id, controller.signal)
-            : Promise.resolve(null),
-        ]),
+      const loaded = await session.withSession(() =>
+        options.id
+          ? options.api.get(options.id, controller.signal)
+          : Promise.resolve(null),
       )
-      tags.value = loadedTags
       record.value = loaded
       if (loaded && !initialized.value) {
         form.value = options.toInput(loaded)
@@ -129,7 +122,6 @@ export function useAdminNoteEditor<
   return {
     form,
     record,
-    tags,
     loading,
     loadFailed,
     busy,

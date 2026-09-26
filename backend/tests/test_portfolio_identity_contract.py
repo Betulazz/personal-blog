@@ -220,11 +220,6 @@ async def test_portfolio_and_identity_public_reads_are_ordered_and_safe(
             "social_links": [
                 {"label": "GitHub", "href": "https://github.com/example", "kind": "code"}
             ],
-            "seo_defaults": {
-                "title": "夜航手记",
-                "description": "默认 SEO 描述",
-                "keywords": ["博客", "工程"],
-            },
             "footer": {"note": "一个安静的出版空间。", "icp": "备案信息"},
             "contact": {"email": "hello@example.com", "note": "欢迎来信"},
             "homepage_visibility": {"projects": False, "music": False},
@@ -240,24 +235,18 @@ async def test_portfolio_and_identity_public_reads_are_ordered_and_safe(
         "music": False,
     }
 
-    partial_seo_update = await mysql_client.patch(
+    assert "seo_defaults" not in updated_settings.json()["data"]
+    retired_seo_update = await mysql_client.patch(
         "/api/v1/admin/settings",
         headers=headers,
-        json={"seo_defaults": {"title": "更新后的 SEO 标题"}},
+        json={"seo_defaults": {"title": "旧手动 SEO 标题"}},
     )
-    assert partial_seo_update.status_code == 200
-    assert partial_seo_update.json()["data"]["seo_defaults"] == {
-        "title": "更新后的 SEO 标题",
-        "description": "默认 SEO 描述",
-        "keywords": ["博客", "工程"],
-        "canonical_url": None,
-        "og_image_url": None,
-        "twitter_card": "summary_large_image",
-    }
+    assert retired_seo_update.status_code == 422
 
     public_settings = await mysql_client.get("/api/v1/settings")
     assert public_settings.status_code == 200
     assert public_settings.json()["data"]["name"] == "夜航手记"
+    assert "seo_defaults" not in public_settings.json()["data"]
     assert public_settings.json()["data"]["about"]["story"] == ["公开站点内容来自 Site Identity。"]
     assert public_settings.json()["data"]["social_links"][0]["href"] == (
         "https://github.com/example"
@@ -400,7 +389,6 @@ async def test_site_settings_is_a_database_singleton(
             description="",
             profile="",
             social_links=[],
-            seo_defaults={},
             footer={},
             contact={},
             homepage_visibility={},

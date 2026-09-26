@@ -156,12 +156,7 @@ const submit = () => {
               <UiButton
                 variant="danger"
                 size="small"
-                :disabled="item.postCount > 0"
-                :title="
-                  item.postCount > 0
-                    ? '请先移除内容引用后再删除'
-                    : `删除${itemLabel}`
-                "
+                :title="`删除${itemLabel}`"
                 @click="emit('delete', item)"
               >
                 删除

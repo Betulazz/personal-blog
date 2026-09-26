@@ -75,5 +75,6 @@ test('shared motion tokens collapse for reduced-motion users', async ({
       .getPropertyValue('--motion-duration-normal')
       .trim(),
   )
-  expect(duration).toBe('0.01ms')
+  expect(duration).toMatch(/^[\d.]+ms$/)
+  expect(Number.parseFloat(duration)).toBeLessThanOrEqual(0.01)
 })

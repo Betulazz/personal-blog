@@ -7,12 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.chatter import Chatter, ChatterStatus
-from app.models.moment import Moment, MomentImage, MomentStatus
-from app.models.music import MusicTrack
+from app.models.chatter import Chatter, ChatterImage, ChatterStatus
 from app.models.portfolio import FriendLink, Project, ProjectStatus, SiteSettings
 from app.models.post import Post, PostStatus
-from app.models.taxonomy import Category, Tag
+from app.models.taxonomy import Tag
+from app.services.automatic_metadata import calculate_reading_time_minutes
 
 SEED_POST_SLUGS = (
     "live-acceptance-begins-with-content",
@@ -26,7 +25,6 @@ class PublicSeedSummary:
     """Counts returned by the seed command for operator feedback."""
 
     posts: int
-    moments: int
     chatters: int
     projects: int
     friends: int
@@ -39,32 +37,27 @@ class _PostSeed:
     title: str
     summary: str
     body: str
-    category: str
     tags: tuple[str, ...]
     published_at: datetime
-    reading_time_minutes: int
     pinned: bool = False
     cover_url: str | None = None
     cover_alt: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class _MomentSeed:
+class _MigratedChatterSeed:
     body: str
     location: str | None
     mood: str | None
-    tags: tuple[str, ...]
     published_at: datetime
     images: tuple[tuple[str, str, int, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class _ChatterSeed:
-    title: str
-    lead: str
+    title: str | None
     body: str
-    mood: str
-    tags: tuple[str, ...]
+    mood: str | None
     published_at: datetime
 
 
@@ -89,14 +82,6 @@ class _FriendSeed:
     display_order: int
 
 
-@dataclass(frozen=True, slots=True)
-class _MusicSeed:
-    title: str
-    artist: str
-    source_url: str
-    display_order: int
-
-
 _POSTS = (
     _PostSeed(
         slug="live-acceptance-begins-with-content",
@@ -111,10 +96,8 @@ _POSTS = (
             "- 浏览器水合不重复读取同一份数据\n"
             "- 失败时仍然保留可恢复的布局"
         ),
-        category="live-acceptance",
         tags=("ssr", "mysql", "acceptance"),
         published_at=datetime(2026, 9, 20, 12, 0),
-        reading_time_minutes=4,
         pinned=True,
         cover_url="/images/background/ambient-640.avif",
         cover_alt="深蓝色空间中的柔和光晕",
@@ -132,10 +115,8 @@ _POSTS = (
             "行内数学 $E=mc^2$ 保持在普通段落中。\n\n"
             "![验收中 intentionally missing 的媒体](/uploads/live-acceptance/missing-markdown.webp)"
         ),
-        category="live-acceptance",
         tags=("markdown", "accessibility"),
         published_at=datetime(2026, 9, 18, 12, 0),
-        reading_time_minutes=5,
     ),
     _PostSeed(
         slug="live-acceptance-small-contracts",
@@ -143,18 +124,11 @@ _POSTS = (
         summary="公开内容、状态和错误都应该有清晰的边界，方便人和机器一起检查。",
         body=(
             "把领域边界说清楚，页面就不必猜测数据来自哪里。\n\n"
-            "这条记录专门覆盖搜索、分类和标签导航的真实链接。"
+            "这条记录专门覆盖文章搜索、标签筛选和浏览器历史状态。"
         ),
-        category="engineering",
         tags=("api", "testing"),
         published_at=datetime(2026, 9, 16, 12, 0),
-        reading_time_minutes=3,
     ),
-)
-
-_CATEGORIES = (
-    ("现场验收", "live-acceptance"),
-    ("工程实践", "engineering"),
 )
 
 _TAGS = (
@@ -165,32 +139,27 @@ _TAGS = (
     ("Accessibility", "accessibility"),
     ("API", "api"),
     ("Testing", "testing"),
-    ("Building", "building"),
-    ("Reading", "reading"),
 )
 
-_MOMENTS = (
-    _MomentSeed(
+_MIGRATED_CHATTERS = (
+    _MigratedChatterSeed(
         body="真实数据抵达浏览器之后，页面才真正开始接受验收。",
         location="本地工作台",
         mood="专注",
-        tags=("building",),
         published_at=datetime(2026, 9, 20, 8, 30),
         images=(("/images/background/ambient-640.avif", "深蓝色空间中的柔和光晕", 640, 360),),
     ),
-    _MomentSeed(
+    _MigratedChatterSeed(
         body="刻意保留一张失效媒体，确认恢复状态不会把内部错误带到公开页面。",
         location=None,
         mood="检查",
-        tags=("testing",),
         published_at=datetime(2026, 9, 19, 7, 0),
         images=(("/uploads/live-acceptance/missing-moment.webp", "已移除的示例图片", 640, 360),),
     ),
-    _MomentSeed(
+    _MigratedChatterSeed(
         body="页面既要在有内容时成立，也要在暂时没有内容时保持清楚。",
         location="窗边",
         mood="平静",
-        tags=(),
         published_at=datetime(2026, 9, 17, 6, 0),
     ),
 )
@@ -198,26 +167,20 @@ _MOMENTS = (
 _CHATTER = (
     _ChatterSeed(
         title="先让 SSR 交付第一句话",
-        lead="首屏内容不应该等到水合结束才出现。",
         body="首屏内容不应该等到水合结束才出现，浏览器只是继续接管已经有意义的页面。",
         mood="工程",
-        tags=("ssr", "testing"),
         published_at=datetime(2026, 9, 19, 12, 0),
     ),
     _ChatterSeed(
         title="错误也是公开体验的一部分",
-        lead="恢复动作应该和成功内容一样，拥有清楚的层级。",
         body="恢复动作应该和成功内容一样，拥有清楚的层级；错误消息不该泄露 SQL、路径或 traceback。",
         mood="产品",
-        tags=("accessibility", "api"),
         published_at=datetime(2026, 9, 18, 12, 0),
     ),
     _ChatterSeed(
         title="把数据边界留在数据层",
-        lead="页面只消费稳定的公开契约，不承担持久化模型的细节。",
         body="页面只消费稳定的公开契约，不承担持久化模型的细节。",
         mood="架构",
-        tags=("api",),
         published_at=datetime(2026, 9, 16, 12, 0),
     ),
 )
@@ -226,37 +189,20 @@ _CHATTER = (
 async def seed_public_data(session: AsyncSession) -> PublicSeedSummary:
     """Insert or refresh the public acceptance dataset without creating an Administrator."""
 
-    categories = await _upsert_categories(session)
     tags = await _upsert_tags(session)
-    await _upsert_posts(session, categories, tags)
-    await _upsert_moments(session, tags)
-    await _upsert_chatters(session, tags)
+    await _upsert_posts(session, tags)
+    await _upsert_migrated_chatters(session)
+    await _upsert_chatters(session)
     await _upsert_portfolio(session)
     await _upsert_settings(session)
-    await _upsert_music(session)
     await session.commit()
     return PublicSeedSummary(
         posts=len(_POSTS),
-        moments=len(_MOMENTS),
-        chatters=len(_CHATTER),
+        chatters=len(_CHATTER) + len(_MIGRATED_CHATTERS),
         projects=2,
         friends=2,
-        music_tracks=2,
+        music_tracks=0,
     )
-
-
-async def _upsert_categories(session: AsyncSession) -> dict[str, Category]:
-    categories: dict[str, Category] = {}
-    for name, slug in _CATEGORIES:
-        category = await session.scalar(select(Category).where(Category.slug == slug))
-        if category is None:
-            category = Category(name=name, slug=slug)
-            session.add(category)
-        else:
-            category.name = name
-        categories[slug] = category
-    await session.flush()
-    return categories
 
 
 async def _upsert_tags(session: AsyncSession) -> dict[str, Tag]:
@@ -275,7 +221,6 @@ async def _upsert_tags(session: AsyncSession) -> dict[str, Tag]:
 
 async def _upsert_posts(
     session: AsyncSession,
-    categories: dict[str, Category],
     tags: dict[str, Tag],
 ) -> None:
     for seed in _POSTS:
@@ -291,53 +236,48 @@ async def _upsert_posts(
         post.status = PostStatus.PUBLISHED
         post.is_pinned = seed.pinned
         post.reading_count = 12
-        post.reading_time_minutes = seed.reading_time_minutes
+        post.reading_time_minutes = calculate_reading_time_minutes(seed.body)
         post.cover_url = seed.cover_url
         post.cover_alt = seed.cover_alt
-        post.category = categories[seed.category]
         post.tags = [tags[tag_slug] for tag_slug in seed.tags]
         post.published_at = seed.published_at
     await session.flush()
 
 
-async def _upsert_moments(session: AsyncSession, tags: dict[str, Tag]) -> None:
-    for seed in _MOMENTS:
-        moment = await session.scalar(
-            select(Moment)
-            .options(selectinload(Moment.tags), selectinload(Moment.images))
-            .where(Moment.body == seed.body)
+async def _upsert_migrated_chatters(session: AsyncSession) -> None:
+    for seed in _MIGRATED_CHATTERS:
+        body = seed.body
+        if seed.location:
+            body = f"{body.rstrip()}\n\n地点：{seed.location}"
+        chatter = await session.scalar(
+            select(Chatter).options(selectinload(Chatter.images)).where(Chatter.body == body)
         )
-        if moment is None:
-            moment = Moment(body=seed.body)
-            session.add(moment)
-        moment.location = seed.location
-        moment.mood = seed.mood
-        moment.status = MomentStatus.PUBLISHED
-        moment.published_at = seed.published_at
-        moment.tags = [tags[tag_slug] for tag_slug in seed.tags]
-        moment.images = []
+        if chatter is None:
+            chatter = Chatter(body=body)
+            session.add(chatter)
+        chatter.title = None
+        chatter.mood = seed.mood
+        chatter.status = ChatterStatus.PUBLISHED
+        chatter.published_at = seed.published_at
+        chatter.images = []
         await session.flush()
-        moment.images = [
-            MomentImage(src=src, alt=alt, width=width, height=height, position=position)
+        chatter.images = [
+            ChatterImage(src=src, alt=alt, width=width, height=height, position=position)
             for position, (src, alt, width, height) in enumerate(seed.images)
         ]
     await session.flush()
 
 
-async def _upsert_chatters(session: AsyncSession, tags: dict[str, Tag]) -> None:
+async def _upsert_chatters(session: AsyncSession) -> None:
     for seed in _CHATTER:
-        chatter = await session.scalar(
-            select(Chatter).options(selectinload(Chatter.tags)).where(Chatter.title == seed.title)
-        )
+        chatter = await session.scalar(select(Chatter).where(Chatter.title == seed.title))
         if chatter is None:
             chatter = Chatter(title=seed.title)
             session.add(chatter)
-        chatter.lead = seed.lead
         chatter.body = seed.body
         chatter.mood = seed.mood
         chatter.status = ChatterStatus.PUBLISHED
         chatter.published_at = seed.published_at
-        chatter.tags = [tags[tag_slug] for tag_slug in seed.tags]
     await session.flush()
 
 
@@ -441,14 +381,6 @@ async def _upsert_settings(session: AsyncSession) -> None:
                 {"href": "https://github.com/", "kind": "code", "label": "GitHub"},
                 {"href": "https://example.com/contact", "kind": "social", "label": "Notes"},
             ],
-            seo_defaults={
-                "title": "夜航手记",
-                "description": "关于技术、生活与把复杂事情做清楚的个人记录。",
-                "keywords": ["Nuxt", "FastAPI", "MySQL"],
-                "canonical_url": None,
-                "og_image_url": None,
-                "twitter_card": "summary",
-            },
             footer={"note": "一个从真实数据开始的个人出版空间。", "copyright": "", "icp": ""},
             contact={"email": "live@example.com", "note": "欢迎从公开配置发来一封信。"},
             homepage_visibility={
@@ -461,35 +393,4 @@ async def _upsert_settings(session: AsyncSession) -> None:
             },
         )
     )
-    await session.flush()
-
-
-async def _upsert_music(session: AsyncSession) -> None:
-    tracks = (
-        _MusicSeed(
-            title="夜色里的测试音轨",
-            artist="本地公开验收",
-            source_url="/uploads/live-acceptance/missing-audio.mp3",
-            display_order=0,
-        ),
-        _MusicSeed(
-            title="安静的恢复路径",
-            artist="本地公开验收",
-            source_url="/uploads/live-acceptance/missing-audio-2.mp3",
-            display_order=1,
-        ),
-    )
-    for track_seed in tracks:
-        track = await session.scalar(select(MusicTrack).where(MusicTrack.title == track_seed.title))
-        if track is None:
-            track = MusicTrack(title=track_seed.title, artist=track_seed.artist)
-            session.add(track)
-        track.album = "Live acceptance"
-        track.source_strategy = "local_media"
-        track.source_url = track_seed.source_url
-        track.artwork_url = None
-        track.artwork_alt = None
-        track.duration_seconds = None
-        track.display_order = track_seed.display_order
-        track.is_enabled = True
     await session.flush()

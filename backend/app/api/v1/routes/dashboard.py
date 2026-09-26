@@ -30,7 +30,6 @@ async def get_admin_dashboard(
                 posts=snapshot.counts.posts,
                 published_posts=snapshot.counts.published_posts,
                 draft_posts=snapshot.counts.draft_posts,
-                moments=snapshot.counts.moments,
                 chatter=snapshot.counts.chatter,
                 projects=snapshot.counts.projects,
                 friends=snapshot.counts.friends,

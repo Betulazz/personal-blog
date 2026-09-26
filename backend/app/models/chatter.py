@@ -4,29 +4,18 @@ from enum import StrEnum
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
-    Column,
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
-    Table,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-
-chatter_tags = Table(
-    "chatter_tags",
-    Base.metadata,
-    Column("chatter_id", ForeignKey("chatters.id", ondelete="CASCADE"), primary_key=True),
-    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
-    Index("ix_chatter_tags_tag_id", "tag_id"),
-    mysql_engine="InnoDB",
-    mysql_charset="utf8mb4",
-    mysql_collate="utf8mb4_0900_ai_ci",
-)
 
 
 class ChatterStatus(StrEnum):
@@ -48,7 +37,6 @@ class Chatter(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     title: Mapped[str | None] = mapped_column(String(200))
-    lead: Mapped[str | None] = mapped_column(String(500))
     body: Mapped[str] = mapped_column(LONGTEXT, nullable=False)
     mood: Mapped[str | None] = mapped_column(String(80))
     status: Mapped[str] = mapped_column(
@@ -65,11 +53,37 @@ class Chatter(Base):
         onupdate=func.current_timestamp(),
     )
 
-    tags: Mapped[list["Tag"]] = relationship(
-        secondary=chatter_tags,
-        back_populates="chatters",
+    images: Mapped[list["ChatterImage"]] = relationship(
+        back_populates="chatter",
+        cascade="all, delete-orphan",
+        order_by="ChatterImage.position, ChatterImage.id",
         passive_deletes=True,
     )
 
 
-from app.models.taxonomy import Tag  # noqa: E402  # resolve relationship types
+class ChatterImage(Base):
+    __tablename__ = "chatter_images"
+    __table_args__ = (
+        CheckConstraint("width > 0", name="width_positive"),
+        CheckConstraint("height > 0", name="height_positive"),
+        CheckConstraint("position >= 0", name="position_non_negative"),
+        UniqueConstraint("chatter_id", "position", name="uq_chatter_images_chatter_position"),
+        Index("ix_chatter_images_chatter_id", "chatter_id"),
+        {
+            "mysql_engine": "InnoDB",
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_0900_ai_ci",
+        },
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    chatter_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("chatters.id", ondelete="CASCADE"), nullable=False
+    )
+    src: Mapped[str] = mapped_column(String(2048), nullable=False)
+    alt: Mapped[str] = mapped_column(String(200), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+
+    chatter: Mapped[Chatter] = relationship(back_populates="images")

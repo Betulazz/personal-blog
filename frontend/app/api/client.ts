@@ -1,11 +1,14 @@
+import type { TimelineCollectionResponse } from '~/types/timeline'
 import type {
   AdminChatter,
   AdminChatterInput,
-  AdminMoment,
-  AdminMomentInput,
   AdminResourceApi,
 } from '~/types/admin-notes'
-import type { AdminMusicTrack, AdminMusicTrackInput } from '~/types/admin-music'
+import type {
+  AdminMusicTrack,
+  AdminMusicTrackInput,
+  AdminMusicTrackUpdateInput,
+} from '~/types/admin-music'
 import type { Chatter, ChatterCollectionResponse } from '~/types/chatter'
 import type {
   AdminDashboard,
@@ -41,14 +44,17 @@ import type {
 import type {
   HomepageChatter,
   HomepageCollectionResponse,
-  HomepageMoment,
   HomepagePost,
   HomepageProject,
 } from '~/types/homepage'
-import type { Moment, MomentCollectionResponse } from '~/types/moments'
-import type { MusicTrack, MusicTrackCollectionResponse } from '~/types/music'
 import type {
-  PostCategory,
+  MusicLyrics,
+  MusicTrack,
+  MusicTrackCollectionResponse,
+  MusicTrackPlaybackResolution,
+  MusicTrackPreview,
+} from '~/types/music'
+import type {
   PostCollectionResponse,
   PostDetail,
   PostQuery,
@@ -67,7 +73,6 @@ import type {
 import type {
   PublicCollectionPagination,
   PublicFeedQuery,
-  PublicTag,
 } from '~/types/public-content'
 import type { PublicSiteSettings, SiteIdentityView } from '~/types/site'
 
@@ -100,7 +105,6 @@ interface RawAdminDashboard {
     chatter: number
     draft_posts: number
     friends: number
-    moments: number
     posts: number
     projects: number
     published_posts: number
@@ -126,19 +130,14 @@ interface RawTaxonomy {
 
 interface RawPost {
   body?: string
-  canonical_url: string | null
-  category: RawTaxonomy | null
   cover_alt: string | null
   cover_url: string | null
   created_at: string
   id: number
   is_pinned: boolean
-  og_image_url: string | null
   published_at: string | null
   reading_count: number
   reading_time_minutes: number
-  seo_description: string | null
-  seo_title: string | null
   slug: string
   status: string
   summary: string
@@ -151,8 +150,7 @@ interface RawPostCollection extends RawCollection<RawPost> {
   filters: Record<string, string>
 }
 
-interface RawProject {
-  demo_url: string | null
+interface RawProjectBase {
   description: string
   display_order: number
   featured: boolean
@@ -160,13 +158,24 @@ interface RawProject {
   logo_alt: string | null
   logo_url: string | null
   name: string
+}
+
+interface RawPersonalProject extends RawProjectBase {
+  project_type: 'personal'
+  demo_url: string | null
   source_url: string | null
   status: 'active' | 'archived' | 'developing'
   technology: string[]
   time_span: string
 }
 
-interface RawAdminProject extends RawProject {
+interface RawGithubOpenSourceProject extends RawProjectBase {
+  project_type: 'github_open_source'
+  repository_url: string
+}
+
+type RawProject = RawPersonalProject | RawGithubOpenSourceProject
+type RawAdminProject = RawProject & {
   created_at: string
   updated_at: string
 }
@@ -194,6 +203,7 @@ interface RawSiteSettings {
     story: string[]
     timeline: AboutTimelineItem[]
   }
+  background_gallery: Array<{ alt: string; url: string }>
   avatar_alt: string | null
   avatar_url: string | null
   contact: { email: string; note: string }
@@ -210,14 +220,6 @@ interface RawSiteSettings {
   }
   name: string
   profile: string
-  seo_defaults: {
-    canonical_url: string | null
-    description: string
-    keywords: string[]
-    og_image_url: string | null
-    title: string
-    twitter_card: 'summary' | 'summary_large_image'
-  }
   social_links: Array<{
     href: string
     kind: 'code' | 'social'
@@ -233,11 +235,15 @@ interface RawAdminSiteSettings extends RawSiteSettings {
 }
 
 interface RawMusicTrack {
+  album: string | null
   artist: string
+  artwork_alt: string | null
+  artwork_url: string | null
   display_order: number
   duration_seconds: number | null
   id: number
-  source_url: string
+  netease_song_id: string
+  provider_url: string
   title: string
 }
 
@@ -251,10 +257,34 @@ interface RawAdminMusicTrack {
   duration_seconds: number | null
   id: number
   is_enabled: boolean
-  source_strategy: 'local_media' | 'remote_url' | 's3_media'
-  source_url: string
+  netease_song_id: string
+  provider_url: string
   title: string
   updated_at: string
+}
+
+interface RawMusicTrackPreview {
+  album: string | null
+  already_added: boolean
+  artist: string
+  artwork_url: string | null
+  duration_seconds: number | null
+  netease_song_id: string
+  provider_url: string
+  title: string
+}
+
+interface RawMusicTrackPlayback {
+  media_url: string
+  netease_song_id: string
+  provider_url: string
+  track_id: number
+}
+
+interface RawMusicLyrics {
+  lines: Array<{ text: string; time_ms: number; translation: string | null }>
+  status: 'available' | 'missing'
+  track_id: number
 }
 
 interface RawAdminMediaAsset {
@@ -291,35 +321,17 @@ interface RawAdminMediaDeleteResult {
   deleted: boolean
 }
 
-interface RawMoment {
-  body: string
-  id: number
-  images: Array<{ alt: string; height: number; src: string; width: number }>
-  location: string | null
-  mood: string | null
-  published_at: string
-  tags: Array<{ content_count: number; id: number; name: string; slug: string }>
-}
-
 interface RawChatter {
   body: string
   id: number
-  lead: string | null
+  images: Array<{ alt: string; height: number; src: string; width: number }>
   mood: string | null
   published_at: string
-  tags: Array<{ content_count: number; id: number; name: string; slug: string }>
   title: string | null
 }
 
 interface RawFeedCollection<T> extends RawCollection<T> {
   filters: Record<string, string>
-}
-
-interface RawPublicTag {
-  content_count: number
-  id: number
-  name: string
-  slug: string
 }
 
 export class BlogApiError extends Error {
@@ -340,12 +352,16 @@ export class BlogApiError extends Error {
 }
 
 export interface BlogApiClient {
+  listTimeline: (
+    query: PublicFeedQuery,
+    signal?: AbortSignal,
+  ) => Promise<TimelineCollectionResponse>
   createAdminFriend: (input: AdminFriendLinkInput) => Promise<AdminFriendLink>
   createAdminMusicTrack: (
     input: AdminMusicTrackInput,
   ) => Promise<AdminMusicTrack>
+  previewAdminMusicTrack: (songId: string) => Promise<MusicTrackPreview>
   createAdminProject: (input: AdminProjectInput) => Promise<AdminProject>
-  adminMoments: AdminResourceApi<AdminMoment, AdminMomentInput>
   adminChatter: AdminResourceApi<AdminChatter, AdminChatterInput>
   getAdminDashboard: (signal?: AbortSignal) => Promise<AdminDashboard>
   getAdminFriend: (id: string, signal?: AbortSignal) => Promise<AdminFriendLink>
@@ -353,6 +369,14 @@ export interface BlogApiClient {
     id: string,
     signal?: AbortSignal,
   ) => Promise<AdminMusicTrack>
+  getMusicTrackLyrics: (
+    id: string,
+    signal?: AbortSignal,
+  ) => Promise<MusicLyrics>
+  getMusicTrackPlayback: (
+    id: string,
+    signal?: AbortSignal,
+  ) => Promise<MusicTrackPlaybackResolution>
   getAdminMediaPolicy: (signal?: AbortSignal) => Promise<AdminMediaPolicy>
   getAdminMediaReferences: (
     id: string,
@@ -407,46 +431,27 @@ export interface BlogApiClient {
     query: AdminProjectQuery,
     signal?: AbortSignal,
   ) => Promise<AdminProjectCollection>
-  listAdminCategories: (signal?: AbortSignal) => Promise<AdminTaxonomy[]>
   listAdminTags: (signal?: AbortSignal) => Promise<AdminTaxonomy[]>
-  createAdminCategory: (input: AdminTaxonomyInput) => Promise<AdminTaxonomy>
-  updateAdminCategory: (
-    id: string,
-    input: Partial<AdminTaxonomyInput>,
-  ) => Promise<AdminTaxonomy>
-  deleteAdminCategory: (id: string) => Promise<void>
   createAdminTag: (input: AdminTaxonomyInput) => Promise<AdminTaxonomy>
   updateAdminTag: (
     id: string,
     input: Partial<AdminTaxonomyInput>,
   ) => Promise<AdminTaxonomy>
   deleteAdminTag: (id: string) => Promise<void>
-  listCategories: (
-    signal?: AbortSignal,
-  ) => Promise<TaxonomyCollectionResponse<PostCategory>>
   listChatter: (
     query: PublicFeedQuery,
     signal?: AbortSignal,
   ) => Promise<ChatterCollectionResponse>
-  listChatterTags: (signal?: AbortSignal) => Promise<PublicTag[]>
   listFriends: (signal?: AbortSignal) => Promise<FriendCollectionResponse>
   listHomepageChatter: (
     signal?: AbortSignal,
   ) => Promise<HomepageCollectionResponse<HomepageChatter>>
-  listHomepageMoments: (
-    signal?: AbortSignal,
-  ) => Promise<HomepageCollectionResponse<HomepageMoment>>
   listHomepagePosts: (
     signal?: AbortSignal,
   ) => Promise<HomepageCollectionResponse<HomepagePost>>
   listHomepageProjects: (
     signal?: AbortSignal,
   ) => Promise<HomepageCollectionResponse<HomepageProject>>
-  listMoments: (
-    query: PublicFeedQuery,
-    signal?: AbortSignal,
-  ) => Promise<MomentCollectionResponse>
-  listMomentTags: (signal?: AbortSignal) => Promise<PublicTag[]>
   listMusicTracks: (
     signal?: AbortSignal,
   ) => Promise<MusicTrackCollectionResponse>
@@ -473,7 +478,7 @@ export interface BlogApiClient {
   ) => Promise<AdminFriendLink>
   updateAdminMusicTrack: (
     id: string,
-    input: Partial<AdminMusicTrackInput>,
+    input: Partial<AdminMusicTrackUpdateInput>,
   ) => Promise<AdminMusicTrack>
   updateAdminProject: (
     id: string,
@@ -509,15 +514,6 @@ const cover = (
       }
     : undefined
 
-const toPostCategory = (value: RawTaxonomy | null): PostCategory =>
-  value
-    ? {
-        name: value.name,
-        postCount: value.post_count,
-        slug: value.slug,
-      }
-    : { name: '未分类', postCount: 0, slug: 'uncategorized' }
-
 const toPostTag = (value: RawTaxonomy): PostTag => ({
   name: value.name,
   postCount: value.post_count,
@@ -538,22 +534,14 @@ const toAdminPost = (
   resolveMediaUrl: MediaUrlResolver,
 ): AdminPost => ({
   body: value.body ?? '',
-  canonicalUrl: value.canonical_url ?? undefined,
-  category: value.category ? toAdminTaxonomy(value.category) : null,
-  categoryId: value.category ? String(value.category.id) : undefined,
   coverAlt: value.cover_alt ?? undefined,
   coverUrl: value.cover_url ? resolveMediaUrl(value.cover_url) : undefined,
   createdAt: value.created_at,
   id: String(value.id),
   isPinned: value.is_pinned,
-  ogImageUrl: value.og_image_url
-    ? resolveMediaUrl(value.og_image_url)
-    : undefined,
   publishedAt: value.published_at ?? undefined,
   readingCount: value.reading_count,
   readingTimeMinutes: value.reading_time_minutes,
-  seoDescription: value.seo_description ?? undefined,
-  seoTitle: value.seo_title ?? undefined,
   slug: value.slug,
   status: value.status === 'published' ? 'published' : 'draft',
   summary: value.summary,
@@ -570,7 +558,6 @@ const toPostSummary = (
   const postCover = cover(value.cover_url, value.cover_alt, resolveMediaUrl)
 
   return {
-    category: toPostCategory(value.category),
     ...(postCover ? { cover: postCover } : {}),
     id: String(value.id),
     pinned: value.is_pinned,
@@ -588,45 +575,70 @@ const toPostSummary = (
 const toProject = (
   value: RawProject,
   resolveMediaUrl: MediaUrlResolver,
-): Project => ({
-  demoUrl: value.demo_url ?? undefined,
-  description: value.description,
-  featured: value.featured,
-  githubUrl: value.source_url ?? undefined,
-  id: String(value.id),
-  ...(value.logo_url
-    ? {
-        logo: {
-          alt: value.logo_alt || `${value.name} 标志`,
-          height: 160,
-          src: resolveMediaUrl(value.logo_url),
-          width: 160,
-        },
-      }
-    : {}),
-  name: value.name,
-  sourceUrl: value.source_url ?? undefined,
-  stack: value.technology,
-  status: value.status,
-  timeSpan: value.time_span,
-})
+): Project => {
+  const shared = {
+    description: value.description,
+    featured: value.featured,
+    id: String(value.id),
+    ...(value.logo_url
+      ? {
+          logo: {
+            alt: value.logo_alt || `${value.name} 标志`,
+            height: 160,
+            src: resolveMediaUrl(value.logo_url),
+            width: 160,
+          },
+        }
+      : {}),
+    name: value.name,
+  }
+  if (value.project_type === 'github_open_source') {
+    return {
+      ...shared,
+      projectType: 'github_open_source',
+      repositoryUrl: value.repository_url,
+    }
+  }
+  return {
+    ...shared,
+    demoUrl: value.demo_url ?? undefined,
+    projectType: 'personal',
+    sourceUrl: value.source_url ?? undefined,
+    stack: value.technology,
+    status: value.status,
+    timeSpan: value.time_span,
+  }
+}
 
-const toAdminProject = (value: RawAdminProject): AdminProject => ({
-  createdAt: value.created_at,
-  demoUrl: value.demo_url,
-  description: value.description,
-  displayOrder: value.display_order,
-  featured: value.featured,
-  id: String(value.id),
-  logoAlt: value.logo_alt,
-  logoUrl: value.logo_url,
-  name: value.name,
-  sourceUrl: value.source_url,
-  stack: value.technology,
-  status: value.status,
-  timeSpan: value.time_span,
-  updatedAt: value.updated_at,
-})
+const toAdminProject = (value: RawAdminProject): AdminProject => {
+  const shared = {
+    createdAt: value.created_at,
+    description: value.description,
+    displayOrder: value.display_order,
+    featured: value.featured,
+    id: String(value.id),
+    logoAlt: value.logo_alt,
+    logoUrl: value.logo_url,
+    name: value.name,
+    updatedAt: value.updated_at,
+  }
+  if (value.project_type === 'github_open_source') {
+    return {
+      ...shared,
+      projectType: 'github_open_source',
+      repositoryUrl: value.repository_url,
+    }
+  }
+  return {
+    ...shared,
+    demoUrl: value.demo_url,
+    projectType: 'personal',
+    sourceUrl: value.source_url,
+    stack: value.technology,
+    status: value.status,
+    timeSpan: value.time_span,
+  }
+}
 
 const toAdminFriend = (value: RawAdminFriend): AdminFriendLink => ({
   avatarAlt: value.avatar_alt,
@@ -641,41 +653,19 @@ const toAdminFriend = (value: RawAdminFriend): AdminFriendLink => ({
   url: value.url,
 })
 
-const toPublicTag = (value: { name: string; slug: string }): PublicTag => ({
-  name: value.name,
-  slug: value.slug,
-})
-
-const toMoment = (
-  value: RawMoment,
+const toChatter = (
+  value: RawChatter,
   resolveMediaUrl: MediaUrlResolver,
-): Moment => ({
+): Chatter => ({
   body: value.body,
   id: String(value.id),
-  ...(value.images.length
-    ? {
-        images: value.images.map((image) => ({
-          alt: image.alt,
-          height: image.height,
-          src: resolveMediaUrl(image.src),
-          width: image.width,
-        })),
-      }
-    : {}),
-  ...(value.location ? { location: value.location } : {}),
-  ...(value.mood ? { mood: value.mood } : {}),
+  mood: value.mood ?? undefined,
   publishedAt: value.published_at,
-  tags: value.tags.map(toPublicTag),
-})
-
-const toChatter = (value: RawChatter): Chatter => ({
-  body: value.body,
-  id: String(value.id),
-  lead: value.lead ?? value.body,
-  ...(value.mood ? { mood: value.mood } : {}),
-  publishedAt: value.published_at,
-  tags: value.tags.map(toPublicTag),
-  title: value.title ?? '杂谈记录',
+  title: value.title ?? undefined,
+  images: value.images.map((image) => ({
+    ...image,
+    src: resolveMediaUrl(image.src),
+  })),
 })
 
 const toSiteSettings = (
@@ -683,6 +673,10 @@ const toSiteSettings = (
   resolveMediaUrl: MediaUrlResolver,
 ): PublicSiteSettings => ({
   about: value.about,
+  backgroundGallery: value.background_gallery.map((image) => ({
+    alt: image.alt,
+    url: resolveMediaUrl(image.url),
+  })),
   ...(value.avatar_alt ? { avatarAlt: value.avatar_alt } : {}),
   ...(value.avatar_url ? { avatarUrl: resolveMediaUrl(value.avatar_url) } : {}),
   contact: value.contact,
@@ -694,26 +688,20 @@ const toSiteSettings = (
   homepageVisibility: value.homepage_visibility,
   name: value.name,
   profile: value.profile,
-  seoDefaults: {
-    ...(value.seo_defaults.canonical_url
-      ? { canonicalUrl: value.seo_defaults.canonical_url }
-      : {}),
-    description: value.seo_defaults.description,
-    keywords: value.seo_defaults.keywords,
-    ...(value.seo_defaults.og_image_url
-      ? { ogImageUrl: resolveMediaUrl(value.seo_defaults.og_image_url) }
-      : {}),
-    title: value.seo_defaults.title,
-    twitterCard: value.seo_defaults.twitter_card,
-  },
   socialLinks: value.social_links,
   tagline: value.tagline,
 })
 
 const toAdminSiteSettings = (
   value: RawAdminSiteSettings,
+  resolveMediaUrl: MediaUrlResolver,
 ): AdminSiteSettings => ({
-  ...toSiteSettings(value, (url) => url),
+  ...toSiteSettings(value, resolveMediaUrl),
+  backgroundGallery: value.background_gallery.map((image) => ({
+    alt: image.alt,
+    reference: image.url,
+    url: resolveMediaUrl(image.url),
+  })),
   createdAt: value.created_at,
   id: String(value.id),
   updatedAt: value.updated_at,
@@ -754,9 +742,14 @@ const toTrack = (
   value: RawMusicTrack,
   resolveMediaUrl: MediaUrlResolver,
 ): MusicTrack => ({
+  album: value.album,
   artist: value.artist,
+  artworkAlt: value.artwork_alt,
+  artworkUrl: value.artwork_url ? resolveMediaUrl(value.artwork_url) : null,
+  durationSeconds: value.duration_seconds,
   id: String(value.id),
-  src: resolveMediaUrl(value.source_url),
+  neteaseSongId: value.netease_song_id,
+  providerUrl: value.provider_url,
   title: value.title,
 })
 
@@ -776,8 +769,8 @@ const toAdminMusicTrack = (
   durationSeconds: value.duration_seconds,
   id: String(value.id),
   isEnabled: value.is_enabled,
-  sourceStrategy: value.source_strategy,
-  sourceUrl: value.source_url,
+  neteaseSongId: value.netease_song_id,
+  providerUrl: value.provider_url,
   title: value.title,
   updatedAt: value.updated_at,
 })
@@ -830,7 +823,6 @@ const toAdminDashboard = (value: RawAdminDashboard): AdminDashboard => ({
     chatter: value.counts.chatter,
     draftPosts: value.counts.draft_posts,
     friends: value.counts.friends,
-    moments: value.counts.moments,
     posts: value.counts.posts,
     projects: value.counts.projects,
     publishedPosts: value.counts.published_posts,
@@ -956,7 +948,7 @@ export function useApiClient(): BlogApiClient {
   }
 
   const adminResource = <T, Input extends object>(
-    resource: 'moments' | 'chatter',
+    resource: 'chatter',
   ): AdminResourceApi<T, Input> => {
     const path = `/admin/${resource}`
     const mutate = async (
@@ -1028,6 +1020,7 @@ export function useApiClient(): BlogApiClient {
           page_size: query.pageSize,
           q: query.q,
           status: query.status,
+          project_type: query.projectType,
         },
         signal,
       },
@@ -1167,6 +1160,26 @@ export function useApiClient(): BlogApiClient {
     return tracks
   }
 
+  const previewAdminMusicTrack = async (songId: string) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawMusicTrackPreview>>(
+      '/admin/music-tracks/preview',
+      'POST',
+      { netease_song_id: songId },
+    )
+    return {
+      album: response.data.album,
+      alreadyAdded: response.data.already_added,
+      artist: response.data.artist,
+      artworkUrl: response.data.artwork_url
+        ? resolveMediaUrl(response.data.artwork_url)
+        : null,
+      durationSeconds: response.data.duration_seconds,
+      neteaseSongId: response.data.netease_song_id,
+      providerUrl: response.data.provider_url,
+      title: response.data.title,
+    }
+  }
+
   const getAdminMusicTrack = async (id: string, signal?: AbortSignal) => {
     const response = await request<RawApiResponse<RawAdminMusicTrack>>(
       `/admin/music-tracks/${encodeURIComponent(id)}`,
@@ -1187,7 +1200,7 @@ export function useApiClient(): BlogApiClient {
 
   const updateAdminMusicTrack = async (
     id: string,
-    input: Partial<AdminMusicTrackInput>,
+    input: Partial<AdminMusicTrackUpdateInput>,
   ) => {
     const response = await mutateWithCsrf<RawApiResponse<RawAdminMusicTrack>>(
       `/admin/music-tracks/${encodeURIComponent(id)}`,
@@ -1196,6 +1209,41 @@ export function useApiClient(): BlogApiClient {
     )
     clearPublicMusicData()
     return toAdminMusicTrack(response.data, resolveMediaUrl)
+  }
+
+  const getMusicTrackPlayback = async (
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<MusicTrackPlaybackResolution> => {
+    const response = await request<RawApiResponse<RawMusicTrackPlayback>>(
+      `/music-tracks/${encodeURIComponent(id)}/playback`,
+      { signal },
+    )
+    return {
+      mediaUrl: response.data.media_url,
+      providerUrl: response.data.provider_url,
+      songId: response.data.netease_song_id,
+      trackId: String(response.data.track_id),
+    }
+  }
+
+  const getMusicTrackLyrics = async (
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<MusicLyrics> => {
+    const response = await request<RawApiResponse<RawMusicLyrics>>(
+      `/music-tracks/${encodeURIComponent(id)}/lyrics`,
+      { signal },
+    )
+    return {
+      lines: response.data.lines.map((line) => ({
+        text: line.text,
+        timeMs: line.time_ms,
+        translation: line.translation,
+      })),
+      status: response.data.status,
+      trackId: String(response.data.track_id),
+    }
   }
 
   const reorderAdminMusicTracks = async (trackIds: string[]) => {
@@ -1306,7 +1354,7 @@ export function useApiClient(): BlogApiClient {
       '/admin/settings',
       { signal },
     )
-    return toAdminSiteSettings(response.data)
+    return toAdminSiteSettings(response.data, resolveMediaUrl)
   }
 
   const updateAdminSettings = async (
@@ -1318,7 +1366,7 @@ export function useApiClient(): BlogApiClient {
       Object.fromEntries(Object.entries(input)),
     )
     clearPortfolioData('public-site-settings', 'public-about')
-    return toAdminSiteSettings(response.data)
+    return toAdminSiteSettings(response.data, resolveMediaUrl)
   }
 
   const getAdminDashboard = async (signal?: AbortSignal) => {
@@ -1335,7 +1383,6 @@ export function useApiClient(): BlogApiClient {
   ): Promise<AdminPostCollection> => {
     const response = await request<RawCollection<RawPost>>('/admin/posts', {
       query: {
-        category: query.category,
         page: query.page,
         page_size: query.pageSize,
         q: query.q,
@@ -1415,21 +1462,18 @@ export function useApiClient(): BlogApiClient {
   }
 
   const listAdminTaxonomy = async (
-    path: '/admin/categories' | '/admin/tags',
+    path: '/admin/tags',
     signal?: AbortSignal,
   ) => {
     const response = await request<{ data: RawTaxonomy[] }>(path, { signal })
     return response.data.map(toAdminTaxonomy)
   }
 
-  const listAdminCategories = (signal?: AbortSignal) =>
-    listAdminTaxonomy('/admin/categories', signal)
-
   const listAdminTags = (signal?: AbortSignal) =>
     listAdminTaxonomy('/admin/tags', signal)
 
   const createAdminTaxonomy = async (
-    path: '/admin/categories' | '/admin/tags',
+    path: '/admin/tags',
     input: AdminTaxonomyInput,
   ) => {
     const response = await mutateWithCsrf<RawApiResponse<RawTaxonomy>>(
@@ -1441,7 +1485,7 @@ export function useApiClient(): BlogApiClient {
   }
 
   const updateAdminTaxonomy = async (
-    path: '/admin/categories' | '/admin/tags',
+    path: '/admin/tags',
     id: string,
     input: Partial<AdminTaxonomyInput>,
   ) => {
@@ -1453,24 +1497,13 @@ export function useApiClient(): BlogApiClient {
     return toAdminTaxonomy(response.data)
   }
 
-  const deleteAdminTaxonomy = async (
-    path: '/admin/categories' | '/admin/tags',
-    id: string,
-  ) => {
+  const deleteAdminTaxonomy = async (path: '/admin/tags', id: string) => {
     await mutateWithCsrf<RawApiResponse<{ deleted: boolean }>>(
       `${path}/${encodeURIComponent(id)}`,
       'DELETE',
     )
   }
 
-  const createAdminCategory = (input: AdminTaxonomyInput) =>
-    createAdminTaxonomy('/admin/categories', input)
-  const updateAdminCategory = (
-    id: string,
-    input: Partial<AdminTaxonomyInput>,
-  ) => updateAdminTaxonomy('/admin/categories', id, input)
-  const deleteAdminCategory = (id: string) =>
-    deleteAdminTaxonomy('/admin/categories', id)
   const createAdminTag = (input: AdminTaxonomyInput) =>
     createAdminTaxonomy('/admin/tags', input)
   const updateAdminTag = (id: string, input: Partial<AdminTaxonomyInput>) =>
@@ -1480,7 +1513,6 @@ export function useApiClient(): BlogApiClient {
   const listPosts = async (query: PostQuery, signal?: AbortSignal) => {
     const response = await request<RawPostCollection>('/posts', {
       query: {
-        category: query.category,
         page: query.page,
         page_size: query.pageSize,
         q: query.q,
@@ -1495,10 +1527,7 @@ export function useApiClient(): BlogApiClient {
     }
   }
 
-  const listAllTaxonomy = async (
-    path: '/categories' | '/tags',
-    signal?: AbortSignal,
-  ) => {
+  const listAllTaxonomy = async (path: '/tags', signal?: AbortSignal) => {
     const data: Array<{ name: string; postCount: number; slug: string }> = []
     let page = 1
     let totalPages = 1
@@ -1537,14 +1566,6 @@ export function useApiClient(): BlogApiClient {
     }
   }
 
-  const listCategories = async (signal?: AbortSignal) => {
-    const response = await listAllTaxonomy('/categories', signal)
-    return {
-      data: response.data,
-      pagination: response.pagination,
-    }
-  }
-
   const listTags = async (signal?: AbortSignal) => {
     const response = await listAllTaxonomy('/tags', signal)
     return {
@@ -1553,18 +1574,31 @@ export function useApiClient(): BlogApiClient {
     }
   }
 
-  const listMoments = async (query: PublicFeedQuery, signal?: AbortSignal) => {
-    const response = await request<RawFeedCollection<RawMoment>>('/moments', {
-      query: {
-        page: query.page,
-        page_size: query.pageSize,
-        q: query.q,
-        tag: query.tag,
-      },
+  const listTimeline = async (
+    query: PublicFeedQuery,
+    signal?: AbortSignal,
+  ): Promise<TimelineCollectionResponse> => {
+    const response = await request<
+      RawFeedCollection<
+        | { kind: 'post'; content: RawPost }
+        | { kind: 'chatter'; content: RawChatter }
+      >
+    >('/moments', {
+      query: { page: query.page, page_size: query.pageSize, q: query.q },
       signal,
     })
     return {
-      data: response.data.map((moment) => toMoment(moment, resolveMediaUrl)),
+      data: response.data.map((entry) =>
+        entry.kind === 'post'
+          ? {
+              kind: 'post',
+              content: toPostSummary(entry.content, resolveMediaUrl),
+            }
+          : {
+              kind: 'chatter',
+              content: toChatter(entry.content, resolveMediaUrl),
+            },
+      ),
       filters: response.filters,
       pagination: pagination(response.pagination),
     }
@@ -1576,49 +1610,21 @@ export function useApiClient(): BlogApiClient {
         page: query.page,
         page_size: query.pageSize,
         q: query.q,
-        tag: query.tag,
+        entry: query.entry,
       },
       signal,
     })
     return {
-      data: response.data.map(toChatter),
+      data: response.data.map((value) => toChatter(value, resolveMediaUrl)),
       filters: response.filters,
       pagination: pagination(response.pagination),
     }
   }
 
-  const listAllPublicTags = async (
-    path: '/moments/tags' | '/chatter/tags',
-    signal?: AbortSignal,
-  ) => {
-    const data: PublicTag[] = []
-    let page = 1
-    let totalPages = 1
-
-    while (page <= totalPages) {
-      const response = await request<RawCollection<RawPublicTag>>(path, {
-        query: { page, page_size: 100 },
-        signal,
-      })
-      totalPages = Math.max(1, response.pagination.total_pages)
-      data.push(...response.data.map(toPublicTag))
-      page += 1
-    }
-
-    return data
-  }
-
-  const listMomentTags = (signal?: AbortSignal) =>
-    listAllPublicTags('/moments/tags', signal)
-
-  const listChatterTags = (signal?: AbortSignal) =>
-    listAllPublicTags('/chatter/tags', signal)
-
   const listHomepagePosts = async (signal?: AbortSignal) => {
     const response = await listPosts({ page: 1, pageSize: 3 }, signal)
     return {
       data: response.data.map((post) => ({
-        category: post.category,
         ...(post.cover ? { cover: post.cover } : {}),
         id: post.id,
         publishedAt: post.publishedAt,
@@ -1647,16 +1653,28 @@ export function useApiClient(): BlogApiClient {
     const response = await listProjects(signal)
     const data = response.data
       .filter((project) => project.featured)
-      .map((project) => ({
-        demoUrl: project.demoUrl,
-        description: project.description,
-        githubUrl: project.githubUrl,
-        id: project.id,
-        name: project.name,
-        selected: project.featured,
-        stack: project.stack,
-        status: project.status,
-      }))
+      .map((project) =>
+        project.projectType === 'github_open_source'
+          ? {
+              description: project.description,
+              id: project.id,
+              name: project.name,
+              projectType: 'github_open_source' as const,
+              repositoryUrl: project.repositoryUrl,
+              selected: project.featured,
+            }
+          : {
+              demoUrl: project.demoUrl,
+              description: project.description,
+              id: project.id,
+              name: project.name,
+              projectType: 'personal' as const,
+              selected: project.featured,
+              sourceUrl: project.sourceUrl,
+              stack: project.stack,
+              status: project.status,
+            },
+      )
     return {
       data,
       pagination: {
@@ -1667,31 +1685,16 @@ export function useApiClient(): BlogApiClient {
     }
   }
 
-  const listHomepageMoments = async (signal?: AbortSignal) => {
-    const response = await listMoments({ page: 1, pageSize: 3 }, signal)
-    return {
-      data: response.data.map((moment) => ({
-        body: moment.body,
-        id: moment.id,
-        ...(moment.location ? { location: moment.location } : {}),
-        ...(moment.mood ? { mood: moment.mood } : {}),
-        publishedAt: moment.publishedAt,
-        tags: moment.tags?.map((tag) => tag.name) ?? [],
-      })),
-      pagination: response.pagination,
-    }
-  }
-
   const listHomepageChatter = async (signal?: AbortSignal) => {
     const response = await listChatter({ page: 1, pageSize: 3 }, signal)
     return {
       data: response.data.map((chatter) => ({
         id: chatter.id,
         ...(chatter.mood ? { mood: chatter.mood } : {}),
-        lead: chatter.lead ?? chatter.body,
+        body: chatter.body,
         publishedAt: chatter.publishedAt,
-        tags: chatter.tags.map((tag) => tag.name),
         title: chatter.title,
+        images: chatter.images,
       })),
       pagination: response.pagination,
     }
@@ -1707,18 +1710,6 @@ export function useApiClient(): BlogApiClient {
       return {
         ...summary,
         body: response.data.body ?? '',
-        ...(response.data.canonical_url
-          ? { canonicalUrl: response.data.canonical_url }
-          : {}),
-        ...(response.data.og_image_url
-          ? { ogImageUrl: resolveMediaUrl(response.data.og_image_url) }
-          : {}),
-        ...(response.data.seo_description
-          ? { seoDescription: response.data.seo_description }
-          : {}),
-        ...(response.data.seo_title
-          ? { seoTitle: response.data.seo_title }
-          : {}),
       }
     } catch (error: unknown) {
       if (error instanceof BlogApiError && error.status === 404) {
@@ -1782,15 +1773,12 @@ export function useApiClient(): BlogApiClient {
   }
 
   return {
-    adminMoments: adminResource<AdminMoment, AdminMomentInput>('moments'),
     adminChatter: adminResource<AdminChatter, AdminChatterInput>('chatter'),
     createAdminFriend,
     createAdminMusicTrack,
     createAdminProject,
-    createAdminCategory,
     createAdminPost,
     createAdminTag,
-    deleteAdminCategory,
     deleteAdminFriend,
     deleteAdminMedia,
     deleteAdminMusicTrack,
@@ -1811,8 +1799,6 @@ export function useApiClient(): BlogApiClient {
     getSettings,
     login,
     logout,
-    listCategories,
-    listAdminCategories,
     listAdminFriends,
     listAdminMedia,
     listAdminMusicTracks,
@@ -1820,25 +1806,24 @@ export function useApiClient(): BlogApiClient {
     listAdminProjects,
     listAdminTags,
     listChatter,
-    listChatterTags,
+    listTimeline,
     listFriends,
     listHomepageChatter,
-    listHomepageMoments,
     listHomepagePosts,
     listHomepageProjects,
-    listMoments,
-    listMomentTags,
     listMusicTracks,
+    getMusicTrackLyrics,
+    getMusicTrackPlayback,
     listPosts,
     listProjects,
     listTags,
     previewAdminPost,
+    previewAdminMusicTrack,
     publishAdminPost,
     refreshSession,
     reorderAdminMusicTracks,
     setAdminMusicTrackEnabled,
     unpublishAdminPost,
-    updateAdminCategory,
     updateAdminFriend,
     updateAdminMusicTrack,
     updateAdminPost,

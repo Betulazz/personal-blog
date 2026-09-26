@@ -15,15 +15,9 @@ const createInput = (
   overrides: Partial<AdminPostInput> = {},
 ): AdminPostInput => ({
   body: '# 正文',
-  canonical_url: null,
-  category_id: 1,
   cover_alt: null,
   cover_url: null,
   is_pinned: false,
-  og_image_url: null,
-  reading_time_minutes: 3,
-  seo_description: null,
-  seo_title: null,
   slug: 'night-note',
   summary: '摘要',
   tag_ids: [2, 1],
@@ -56,12 +50,12 @@ describe('admin Post draft', () => {
     )
   })
 
-  it('treats trimmed metadata differences as the same draft', () => {
+  it('treats trimmed content differences as the same draft', () => {
     expect(serializeAdminPostInput(createInput({ title: ' 夜间记录 ' }))).toBe(
       serializeAdminPostInput(createInput()),
     )
-    expect(serializeAdminPostInput(createInput({ seo_title: '' }))).toBe(
-      serializeAdminPostInput(createInput({ seo_title: null })),
+    expect(serializeAdminPostInput(createInput({ summary: ' 摘要 ' }))).toBe(
+      serializeAdminPostInput(createInput()),
     )
   })
 

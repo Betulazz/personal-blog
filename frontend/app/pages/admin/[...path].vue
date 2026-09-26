@@ -10,7 +10,6 @@ const section = computed(() => {
 const labels: Record<string, string> = {
   chatter: 'Chatter',
   friends: '友链',
-  moments: 'Moment',
   posts: '文章',
   projects: '项目',
   settings: '网站设置',

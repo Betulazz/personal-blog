@@ -4,7 +4,6 @@ import pytest
 from httpx import AsyncClient
 
 from app.models.chatter import Chatter
-from app.models.moment import Moment
 from app.models.portfolio import FriendLink, Project
 from app.models.post import Post
 
@@ -36,17 +35,17 @@ async def test_dashboard_returns_content_counts_and_recent_activity(
                 status="draft",
                 reading_count=27,
             ),
-            Moment(body="后台状态检查动态。", status="published"),
             Chatter(
                 title="后台状态检查杂谈",
-                lead="后台状态检查摘要。",
                 body="后台状态检查内容。",
                 status="draft",
             ),
             Project(
                 name="后台状态检查项目",
                 description="用于验证 Dashboard 的项目计数。",
+                technology=[],
                 time_span="2026",
+                status="active",
             ),
             FriendLink(
                 name="后台状态检查友链",
@@ -71,7 +70,6 @@ async def test_dashboard_returns_content_counts_and_recent_activity(
     payload = response.json()["data"]
     assert payload["counts"]["posts"] >= 1
     assert payload["counts"]["draft_posts"] >= 1
-    assert payload["counts"]["moments"] >= 1
     assert payload["counts"]["chatter"] >= 1
     assert payload["counts"]["projects"] >= 1
     assert payload["counts"]["friends"] >= 1

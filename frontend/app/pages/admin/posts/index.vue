@@ -9,20 +9,16 @@ const api = useApiClient()
 const session = useAdminSession()
 const route = useRoute()
 const posts = ref<AdminPost[]>([])
-const categories = ref<AdminTaxonomy[]>([])
 const tags = ref<AdminTaxonomy[]>([])
 const pagination = ref({ page: 1, pageSize: 10, total: 0, totalPages: 0 })
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const search = ref('')
 const status = ref('all')
-const category = ref('all')
 const tag = ref('all')
 let requestNumber = 0
 
 const queryFromRoute = (): AdminPostQuery => ({
-  category:
-    typeof route.query.category === 'string' ? route.query.category : undefined,
   page: Math.max(1, Number(route.query.page) || 1),
   pageSize: 10,
   q: typeof route.query.q === 'string' ? route.query.q : undefined,
@@ -37,7 +33,6 @@ const syncControls = () => {
   const query = queryFromRoute()
   search.value = query.q ?? ''
   status.value = query.status ?? 'all'
-  category.value = query.category ?? 'all'
   tag.value = query.tag ?? 'all'
 }
 
@@ -48,24 +43,18 @@ const load = async () => {
   errorMessage.value = null
   try {
     const query = queryFromRoute()
-    const [postResponse, categoryResponse, tagResponse] =
-      await session.withSession(() =>
-        Promise.all([
-          api.listAdminPosts(query),
-          api.listAdminCategories(),
-          api.listAdminTags(),
-        ]),
-      )
+    const [postResponse, tagResponse] = await session.withSession(() =>
+      Promise.all([api.listAdminPosts(query), api.listAdminTags()]),
+    )
     if (currentRequest !== requestNumber) return
     posts.value = postResponse.data
     pagination.value = postResponse.pagination
-    categories.value = categoryResponse
     tags.value = tagResponse
   } catch (error: unknown) {
     if (currentRequest !== requestNumber) return
     errorMessage.value =
       error instanceof BlogApiError && error.status === 403
-        ? '当前账号没有管理文章和分类的权限。'
+        ? '当前账号没有管理文章的权限。'
         : '文章工作区暂时无法加载，请稍后重试。'
   } finally {
     if (currentRequest === requestNumber) isLoading.value = false
@@ -76,7 +65,6 @@ const applyFilters = async () => {
   const query: Record<string, string> = {}
   if (search.value.trim()) query.q = search.value.trim()
   if (status.value !== 'all') query.status = status.value
-  if (category.value !== 'all') query.category = category.value
   if (tag.value !== 'all') query.tag = tag.value
   await navigateTo({ path: '/admin/posts', query })
 }
@@ -85,7 +73,6 @@ const pageHref = (page: number) => {
   const query: Record<string, string> = {}
   if (search.value.trim()) query.q = search.value.trim()
   if (status.value !== 'all') query.status = status.value
-  if (category.value !== 'all') query.category = category.value
   if (tag.value !== 'all') query.tag = tag.value
   if (page > 1) query.page = String(page)
   return { path: '/admin/posts', query }
@@ -142,17 +129,6 @@ useHead({ title: '文章管理 · 后台空间' })
           ]"
         />
         <UiSelect
-          v-model="category"
-          label="分类"
-          :options="[
-            { label: '全部分类', value: 'all' },
-            ...categories.map((item) => ({
-              label: item.name,
-              value: item.slug,
-            })),
-          ]"
-        />
-        <UiSelect
           v-model="tag"
           label="标签"
           :options="[
@@ -189,21 +165,19 @@ useHead({ title: '文章管理 · 后台空间' })
       aria-live="polite"
     >
       <strong>{{
-        search || status !== 'all' || category !== 'all' || tag !== 'all'
+        search || status !== 'all' || tag !== 'all'
           ? '没有符合筛选条件的文章'
           : '还没有文章'
       }}</strong>
       <p>
         {{
-          search || status !== 'all' || category !== 'all' || tag !== 'all'
+          search || status !== 'all' || tag !== 'all'
             ? '可以调整筛选条件，或开始一篇新的草稿。'
             : '从一篇小而完整的草稿开始。'
         }}
       </p>
       <NuxtLink
-        v-if="
-          !search && status === 'all' && category === 'all' && tag === 'all'
-        "
+        v-if="!search && status === 'all' && tag === 'all'"
         class="admin-resource-state__link"
         to="/admin/posts/new"
         >新建第一篇文章</NuxtLink
@@ -224,7 +198,6 @@ useHead({ title: '文章管理 · 后台空间' })
               <strong>{{ post.title }}</strong>
               <span>{{ post.summary || '暂无摘要' }}</span>
               <small>
-                {{ post.category?.name || '未分类' }} ·
                 {{
                   post.tags.length
                     ? post.tags.map((item) => item.name).join('、')

@@ -37,14 +37,14 @@ onMounted(() => {
     </NuxtLink>
 
     <nav class="desktop-navigation" aria-label="主导航">
-      <a
+      <NuxtLink
         v-for="item in publicNavigation"
         :key="item.label"
-        :href="item.href"
+        :to="item.href"
         :aria-current="isCurrentRoute(item.href) ? 'page' : undefined"
       >
         {{ item.label }}
-      </a>
+      </NuxtLink>
     </nav>
 
     <DialogRoot v-if="isHydrated" v-model:open="isMenuOpen">
@@ -93,15 +93,15 @@ onMounted(() => {
               class="mobile-navigation"
               aria-label="移动端主导航"
             >
-              <a
+              <NuxtLink
                 v-for="item in publicNavigation"
                 :key="item.label"
-                :href="item.href"
+                :to="item.href"
                 :aria-current="isCurrentRoute(item.href) ? 'page' : undefined"
                 @click="isMenuOpen = false"
               >
                 {{ item.label }}
-              </a>
+              </NuxtLink>
             </nav>
           </motion.div>
         </DialogContent>

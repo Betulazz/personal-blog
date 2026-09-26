@@ -14,21 +14,17 @@ const toScalar = (value: unknown) => {
   return typeof value === 'string' ? value : undefined
 }
 
-const normalizeSlug = (value: unknown) => {
-  const scalar = toScalar(value)?.trim().toLocaleLowerCase()
-  return scalar && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(scalar)
-    ? scalar
-    : undefined
-}
-
 const normalizePage = (value: unknown) => {
   const scalar = toScalar(value)
-  return scalar && /^\d+$/.test(scalar) ? Math.max(Number(scalar), 1) : 1
+  const page = Number(scalar)
+  return scalar && /^\d+$/.test(scalar) && Number.isSafeInteger(page)
+    ? Math.max(page, 1)
+    : 1
 }
 
 const normalizeSearch = (value: unknown) => {
   const scalar = toScalar(value)?.trim()
-  return scalar ? scalar.slice(0, 120) : undefined
+  return scalar ? scalar.replace(/\s+/g, ' ').slice(0, 80) : undefined
 }
 
 export const buildPublicFeedQuery = (
@@ -39,14 +35,12 @@ export const buildPublicFeedQuery = (
     pageSize: PUBLIC_FEED_PAGE_SIZE,
   }
   const q = normalizeSearch(routeQuery.q)
-  const tag = normalizeSlug(routeQuery.tag)
+  const entry = toScalar(routeQuery.entry)
 
   if (q) {
     query.q = q
   }
-  if (tag) {
-    query.tag = tag
-  }
+  if (entry && /^[1-9][0-9]*$/.test(entry)) query.entry = entry
 
   return query
 }
@@ -54,7 +48,7 @@ export const buildPublicFeedQuery = (
 export const buildPublicFeedRouteQuery = (query: PublicFeedQuery) => ({
   ...(query.page > 1 ? { page: String(query.page) } : {}),
   ...(query.q ? { q: query.q } : {}),
-  ...(query.tag ? { tag: query.tag } : {}),
+  ...(query.entry ? { entry: query.entry } : {}),
 })
 
 export const clampPublicPageSize = (pageSize: number) =>
@@ -65,7 +59,7 @@ export const isPublicFeedPageOutOfRange = (page: number, totalPages: number) =>
 
 export const toPublicFilters = (query: PublicFeedQuery) => ({
   ...(query.q ? { q: query.q } : {}),
-  ...(query.tag ? { tag: query.tag } : {}),
+  ...(query.entry ? { entry: query.entry } : {}),
 })
 
 export const formatPublicDate = (value: string) =>

@@ -71,6 +71,16 @@ not call `create_all`, Alembic, or any other schema-mutating operation. A fresh
 database therefore remains untouched until the explicit `upgrade` command is
 run.
 
+The current v2 schema head is `0016_background_gallery`. It follows `0012`'s
+Moment-to-Chatter conversion and private archive, `0013`'s archive-first
+NetEase-only playlist migration, `0014`'s archive of retired manual SEO
+overrides, `0015`'s migration of existing Projects to the Personal variant,
+and `0016`'s empty initial Background Gallery setting. Back up an existing
+database before upgrading it. Migrations `0012`–`0014` remove active legacy
+columns and tables after archiving their values; the supported schema rollback
+is restoring a verified pre-upgrade backup, not an Alembic downgrade. Uploaded
+media bytes are not moved or deleted by these migrations.
+
 ## Test isolation
 
 `TEST_DATABASE_URL` must use the `mysql+asyncmy` driver and point to a dedicated
@@ -99,3 +109,8 @@ Pop-Location
 
 Without `TEST_DATABASE_URL`, real-MySQL tests are explicitly skipped. They must
 be enabled before claiming database integration acceptance.
+
+The NetEase website adapter does not require environment credentials, a QR
+session, or a browser account. Its endpoint behavior is checked separately
+from fixture-driven provider contract tests; do not treat either as proof of a
+visitor's playback entitlement.

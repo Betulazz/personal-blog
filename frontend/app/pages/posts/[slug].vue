@@ -8,6 +8,7 @@ import {
   renderPostMarkdownDocument,
   type PostTocItem,
 } from '~/utils/post-markdown'
+import { derivePostDescription } from '~/utils/automatic-metadata'
 
 import 'katex/dist/katex.min.css'
 
@@ -34,19 +35,22 @@ const { data: renderedDocument } = await useAsyncData(
 )
 
 const title = computed(() => post.value?.title ?? '文章未找到')
-const description = computed(
-  () =>
-    post.value?.seoDescription ??
-    post.value?.summary ??
-    '这个文章链接暂时没有对应的公开内容。',
+const description = computed(() =>
+  derivePostDescription(
+    post.value?.summary ?? '',
+    post.value?.body ?? '',
+    post.value
+      ? identity.value.description
+      : '这个文章链接暂时没有对应的公开内容。',
+  ),
 )
-const seoTitle = computed(
-  () => post.value?.seoTitle ?? `${title.value} · ${identity.value.name}`,
-)
+const seoTitle = computed(() => `${title.value} · ${identity.value.name}`)
 const canonicalUrl = computed(
-  () => post.value?.canonicalUrl ?? `${siteUrl}/posts/${slug.value}`,
+  () => `${siteUrl}/posts/${encodeURIComponent(slug.value)}`,
 )
-const ogImageUrl = computed(() => post.value?.ogImageUrl)
+const ogImageUrl = computed(
+  () => post.value?.cover?.src ?? settings.value.avatarUrl,
+)
 const structuredData = computed(() => {
   if (!post.value) {
     return null
@@ -59,8 +63,8 @@ const structuredData = computed(() => {
     datePublished: post.value.publishedAt,
     description: description.value,
     headline: title.value,
-    image: ogImageUrl.value,
     mainEntityOfPage: canonicalUrl.value,
+    ...(ogImageUrl.value ? { image: ogImageUrl.value } : {}),
   }).replace(/</g, '\\u003c')
 })
 const bodyHtml = computed(() => renderedDocument.value?.html ?? '')
@@ -146,7 +150,7 @@ useSeoMeta({
   ogTitle: seoTitle,
   ogType: 'article',
   ogUrl: canonicalUrl,
-  twitterCard: computed(() => settings.value.seoDefaults.twitterCard),
+  twitterCard: 'summary_large_image',
   twitterDescription: description,
   twitterImage: ogImageUrl,
   twitterTitle: seoTitle,
@@ -229,7 +233,6 @@ useHead({
         <article class="post-detail-page__article">
           <header class="post-detail-page__header">
             <div class="post-detail-page__eyebrow">
-              <UiBadge tone="accent">{{ post.category.name }}</UiBadge>
               <span v-if="post.pinned">置顶文章</span>
             </div>
             <h1>{{ post.title }}</h1>
@@ -279,7 +282,7 @@ useHead({
                 v-for="tag in post.tags"
                 :key="tag.slug"
                 class="post-detail-page__tag"
-                :to="`/tags/${tag.slug}`"
+                :to="{ path: '/posts', query: { tag: tag.slug } }"
               >
                 #{{ tag.name }}
               </NuxtLink>

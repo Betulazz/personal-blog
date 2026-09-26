@@ -24,12 +24,32 @@ class ProjectStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class ProjectType(StrEnum):
+    PERSONAL = "personal"
+    GITHUB_OPEN_SOURCE = "github_open_source"
+
+
 class Project(Base):
     __tablename__ = "projects"
     __table_args__ = (
-        CheckConstraint("status IN ('developing', 'active', 'archived')", name="status_values"),
+        CheckConstraint(
+            "status IS NULL OR status IN ('developing', 'active', 'archived')",
+            name="status_values",
+        ),
+        CheckConstraint(
+            "project_type IN ('personal', 'github_open_source')", name="project_type_values"
+        ),
+        CheckConstraint(
+            "(project_type = 'personal' AND technology IS NOT NULL AND time_span IS NOT NULL "
+            "AND status IS NOT NULL AND repository_url IS NULL) OR "
+            "(project_type = 'github_open_source' AND technology IS NULL AND time_span IS NULL "
+            "AND status IS NULL AND source_url IS NULL AND demo_url IS NULL "
+            "AND repository_url IS NOT NULL)",
+            name="variant_fields",
+        ),
         CheckConstraint("display_order >= 0", name="display_order_non_negative"),
         Index("ix_projects_public_listing", "featured", "display_order", "id"),
+        Index("ix_projects_project_type", "project_type"),
         {
             "mysql_engine": "InnoDB",
             "mysql_charset": "utf8mb4",
@@ -42,16 +62,18 @@ class Project(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     logo_url: Mapped[str | None] = mapped_column(String(2048))
     logo_alt: Mapped[str | None] = mapped_column(String(200))
-    technology: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-    time_span: Mapped[str] = mapped_column(String(120), nullable=False)
+    project_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=ProjectType.PERSONAL,
+        server_default=ProjectType.PERSONAL,
+    )
+    technology: Mapped[list[str] | None] = mapped_column(JSON(none_as_null=True))
+    time_span: Mapped[str | None] = mapped_column(String(120))
     source_url: Mapped[str | None] = mapped_column(String(2048))
     demo_url: Mapped[str | None] = mapped_column(String(2048))
-    status: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        default=ProjectStatus.ACTIVE,
-        server_default=ProjectStatus.ACTIVE,
-    )
+    repository_url: Mapped[str | None] = mapped_column(String(2048))
+    status: Mapped[str | None] = mapped_column(String(20))
     featured: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
     )
@@ -125,10 +147,12 @@ class SiteSettings(Base):
     avatar_alt: Mapped[str | None] = mapped_column(String(200))
     favicon_url: Mapped[str | None] = mapped_column(String(2048))
     social_links: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
-    seo_defaults: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     footer: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     contact: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     homepage_visibility: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    background_gallery: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.current_timestamp()
     )

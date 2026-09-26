@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 1 baseline  
-Last updated: 2026-09-24
+Status: Current v2 architecture
+Last updated: 2026-09-26
 
 ## Goals
 
@@ -126,6 +126,26 @@ backend/app/
 - Validation errors remain machine-readable but never include internal paths, SQL, secrets, or tracebacks.
 - Readiness checks may contact dependencies; liveness checks must not.
 
+## Domain boundaries and public workflows
+
+- A Post is a long-form publication with a required title, summary, Markdown body, publication state, and optional article Tags. Posts have no Category.
+- Chatter is a lightweight note with a required body and optional title, mood, and ordered images. Chatter has no Tags.
+- Independently authored Moments are retired. Migration `0012_content_model_and_migration` moves their active content and images to Chatter and archives retired fields and relationships in `content_migration_archive`.
+- The public `/moments` route is the Activity Timeline: a database-paginated, chronological read model over published Posts and Chatter. It uses first-publication time and a deterministic tie-breaker; it is not a third authoring model.
+- Public search is page-local to `/posts`, `/chatter`, and `/moments`. The API filters before pagination; query and article Tag state remain in the URL. Retired Category, Tag-directory, and Search routes redirect to the applicable Post filters.
+- The public navigation includes Music and omits Category, Tag-directory, and Search links.
+- Manual Post SEO overrides and the editable site SEO-defaults group are retired. Nuxt SSR derives titles, descriptions, canonical URLs, social metadata, and structured data from content and Site Identity; the sitemap lists active public routes.
+- A Project is explicitly the Personal or GitHub display variant. Both are manually authored; the GitHub variant does not call the GitHub API or synchronize repository metadata.
+- The Background Gallery is an ordered Site Identity setting with at most 12 image entries. Entries use a credential-free HTTPS URL or an existing Media Asset path and include alt text. Rotation pauses for hidden pages; reduced motion disables its crossfade and rotation.
+- Post reading time is derived by the backend from canonical Markdown when saving; the client editor waits until its canonical initial value is ready before it submits.
+
+## Music boundary
+
+- Administrators add a Music Track by NetEase song ID. Stable provider identity and metadata are stored; playback URLs are resolved at runtime and are not part of the public playlist response.
+- The music page and mini-player control one browser audio element and one cross-route playback store.
+- The approved fallback calls fixed-origin NetEase website endpoints for metadata and lyrics and returns the site's outer-media URL pattern. These endpoints are private and undocumented, not partner OpenAPI. The adapter sends no account cookies and reads no NetEase application credentials; QR authorization and paid account entitlement are not part of this integration.
+- Provider fixtures verify request parsing and access boundaries only. The 2026-09-25 anonymous metadata/lyrics observations are recorded in [`deployment.md`](deployment.md#v2-integrated-acceptance-record-2026-09-25); neither fixtures nor those responses establish account authorization, playback entitlement, reliable media availability, or link duration.
+
 ## Database
 
 - MySQL 8.4 LTS image for containerized development/production baseline.
@@ -134,7 +154,8 @@ backend/app/
 - Alembic owns schema evolution; application startup does not silently create tables.
 - Constraint names follow a deterministic metadata convention.
 - Article and chatter Markdown bodies use `LONGTEXT`.
-- Tags are normalized entities with junction tables, never CSV strings.
+- Article Tags are normalized entities with a Post junction table, never CSV strings. Chatter has no Tag relationship, and Category is retired.
+- Migrations `0012`–`0014` preserve removed Moment, Category/Chatter-Tag, legacy music, and manual SEO values in the private migration archive before dropping active legacy fields. Migration `0015_discriminated_project_variants` migrates existing Projects to the Personal variant while preserving shared fields; `0016_background_gallery` adds the ordered gallery setting, empty for existing installations. The current schema head is `0016_background_gallery`.
 - JSON is limited to naturally configuration-shaped data and does not replace relational fields.
 - Foreign keys, unique indexes, and composite indexes are selected from actual query and integrity requirements during Phase 5.
 
@@ -151,8 +172,8 @@ backend/app/
 
 Business services depend on `StorageAdapter`, not a provider SDK.
 
-- Development: local filesystem adapter and `/uploads/` delivery.
-- Production: S3-compatible adapter is preferred.
+- Development and current deployment: local filesystem adapter and `/uploads/` delivery.
+- The S3-compatible adapter is not implemented; production uploads remain on the persistent local volume and must be backed up with MySQL.
 - Stored records retain a logical key, content type, size, and public URL strategy.
 - Uploads require explicit MIME/type verification, file-size limits, safe generated names, and image processing limits.
 - Deleting metadata and deleting bytes are coordinated so partial failures are observable and recoverable.
@@ -186,18 +207,25 @@ Business services depend on `StorageAdapter`, not a provider SDK.
 
 - Pytest and HTTPX ASGI transport for API tests.
 - Repository/service tests use an isolated database strategy; SQLite is not treated as proof of MySQL-specific behavior.
-- Required Phase 5 coverage includes authentication, Post CRUD, Category, Tag, and publish states.
+- Required API coverage includes authentication, Post CRUD and article Tags, Chatter CRUD and images, first-publication semantics, Timeline ordering/pagination/search, NetEase access boundaries, and MySQL migrations. Category and independent Moment authoring are retired.
 
 ## Deployment
 
-The baseline Compose topology contains `nginx`, `frontend`, `backend`, and `mysql`. Images use multi-stage builds and runtime users without root privileges where practical. MySQL and uploads use named volumes. Health checks gate service ordering, but migrations remain an explicit deployment step rather than a hidden web-process side effect.
+The baseline Compose topology contains `nginx`, `frontend`, `backend`, and `mysql`. Images use multi-stage builds and runtime users without root privileges where practical. MySQL and uploads use named volumes. Health checks gate service ordering, but migrations remain an explicit deployment step rather than a hidden web-process side effect. The current release schema is migration `0016_background_gallery`; existing v1 databases must be backed up before the archive-first `0012`–`0014` upgrade and reviewed `0015`–`0016` additions. Schema rollback uses restoration of that backup, not an unverified Alembic downgrade.
 
-Docker is not installed on the current development host, so Compose and Dockerfile execution cannot be validated locally. They are exercised on the Docker-capable cloud server; the runbook, limitations, and the Phase 11 verification record live in [`deployment.md`](deployment.md).
+Docker is not installed on the current development host. The Compose/Dockerfile rehearsal recorded in [`deployment.md`](deployment.md) covers the v1 image and schema; the v2 images and migration deployment were not revalidated on a Docker-capable host.
 
 ## Known environment constraints
 
-- The current host has Node 22.20.0; several current frontend development dependencies request Node 22.22.2 or later. The repository declares 22.22.2 as its minimum and will use build/test results to determine whether a local runtime upgrade is required.
+- The system Node installation is 22.20.0, below the frontend's declared Node 22.22.2 minimum. The 2026-09-25 v2 frontend checks used Node 22.22.2 through a temporary `npm exec` runtime; repository dependencies and lockfiles were not changed. Use Node 22.22.2 or newer for normal frontend work.
 - The current host has Python 3.14.6, which satisfies the 3.12+ product requirement and is supported by the selected current FastAPI, SQLAlchemy, Pydantic, Alembic, and asyncmy releases.
 - MySQL 8.0.44 is installed locally.
 - Docker is not installed locally.
 
+The native integrated acceptance records, including isolated MySQL migration,
+browser suites, screenshot evidence, and provider limits, are in
+[`deployment.md`](deployment.md#v2-integrated-acceptance-record-2026-09-25) and
+[`deployment.md`](deployment.md#v2-polish-integrated-acceptance-record-2026-09-26).
+The [v2 polish fidelity ledger](personal-blog-v2-polish-fidelity-ledger.md)
+links the inspected reference and production screenshot matrix. Verified
+administrator workflows are in the [administrator guide](administrator-guide.md).

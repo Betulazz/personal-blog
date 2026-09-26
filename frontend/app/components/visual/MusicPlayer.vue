@@ -3,6 +3,9 @@ import {
   Music2,
   Pause,
   Play,
+  Repeat,
+  Repeat1,
+  Shuffle,
   SkipBack,
   SkipForward,
   Volume2,
@@ -12,11 +15,17 @@ import { motion } from 'motion-v'
 
 import { motionTransitions } from '~/config/motion'
 import { useMotionPreference } from '~/composables/useMotionPreference'
+import {
+  musicPlaybackModeLabel,
+  useMusicPlayback,
+} from '~/composables/musicPlayback'
 import { useMusicTracks } from '~/composables/useMusicTracks'
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import { useMusicPlayerStore } from '~/stores/musicPlayer'
 
 const player = useMusicPlayerStore()
+const playback = useMusicPlayback()
+const route = useRoute()
 const {
   data: trackResponse,
   error: trackError,
@@ -25,6 +34,7 @@ const {
 } = await useMusicTracks()
 const { settings } = await usePublicSiteSettings()
 const musicVisible = computed(() => settings.value.homepageVisibility.music)
+const isDedicatedMusicPage = computed(() => route.path === '/music')
 const musicStateMessage = computed(() => {
   if (tracksPending.value) {
     return '正在加载音乐…'
@@ -36,12 +46,9 @@ const musicStateMessage = computed(() => {
 
   return '暂时没有可播放的音乐。'
 })
-const audioElement = ref<HTMLAudioElement | null>(null)
 const isReady = ref(false)
 const isHydrated = ref(false)
 const motionEnabled = useMotionPreference({ disableOnMobile: true })
-const previousVolume = ref(player.volume || 0.65)
-const playRequest = ref(0)
 
 watch(
   trackResponse,
@@ -61,7 +68,7 @@ const errorMessage = computed(() => {
   }
 
   if (player.error === 'playback-failed') {
-    return '播放没有成功，请稍后重试或切换音源。'
+    return '播放没有成功，请稍后重试或切换歌曲。'
   }
 
   return ''
@@ -85,164 +92,32 @@ function formatTime(value: number) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function syncAudioSource() {
-  const audio = audioElement.value
-  const track = player.currentTrack
-
-  if (!audio || !track) {
-    return
-  }
-
-  audio.pause()
-  audio.src = track.src
-  audio.currentTime = 0
-  audio.volume = player.volume
-}
-
-async function playCurrentTrack() {
-  const audio = audioElement.value
-
-  if (!audio || !player.currentTrack) {
-    return
-  }
-
-  const request = ++playRequest.value
-  player.clearError()
-  player.setLoading()
-
-  try {
-    await audio.play()
-    if (request === playRequest.value) {
-      player.setPlaying(true)
-    }
-  } catch (error: unknown) {
-    if (request !== playRequest.value) {
-      return
-    }
-
-    player.setError(
-      error instanceof DOMException && error.name === 'NotAllowedError'
-        ? 'autoplay-blocked'
-        : 'playback-failed',
-    )
-  }
-}
-
-function pauseCurrentTrack() {
-  playRequest.value += 1
-  audioElement.value?.pause()
-  player.setPlaying(false)
-}
-
-async function togglePlayback() {
-  if (player.isPlaying) {
-    pauseCurrentTrack()
-    return
-  }
-
-  await playCurrentTrack()
-}
-
-async function skipNext() {
-  if (!player.nextTrack()) {
-    return
-  }
-
-  syncAudioSource()
-  await playCurrentTrack()
-}
-
-async function skipPrevious() {
-  if (!player.previousTrack()) {
-    return
-  }
-
-  syncAudioSource()
-  await playCurrentTrack()
-}
-
-function seek(event: Event) {
-  const value = Number((event.target as HTMLInputElement).value)
-  player.setCurrentTime(value)
-  if (audioElement.value) {
-    audioElement.value.currentTime = value
-  }
-}
-
-function setVolume(value: number) {
-  player.setVolume(value)
-  if (player.volume > 0) {
-    previousVolume.value = player.volume
-  }
-  if (audioElement.value) {
-    audioElement.value.volume = player.volume
-  }
-}
-
 function changeVolume(event: Event) {
-  setVolume(Number((event.target as HTMLInputElement).value))
+  const value = Number((event.target as HTMLInputElement).value)
+  playback.setVolume(value)
 }
 
-function toggleMute() {
-  if (player.volume > 0) {
-    setVolume(0)
-    return
-  }
-
-  setVolume(previousVolume.value || 0.65)
+function changeProgress(event: Event) {
+  playback.seek(Number((event.target as HTMLInputElement).value))
 }
 
-function handleLoadedMetadata() {
-  if (audioElement.value) {
-    player.setDuration(audioElement.value.duration)
-  }
-}
-
-function handleTimeUpdate() {
-  if (audioElement.value) {
-    player.setCurrentTime(audioElement.value.currentTime)
-  }
-}
-
-function handleAudioError() {
-  audioElement.value?.pause()
-  player.setError('source-unavailable')
-}
-
-function handleEnded() {
-  void skipNext()
-}
-
-watch(
-  () => player.volume,
-  (value) => {
-    if (audioElement.value) {
-      audioElement.value.volume = value
-    }
-  },
+const playbackModeLabel = computed(() =>
+  musicPlaybackModeLabel(player.playbackMode),
 )
-
-watch(audioElement, (audio) => {
-  if (audio) {
-    syncAudioSource()
-  }
-})
 
 onMounted(() => {
   isReady.value = true
   isHydrated.value = true
-  syncAudioSource()
-})
-
-onBeforeUnmount(() => {
-  playRequest.value += 1
-  audioElement.value?.pause()
 })
 </script>
 
 <template>
   <section
-    v-if="musicVisible && (player.currentTrack || isHydrated)"
+    v-if="
+      !isDedicatedMusicPage &&
+      musicVisible &&
+      (player.currentTrack || isHydrated)
+    "
     class="music-player"
     data-testid="music-player"
     aria-label="音乐播放器"
@@ -257,19 +132,6 @@ onBeforeUnmount(() => {
       :animate="motionEnabled ? { y: 0 } : undefined"
       :transition="motionEnabled ? motionTransitions.entry : undefined"
     >
-      <audio
-        ref="audioElement"
-        class="music-player__audio"
-        :src="player.currentTrack.src"
-        preload="none"
-        aria-hidden="true"
-        tabindex="-1"
-        @ended="handleEnded"
-        @error.stop="handleAudioError"
-        @loadedmetadata="handleLoadedMetadata"
-        @timeupdate="handleTimeUpdate"
-      />
-
       <div class="music-player__identity">
         <span class="music-player__icon" aria-hidden="true">
           <Music2 :size="18" />
@@ -286,7 +148,7 @@ onBeforeUnmount(() => {
           type="button"
           aria-label="上一首"
           class="music-player__control"
-          @click="skipPrevious"
+          @click="playback.previousTrack"
         >
           <SkipBack :size="18" aria-hidden="true" />
         </button>
@@ -295,7 +157,7 @@ onBeforeUnmount(() => {
           class="music-player__control music-player__control--primary"
           :aria-label="player.isPlaying ? '暂停' : '播放'"
           :aria-busy="player.status === 'loading' || undefined"
-          @click="togglePlayback"
+          @click="playback.togglePlayback"
         >
           <Pause v-if="player.isPlaying" :size="19" aria-hidden="true" />
           <Play v-else :size="19" aria-hidden="true" />
@@ -304,9 +166,28 @@ onBeforeUnmount(() => {
           type="button"
           aria-label="下一首"
           class="music-player__control"
-          @click="skipNext"
+          @click="playback.skipNext"
         >
           <SkipForward :size="18" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="music-player__control"
+          :aria-label="`播放模式：${playbackModeLabel}`"
+          :title="`播放模式：${playbackModeLabel}`"
+          @click="player.cyclePlaybackMode"
+        >
+          <Repeat1
+            v-if="player.playbackMode === 'single-loop'"
+            :size="17"
+            aria-hidden="true"
+          />
+          <Shuffle
+            v-else-if="player.playbackMode === 'shuffle'"
+            :size="17"
+            aria-hidden="true"
+          />
+          <Repeat v-else :size="17" aria-hidden="true" />
         </button>
       </div>
 
@@ -323,7 +204,7 @@ onBeforeUnmount(() => {
           :disabled="!player.duration || isUnavailable"
           aria-label="播放进度"
           :aria-valuetext="`${formattedCurrentTime} / ${formattedDuration}`"
-          @input="seek"
+          @input="changeProgress"
         />
         <span class="music-player__time" aria-live="off">
           {{ formattedCurrentTime }} / {{ formattedDuration }}
@@ -335,7 +216,7 @@ onBeforeUnmount(() => {
           type="button"
           class="music-player__control"
           :aria-label="player.volume > 0 ? '静音' : '取消静音'"
-          @click="toggleMute"
+          @click="playback.toggleMute"
         >
           <Volume2 v-if="player.volume > 0" :size="17" aria-hidden="true" />
           <VolumeX v-else :size="17" aria-hidden="true" />
@@ -410,15 +291,6 @@ onBeforeUnmount(() => {
   grid-template-columns: inherit;
   align-items: inherit;
   gap: inherit;
-}
-
-.music-player__audio {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
 }
 
 .music-player__identity,

@@ -30,20 +30,21 @@ test.describe('Post reading experience', () => {
     test.skip(testInfo.project.name !== 'chromium', 'Desktop-only visual flow')
     const problems = collectBrowserProblems(page)
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/posts/markdown-first')
+    const response = await page.goto('/posts/markdown-first')
+    const ssrHtml = (await response?.text()) ?? ''
 
-    await expect(page).toHaveTitle('Markdown 首先是一条可迁移的路')
+    await expect(page).toHaveTitle('Markdown 是一条可迁移的路 · 夜航手记')
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
-      'https://example.com/notes/markdown-first',
+      'http://127.0.0.1:3000/posts/markdown-first',
     )
     await expect(page.locator('meta[name="description"]')).toHaveAttribute(
       'content',
-      '为长期写作保留可迁移、可审阅的 Markdown 内容。',
+      '可迁移的内容格式，给长期写作留出比编辑器更长的寿命。',
     )
     await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
       'content',
-      'Markdown 首先是一条可迁移的路',
+      'Markdown 是一条可迁移的路 · 夜航手记',
     )
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
       'content',
@@ -51,8 +52,20 @@ test.describe('Post reading experience', () => {
     )
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
       'content',
-      'summary',
+      'summary_large_image',
     )
+    expect(ssrHtml).toContain(
+      '<title>Markdown 是一条可迁移的路 · 夜航手记</title>',
+    )
+    expect(ssrHtml).toContain('rel="canonical"')
+    expect(ssrHtml).toContain('http://127.0.0.1:3000/posts/markdown-first')
+    expect(ssrHtml).toContain(
+      'property="og:image" content="https://example.com/media/markdown-first.webp"',
+    )
+    expect(ssrHtml).toContain(
+      'name="description" content="可迁移的内容格式，给长期写作留出比编辑器更长的寿命。"',
+    )
+    expect(ssrHtml).toContain('application/ld+json')
     const structuredData = JSON.parse(
       (await page
         .locator('script[type="application/ld+json"]')
@@ -63,7 +76,8 @@ test.describe('Post reading experience', () => {
       '@context': 'https://schema.org',
       '@type': 'BlogPosting',
       headline: 'Markdown 是一条可迁移的路',
-      mainEntityOfPage: 'https://example.com/notes/markdown-first',
+      description: '可迁移的内容格式，给长期写作留出比编辑器更长的寿命。',
+      mainEntityOfPage: 'http://127.0.0.1:3000/posts/markdown-first',
     })
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'Markdown 是一条可迁移的路',
@@ -117,6 +131,24 @@ test.describe('Post reading experience', () => {
     expect(unexpectedBrowserProblems(problems)).toEqual([])
   })
 
+  test('falls back from a missing article cover to the Site Identity avatar', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'chromium',
+      'Desktop-only metadata check',
+    )
+    await page.goto('/posts/slow-growth')
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      'content',
+      'https://example.com/media/site-avatar.webp',
+    )
+    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
+      'content',
+      'https://example.com/media/site-avatar.webp',
+    )
+  })
+
   test('keeps the TOC accessible in a mobile sheet and recovers missing media', async ({
     page,
   }, testInfo) => {
@@ -135,7 +167,9 @@ test.describe('Post reading experience', () => {
       page.getByRole('complementary', { name: '文章目录' }),
     ).toBeHidden()
     const missingImage = page.locator('img[data-post-media]').last()
-    await missingImage.scrollIntoViewIfNeeded()
+    if (await missingImage.isVisible()) {
+      await missingImage.scrollIntoViewIfNeeded()
+    }
     await expect(
       page.locator('[data-media-fallback]:not([hidden])'),
     ).toBeVisible()

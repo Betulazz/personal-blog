@@ -109,7 +109,7 @@ const status = computed(() => {
 }
 
 .friends-page__intro {
-  padding-top: clamp(10rem, 17vw, 14rem);
+  padding-top: var(--public-heading-offset);
   padding-bottom: var(--space-12);
 }
 
@@ -193,7 +193,6 @@ const status = computed(() => {
 
 @media (width <= 48rem) {
   .friends-page__intro {
-    padding-top: 9rem;
     padding-bottom: var(--space-10);
   }
 

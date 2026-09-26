@@ -24,7 +24,6 @@ const props = defineProps<{ postId?: string }>()
 const api = useApiClient()
 const session = useAdminSession()
 const post = ref<AdminPost | null>(null)
-const categories = ref<AdminTaxonomy[]>([])
 const tags = ref<AdminTaxonomy[]>([])
 const isLoading = ref(Boolean(props.postId))
 const isSubmitting = ref(false)
@@ -56,7 +55,7 @@ const actionCopy = computed(() => {
   if (pendingAction.value === 'delete') {
     return {
       confirm: '删除文章',
-      description: '这会永久删除文章及其分类、标签关联，删除后无法从后台恢复。',
+      description: '这会永久删除文章及其标签关联，删除后无法从后台恢复。',
       title: '确认删除这篇文章？',
     }
   }
@@ -84,11 +83,9 @@ const friendlyError = (error: unknown, fallback: string) => {
     return '会话已过期，请重新登录；未保存的正文已备份，重新打开这篇文章可以恢复。'
   }
   const messages: Record<string, string> = {
-    category_not_found: '所选分类已经不存在，请重新选择后保存。',
     csrf_invalid: '安全校验失败，请刷新页面后重试；当前内容仍保留在编辑器中。',
     post_already_published: '这篇文章已经发布，无需重复发布。',
     post_body_required: '发布前请先写入 Markdown 正文。',
-    post_category_required: '发布前请先选择一个分类。',
     post_not_found: '这篇文章已经不存在，可能已被删除。',
     post_not_published: '这篇文章当前不是已发布状态。',
     post_slug_conflict: '这个 slug 已经被其他文章使用，请换一个。',
@@ -192,16 +189,13 @@ const load = async () => {
   isLoadError.value = false
   isNotFound.value = false
   try {
-    const [loadedCategories, loadedTags, loadedPost] =
-      await session.withSession(() =>
-        Promise.all([
-          api.listAdminCategories(),
-          api.listAdminTags(),
-          props.postId ? api.getAdminPost(props.postId) : Promise.resolve(null),
-        ]),
-      )
+    const [loadedTags, loadedPost] = await session.withSession(() =>
+      Promise.all([
+        api.listAdminTags(),
+        props.postId ? api.getAdminPost(props.postId) : Promise.resolve(null),
+      ]),
+    )
     if (currentRequest !== requestNumber) return
-    categories.value = loadedCategories
     tags.value = loadedTags
     post.value = loadedPost
     isLoading.value = false
@@ -431,7 +425,6 @@ useHead(() => ({ title: pageTitle.value }))
     <AdminPostForm
       v-else
       ref="formRef"
-      :categories="categories"
       :dirty="isDirty"
       :error-message="errorMessage"
       :is-loading="isLoading"

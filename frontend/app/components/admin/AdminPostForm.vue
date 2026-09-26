@@ -3,7 +3,6 @@ import type { AdminPost, AdminPostInput, AdminTaxonomy } from '~/types/admin'
 
 const props = withDefaults(
   defineProps<{
-    categories?: AdminTaxonomy[]
     dirty?: boolean
     errorMessage?: string | null
     isLoading?: boolean
@@ -12,7 +11,6 @@ const props = withDefaults(
     tags?: AdminTaxonomy[]
   }>(),
   {
-    categories: () => [],
     dirty: false,
     errorMessage: null,
     isLoading: false,
@@ -32,43 +30,28 @@ const emit = defineEmits<{
 
 const form = reactive({
   body: '',
-  canonicalUrl: '',
-  categoryId: '',
   coverAlt: '',
   coverUrl: '',
   isPinned: false,
-  ogImageUrl: '',
-  readingTime: '0',
-  seoDescription: '',
-  seoTitle: '',
   slug: '',
   summary: '',
   tagIds: [] as string[],
   title: '',
 })
 const validation = reactive<Record<string, string>>({})
-
-const categoryOptions = computed(() => [
-  { label: '暂不设置分类', value: 'none' },
-  ...props.categories.map((category) => ({
-    label: `${category.name}（${category.postCount} 篇）`,
-    value: String(category.id),
-  })),
-])
+const markdownEditorReady = ref(false)
+let resolveMarkdownEditorReady: (() => void) | null = null
+const markdownEditorReadyPromise = new Promise<void>((resolve) => {
+  resolveMarkdownEditorReady = resolve
+})
 
 let syncing = false
 
 interface PostFormValues {
   body: string
-  canonicalUrl: string
-  categoryId: string
   coverAlt: string
   coverUrl: string
   isPinned: boolean
-  ogImageUrl: string
-  readingTime: string
-  seoDescription: string
-  seoTitle: string
   slug: string
   summary: string
   tagIds: string[]
@@ -77,15 +60,9 @@ interface PostFormValues {
 
 const applyValues = (values: PostFormValues) => {
   form.body = values.body
-  form.canonicalUrl = values.canonicalUrl
-  form.categoryId = values.categoryId
   form.coverAlt = values.coverAlt
   form.coverUrl = values.coverUrl
   form.isPinned = values.isPinned
-  form.ogImageUrl = values.ogImageUrl
-  form.readingTime = values.readingTime
-  form.seoDescription = values.seoDescription
-  form.seoTitle = values.seoTitle
   form.slug = values.slug
   form.summary = values.summary
   form.tagIds = values.tagIds
@@ -97,15 +74,9 @@ const syncPost = (post: AdminPost | null) => {
   syncing = true
   applyValues({
     body: post.body,
-    canonicalUrl: post.canonicalUrl ?? '',
-    categoryId: post.categoryId ?? 'none',
     coverAlt: post.coverAlt ?? '',
     coverUrl: post.coverUrl ?? '',
     isPinned: post.isPinned,
-    ogImageUrl: post.ogImageUrl ?? '',
-    readingTime: String(post.readingTimeMinutes),
-    seoDescription: post.seoDescription ?? '',
-    seoTitle: post.seoTitle ?? '',
     slug: post.slug,
     summary: post.summary,
     tagIds: [...post.tagIds],
@@ -116,18 +87,9 @@ const syncPost = (post: AdminPost | null) => {
 const applyInput = (input: AdminPostInput) => {
   applyValues({
     body: input.body,
-    canonicalUrl: input.canonical_url ?? '',
-    categoryId:
-      input.category_id === undefined || input.category_id === null
-        ? 'none'
-        : String(input.category_id),
     coverAlt: input.cover_alt ?? '',
     coverUrl: input.cover_url ?? '',
     isPinned: input.is_pinned ?? false,
-    ogImageUrl: input.og_image_url ?? '',
-    readingTime: String(input.reading_time_minutes ?? 0),
-    seoDescription: input.seo_description ?? '',
-    seoTitle: input.seo_title ?? '',
     slug: input.slug,
     summary: input.summary,
     tagIds: (input.tag_ids ?? []).map(String),
@@ -156,12 +118,16 @@ watch(
 )
 
 const handleEditorReady = async (markdown: string) => {
-  if (markdown === form.body) return
-  syncing = true
-  form.body = markdown
-  await nextTick()
-  syncing = false
-  emit('canonical')
+  if (markdown !== form.body) {
+    syncing = true
+    form.body = markdown
+    await nextTick()
+    syncing = false
+    emit('canonical')
+  }
+  markdownEditorReady.value = true
+  resolveMarkdownEditorReady?.()
+  resolveMarkdownEditorReady = null
 }
 
 const toggleTag = (id: string) => {
@@ -172,18 +138,9 @@ const toggleTag = (id: string) => {
 
 const toInput = (): AdminPostInput => ({
   body: form.body,
-  canonical_url: form.canonicalUrl.trim() || null,
-  category_id:
-    form.categoryId && form.categoryId !== 'none'
-      ? Number(form.categoryId)
-      : null,
   cover_alt: form.coverAlt.trim() || null,
   cover_url: form.coverUrl.trim() || null,
   is_pinned: form.isPinned,
-  og_image_url: form.ogImageUrl.trim() || null,
-  reading_time_minutes: Math.max(0, Number(form.readingTime) || 0),
-  seo_description: form.seoDescription.trim() || null,
-  seo_title: form.seoTitle.trim() || null,
   slug: form.slug.trim(),
   summary: form.summary.trim(),
   tag_ids: form.tagIds.map(Number),
@@ -202,7 +159,8 @@ const validate = () => {
   return Object.keys(validation).length === 0
 }
 
-const submit = () => {
+const submit = async () => {
+  if (!markdownEditorReady.value) await markdownEditorReadyPromise
   if (validate()) emit('save', toInput())
 }
 
@@ -217,7 +175,12 @@ defineExpose({
 </script>
 
 <template>
-  <form class="admin-post-form" novalidate @submit.prevent="submit">
+  <form
+    class="admin-post-form"
+    :data-markdown-editor-ready="markdownEditorReady ? 'true' : 'false'"
+    novalidate
+    @submit.prevent="submit"
+  >
     <section
       v-if="isLoading"
       class="admin-post-form__loading"
@@ -304,15 +267,9 @@ defineExpose({
         <div class="admin-form-section-heading">
           <div>
             <p class="admin-form-eyebrow">Normalized metadata</p>
-            <h2 id="taxonomy-title">分类与标签</h2>
+            <h2 id="taxonomy-title">文章标签</h2>
           </div>
         </div>
-        <UiSelect
-          v-model="form.categoryId"
-          label="分类"
-          name="category"
-          :options="categoryOptions"
-        />
         <fieldset class="admin-tag-fieldset">
           <legend>标签</legend>
           <p class="field__description">可选择多个可复用的 Tag。</p>
@@ -352,34 +309,6 @@ defineExpose({
         />
       </section>
 
-      <section class="admin-post-form__section" aria-labelledby="seo-title">
-        <div class="admin-form-section-heading">
-          <div>
-            <p class="admin-form-eyebrow">Search presentation</p>
-            <h2 id="seo-title">SEO 字段</h2>
-          </div>
-        </div>
-        <UiInput v-model="form.seoTitle" label="SEO 标题" name="seo_title" />
-        <UiTextarea
-          v-model="form.seoDescription"
-          label="SEO 描述"
-          name="seo_description"
-          :rows="3"
-        />
-        <UiInput
-          v-model="form.canonicalUrl"
-          label="Canonical URL"
-          name="canonical_url"
-          type="url"
-        />
-        <UiInput
-          v-model="form.ogImageUrl"
-          label="Open Graph 图片 URL"
-          name="og_image_url"
-          type="url"
-        />
-      </section>
-
       <section
         class="admin-post-form__section"
         aria-labelledby="publishing-title"
@@ -390,44 +319,39 @@ defineExpose({
             <h2 id="publishing-title">发布设置</h2>
           </div>
         </div>
-        <UiInput
-          v-model="form.readingTime"
-          label="阅读时长（分钟）"
-          name="reading_time"
-          type="text"
-          inputmode="numeric"
-        />
         <label class="admin-switch">
           <input v-model="form.isPinned" type="checkbox" />
           <span>置顶这篇文章</span>
         </label>
       </section>
+
+      <footer v-if="!isLoading" class="admin-post-form__actions">
+        <p v-if="dirty" class="admin-post-form__dirty" role="status">
+          有未保存的更改
+        </p>
+        <UiButton
+          type="button"
+          variant="secondary"
+          :disabled="isSubmitting"
+          @click="preview"
+        >
+          预览
+        </UiButton>
+        <UiButton type="submit" :loading="isSubmitting"> 保存草稿 </UiButton>
+      </footer>
     </aside>
 
     <div v-if="errorMessage" class="admin-post-form__error" role="alert">
       {{ errorMessage }}
     </div>
-    <footer v-if="!isLoading" class="admin-post-form__actions">
-      <p v-if="dirty" class="admin-post-form__dirty" role="status">
-        有未保存的更改
-      </p>
-      <UiButton
-        type="button"
-        variant="secondary"
-        :disabled="isSubmitting"
-        @click="preview"
-      >
-        预览
-      </UiButton>
-      <UiButton type="submit" :loading="isSubmitting"> 保存草稿 </UiButton>
-    </footer>
   </form>
 </template>
 
 <style scoped>
 .admin-post-form {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+  grid-template-columns: minmax(0, 1fr) 22.5rem;
+  align-items: start;
   gap: var(--space-6);
   padding-block: var(--space-6) var(--space-16);
 }
@@ -454,7 +378,11 @@ defineExpose({
 }
 
 .admin-post-form__side {
+  position: sticky;
+  top: calc(4.5rem + var(--space-4));
   align-content: start;
+  max-height: calc(100svh - 6.5rem);
+  overflow-y: auto;
 }
 
 .admin-form-section-heading {
@@ -589,7 +517,7 @@ defineExpose({
 
 .admin-post-form__actions {
   display: flex;
-  grid-column: 1 / -1;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
@@ -605,6 +533,12 @@ defineExpose({
 @media (width <= 52rem) {
   .admin-post-form {
     grid-template-columns: 1fr;
+  }
+
+  .admin-post-form__side {
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -627,7 +561,7 @@ defineExpose({
   }
 
   .admin-post-form__actions .button {
-    flex: 1;
+    flex: 1 1 8rem;
   }
 }
 </style>

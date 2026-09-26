@@ -2,17 +2,15 @@ import type {
   PublicCollectionPagination,
   PublicFeedFilters,
   PublicFeedQuery,
-  PublicTag,
 } from './public-content'
 
 export interface Chatter {
   body: string
   id: string
-  lead?: string
   mood?: string
   publishedAt: string
-  tags: PublicTag[]
-  title: string
+  images: Array<{ src: string; alt: string; width: number; height: number }>
+  title?: string
 }
 
 export interface ChatterCollectionResponse {
@@ -26,5 +24,4 @@ export interface ChatterProvider {
     query: PublicFeedQuery,
     signal?: AbortSignal,
   ) => Promise<ChatterCollectionResponse>
-  listTags: (signal?: AbortSignal) => Promise<PublicTag[]>
 }

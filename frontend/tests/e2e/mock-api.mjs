@@ -88,10 +88,6 @@ const basePost = (
   published_at: `${date}T08:00:00.000Z`,
   created_at: `${date}T08:00:00.000Z`,
   updated_at: `${date}T08:00:00.000Z`,
-  canonical_url: null,
-  og_image_url: null,
-  seo_description: null,
-  seo_title: null,
   category: taxonomy[category],
   tags: postTags.map((tag) => tags[tag]),
   body,
@@ -185,14 +181,10 @@ const posts = [
     right.published_at.localeCompare(left.published_at),
 )
 
-posts.find((post) => post.slug === 'markdown-first').canonical_url =
-  'https://example.com/notes/markdown-first'
-posts.find((post) => post.slug === 'markdown-first').og_image_url =
+posts.find((post) => post.slug === 'markdown-first').cover_url =
   'https://example.com/media/markdown-first.webp'
-posts.find((post) => post.slug === 'markdown-first').seo_description =
-  '为长期写作保留可迁移、可审阅的 Markdown 内容。'
-posts.find((post) => post.slug === 'markdown-first').seo_title =
-  'Markdown 首先是一条可迁移的路'
+posts.find((post) => post.slug === 'markdown-first').cover_alt =
+  'Markdown 文章封面'
 
 const moments = [
   {
@@ -339,9 +331,38 @@ const chatter = [
   })),
 ]
 
+// v2 public fixtures: legacy personal updates are Chatter, with no tags or lead.
+for (const item of chatter) {
+  delete item.tags
+  delete item.lead
+  item.images = []
+}
+chatter[0].body += '这是一条可以展开的长记录。'.repeat(32)
+chatter.push(
+  ...moments.map((item) => ({
+    id: item.id + 100,
+    body: item.body,
+    mood: item.mood,
+    title: null,
+    images: item.images ?? [],
+    published_at: item.published_at,
+  })),
+)
+const publicChatter = (query) =>
+  chatter.filter(
+    (item) =>
+      (!query.entry || item.id === Number(query.entry)) &&
+      (!query.q ||
+        [item.title, item.body]
+          .join(' ')
+          .toLowerCase()
+          .includes(query.q.toLowerCase())),
+  )
+
 const projects = [
   {
     id: 1,
+    project_type: 'personal',
     name: 'Lumen Notes',
     description: '来自公开 API 的项目描述。',
     logo_url: null,
@@ -356,6 +377,7 @@ const projects = [
   },
   {
     id: 2,
+    project_type: 'personal',
     name: 'Quiet API',
     description: '面向个人项目的清晰 API 约定与错误边界实验。',
     logo_url: null,
@@ -370,6 +392,7 @@ const projects = [
   },
   {
     id: 3,
+    project_type: 'personal',
     name: 'Archive Garden',
     description: '一份关于阅读、写作和长期维护的静态资料集。',
     logo_url: null,
@@ -422,21 +445,14 @@ const settings = {
   tagline: '在夜色里，写下仍然发光的事',
   description: '关于技术、生活与缓慢生长的个人记录。',
   profile: '一个喜欢把复杂问题拆小、把长期工作做得可持续的人。',
-  avatar_url: null,
+  avatar_url: 'https://example.com/media/site-avatar.webp',
+  background_gallery: [],
   avatar_alt: null,
   favicon_url: null,
   social_links: [
     { href: 'https://github.com/', kind: 'code', label: 'GitHub' },
     { href: 'https://mastodon.social/', kind: 'social', label: 'Mastodon' },
   ],
-  seo_defaults: {
-    title: '夜航手记',
-    description: '关于技术、生活与缓慢生长的个人记录。',
-    keywords: [],
-    canonical_url: null,
-    og_image_url: null,
-    twitter_card: 'summary',
-  },
   footer: { note: '一个安静的个人出版空间。', copyright: '', icp: '' },
   contact: { email: 'live@example.com', note: '欢迎从公开配置发来一封信。' },
   about: {
@@ -470,12 +486,12 @@ const settings = {
 const tracks = [
   {
     id: 1,
+    netease_song_id: '32001',
+    provider_url: 'https://music.163.com/song?id=32001',
     title: '月光落在窗边',
     artist: '本地示例音源',
     album: '夜航',
-    source_strategy: 'remote_url',
-    source_url: 'https://example.com/audio/ambient-example.mp3',
-    artwork_url: '/uploads/images/track-moon.webp',
+    artwork_url: null,
     artwork_alt: '月光落在窗边的示例封面',
     duration_seconds: 214,
     display_order: 0,
@@ -483,11 +499,11 @@ const tracks = [
   },
   {
     id: 2,
+    netease_song_id: '32002',
+    provider_url: 'https://music.163.com/song?id=32002',
     title: '雨落在玻璃上',
     artist: '本地示例音源',
     album: null,
-    source_strategy: 'remote_url',
-    source_url: 'https://example.com/audio/quiet-example.mp3',
     artwork_url: null,
     artwork_alt: null,
     duration_seconds: null,
@@ -496,11 +512,11 @@ const tracks = [
   },
   {
     id: 3,
-    title: '旧磁带',
-    artist: '归档音源',
+    netease_song_id: '32003',
+    provider_url: 'https://music.163.com/song?id=32003',
+    title: '远岸星云',
+    artist: '示例歌手',
     album: null,
-    source_strategy: 'local_media',
-    source_url: '/legacy/archive-tape.mp3',
     artwork_url: null,
     artwork_alt: null,
     duration_seconds: null,
@@ -752,41 +768,16 @@ const orderedMusicTracks = () =>
 
 const publicMusicTrack = (track) => ({
   id: track.id,
+  netease_song_id: track.netease_song_id,
+  provider_url: track.provider_url,
   title: track.title,
   artist: track.artist,
   album: track.album ?? null,
-  source_url: track.source_url,
   artwork_url: track.artwork_url ?? null,
   artwork_alt: track.artwork_alt ?? null,
   duration_seconds: track.duration_seconds ?? null,
   display_order: track.display_order,
 })
-
-const isSafeMusicSource = (strategy, value) => {
-  if (typeof value !== 'string' || !value.trim()) return false
-  if (strategy === 'local_media') {
-    if (!value.startsWith('/uploads/')) return false
-    try {
-      const decoded = decodeURIComponent(value)
-      return !decoded.split('/').some((part) => part === '.' || part === '..')
-    } catch {
-      return false
-    }
-  }
-  try {
-    const url = new URL(value)
-    return (
-      (url.protocol === 'http:' || url.protocol === 'https:') &&
-      Boolean(url.hostname) &&
-      !url.username &&
-      !url.password &&
-      !url.search &&
-      !url.hash
-    )
-  } catch {
-    return false
-  }
-}
 
 const adminSettings = () => ({
   ...settings,
@@ -811,15 +802,34 @@ const publicPost = (post) =>
 
 const adminPost = (post) => ({
   ...post,
-  canonical_url: post.canonical_url ?? null,
   category_id: post.category?.id ?? null,
   cover_alt: post.cover_alt ?? null,
   cover_url: post.cover_url ?? null,
-  og_image_url: post.og_image_url ?? null,
-  seo_description: post.seo_description ?? null,
-  seo_title: post.seo_title ?? null,
   tag_ids: post.tags.map((tag) => tag.id),
 })
+
+const estimateReadingTimeMinutes = (markdown) => {
+  const readableText = markdown
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(
+      /^\s{0,3}(?:#{1,6}[ \t]+|>[ \t]?|[-+*][ \t]+(?:\[[ xX]\][ \t]+)?|\d+[.)][ \t]+)/gm,
+      '',
+    )
+    .replace(/<\/?[A-Za-z][^>]*>/g, ' ')
+  const cjk =
+    readableText.match(
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu,
+    ) ?? []
+  const latinWords =
+    readableText
+      .replace(
+        /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu,
+        ' ',
+      )
+      .match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu) ?? []
+  const minutes = Math.ceil(latinWords.length / 200 + cjk.length / 400)
+  return readableText.trim() ? Math.max(1, minutes) : 0
+}
 
 const taxonomyItems = (kind) => (kind === 'category' ? taxonomy : tags)
 const findTaxonomy = (kind, id) =>
@@ -846,15 +856,13 @@ const withPostPayload = (post, payload) => {
     'summary',
     'body',
     'is_pinned',
-    'reading_time_minutes',
     'cover_url',
     'cover_alt',
-    'seo_title',
-    'seo_description',
-    'canonical_url',
-    'og_image_url',
   ]) {
     if (Object.hasOwn(payload, key)) next[key] = payload[key]
+  }
+  if (Object.hasOwn(payload, 'body')) {
+    next.reading_time_minutes = estimateReadingTimeMinutes(payload.body ?? '')
   }
   if (Object.hasOwn(payload, 'category_id')) {
     next.category = payload.category_id
@@ -877,33 +885,12 @@ const filteredPosts = (query) =>
       post.title,
       post.summary,
       post.body,
-      post.category?.name,
       ...post.tags.map((tag) => tag.name),
     ]
       .join(' ')
       .toLocaleLowerCase()
     return (
-      (!query.category || post.category?.slug === query.category) &&
       (!query.tag || post.tags.some((tag) => tag.slug === query.tag)) &&
-      (!query.q || searchable.includes(query.q.toLocaleLowerCase()))
-    )
-  })
-
-const filteredFeed = (items, query) =>
-  items.filter((item) => {
-    const searchable = [
-      item.title,
-      item.lead,
-      item.body,
-      item.location,
-      item.mood,
-      ...item.tags.flatMap((tag) => [tag.name, tag.slug]),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLocaleLowerCase()
-    return (
-      (!query.tag || item.tags.some((tag) => tag.slug === query.tag)) &&
       (!query.q || searchable.includes(query.q.toLocaleLowerCase()))
     )
   })
@@ -919,7 +906,8 @@ const json = (response, payload, status = 200, extraHeaders = {}) => {
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Headers': 'Accept, Content-Type, X-CSRF-Token',
     'Access-Control-Allow-Methods': 'DELETE, GET, PATCH, POST, OPTIONS',
-    'Access-Control-Allow-Origin': 'http://127.0.0.1:3000',
+    'Access-Control-Allow-Origin':
+      process.env.MOCK_API_ORIGIN || 'http://127.0.0.1:3000',
     'Content-Type': 'application/json',
     ...extraHeaders,
   })
@@ -958,7 +946,6 @@ const dashboard = {
     chatter: 13,
     draft_posts: 2,
     friends: 3,
-    moments: 14,
     posts: 10,
     projects: 3,
     published_posts: 8,
@@ -983,7 +970,7 @@ const dashboard = {
       id: 1,
       status: 'published',
       title: '今天把首页的第一道光调得更柔和了。',
-      type: 'moment',
+      type: 'chatter',
       updated_at: '2026-09-17T13:30:00.000Z',
     },
   ],
@@ -1051,6 +1038,14 @@ const server = createServer(async (request, response) => {
   if (path === '/__control/clear-media') {
     mediaAssets.length = 0
     json(response, { cleared: true })
+    return
+  }
+  if (path === '/__control/site-settings' && request.method === 'POST') {
+    const payload = await readJson(request)
+    settings.background_gallery = structuredClone(
+      payload.background_gallery ?? [],
+    )
+    json(response, { data: settings.background_gallery })
     return
   }
   if (path === '/__control/reset') {
@@ -1485,7 +1480,7 @@ const server = createServer(async (request, response) => {
               item.title,
               item.lead,
               item.body,
-              ...item.tags.map((tag) => tag.name),
+              ...(item.tags ?? []).map((tag) => tag.name),
             ]
               .join(' ')
               .includes(query.q)),
@@ -1507,6 +1502,7 @@ const server = createServer(async (request, response) => {
       const payload = await readJson(request)
       item = {
         ...payload,
+        images: payload.images ?? [],
         id: Math.max(0, ...collection.map((item) => item.id)) + 1,
         status: 'draft',
         published_at: null,
@@ -1549,7 +1545,8 @@ const server = createServer(async (request, response) => {
     }
     if (action) {
       item.status = action === 'publish' ? 'published' : 'draft'
-      item.published_at = action === 'publish' ? new Date().toISOString() : null
+      if (action === 'publish' && !item.published_at)
+        item.published_at = new Date().toISOString()
     }
     json(response, { data: item })
     return
@@ -1586,6 +1583,32 @@ const server = createServer(async (request, response) => {
     json(response, { data: orderedMusicTracks().map(withAdminDates) })
     return
   }
+  if (path === '/admin/music-tracks/preview' && request.method === 'POST') {
+    const payload = await readJson(request)
+    const songId = String(payload.netease_song_id ?? '')
+    if (!/^[1-9][0-9]{0,18}$/.test(songId)) {
+      json(
+        response,
+        { error: { code: 'validation_error', message: 'Invalid song ID' } },
+        422,
+      )
+      return
+    }
+    const existing = tracks.find((track) => track.netease_song_id === songId)
+    json(response, {
+      data: {
+        album: existing?.album ?? '示例专辑',
+        already_added: Boolean(existing),
+        artist: existing?.artist ?? '示例歌手',
+        artwork_url: existing?.artwork_url ?? null,
+        duration_seconds: existing?.duration_seconds ?? 180,
+        netease_song_id: songId,
+        provider_url: `https://music.163.com/song?id=${songId}`,
+        title: existing?.title ?? `歌曲 ${songId}`,
+      },
+    })
+    return
+  }
   const adminMusicMatch = path.match(
     /^\/admin\/music-tracks(?:\/(\d+)(?:\/(enable|disable))?)?$/,
   )
@@ -1600,30 +1623,35 @@ const server = createServer(async (request, response) => {
     }
     if (!id && request.method === 'POST') {
       const payload = await readJson(request)
-      if (!isSafeMusicSource(payload.source_strategy, payload.source_url)) {
+      const songId = String(payload.netease_song_id ?? '')
+      if (!/^[1-9][0-9]{0,18}$/.test(songId)) {
+        json(
+          response,
+          { error: { code: 'validation_error', message: 'Invalid song ID' } },
+          422,
+        )
+        return
+      }
+      if (tracks.some((track) => track.netease_song_id === songId)) {
         json(
           response,
           {
-            error: {
-              code: 'invalid_music_source',
-              message:
-                'The Music Track source does not match its source strategy',
-            },
+            error: { code: 'music_track_duplicate', message: 'Already added' },
           },
-          422,
+          409,
         )
         return
       }
       const created = {
         id: Math.max(0, ...tracks.map((track) => track.id)) + 1,
-        title: payload.title,
-        artist: payload.artist,
-        album: payload.album ?? null,
-        source_strategy: payload.source_strategy,
-        source_url: payload.source_url,
-        artwork_url: payload.artwork_url ?? null,
-        artwork_alt: payload.artwork_alt ?? null,
-        duration_seconds: payload.duration_seconds ?? null,
+        netease_song_id: songId,
+        provider_url: `https://music.163.com/song?id=${songId}`,
+        title: `歌曲 ${songId}`,
+        artist: '示例歌手',
+        album: '示例专辑',
+        artwork_url: null,
+        artwork_alt: null,
+        duration_seconds: 180,
         display_order: payload.display_order ?? 0,
         is_enabled: payload.is_enabled ?? true,
         created_at: new Date().toISOString(),
@@ -1659,34 +1687,7 @@ const server = createServer(async (request, response) => {
     }
     if (!action && request.method === 'PATCH') {
       const payload = await readJson(request)
-      const nextStrategy = payload.source_strategy ?? track.source_strategy
-      const nextSource = payload.source_url ?? track.source_url
-      if (!isSafeMusicSource(nextStrategy, nextSource)) {
-        json(
-          response,
-          {
-            error: {
-              code: 'invalid_music_source',
-              message:
-                'The Music Track source does not match its source strategy',
-            },
-          },
-          422,
-        )
-        return
-      }
-      for (const key of [
-        'title',
-        'artist',
-        'album',
-        'source_strategy',
-        'source_url',
-        'artwork_url',
-        'artwork_alt',
-        'duration_seconds',
-        'display_order',
-        'is_enabled',
-      ]) {
+      for (const key of ['display_order', 'is_enabled']) {
         if (Object.hasOwn(payload, key)) track[key] = payload[key]
       }
       track.updated_at = new Date().toISOString()
@@ -1709,14 +1710,22 @@ const server = createServer(async (request, response) => {
     if (!id && request.method === 'GET') {
       const search = (query.q || '').toLocaleLowerCase()
       const filtered = collection.filter((item) => {
-        const searchable = [item.name, item.description, item.url]
+        const searchable = [
+          item.name,
+          item.description,
+          item.url,
+          item.source_url,
+          item.demo_url,
+          item.repository_url,
+        ]
           .filter(Boolean)
           .join(' ')
           .toLocaleLowerCase()
         return (
           (!search || searchable.includes(search)) &&
           (isProject
-            ? !query.status || item.status === query.status
+            ? (!query.status || item.status === query.status) &&
+              (!query.project_type || item.project_type === query.project_type)
             : query.active === undefined ||
               item.is_active === (query.active === 'true'))
         )
@@ -1736,13 +1745,21 @@ const server = createServer(async (request, response) => {
       const created = {
         ...payload,
         ...(isProject
-          ? {
-              technology: payload.technology || [],
-              logo_url: payload.logo_url ?? null,
-              logo_alt: payload.logo_alt ?? null,
-              source_url: payload.source_url ?? null,
-              demo_url: payload.demo_url ?? null,
-            }
+          ? payload.project_type === 'github_open_source'
+            ? {
+                project_type: 'github_open_source',
+                repository_url: payload.repository_url,
+                logo_url: payload.logo_url ?? null,
+                logo_alt: payload.logo_alt ?? null,
+              }
+            : {
+                project_type: 'personal',
+                technology: payload.technology || [],
+                logo_url: payload.logo_url ?? null,
+                logo_alt: payload.logo_alt ?? null,
+                source_url: payload.source_url ?? null,
+                demo_url: payload.demo_url ?? null,
+              }
           : {
               avatar_url: payload.avatar_url ?? null,
               avatar_alt: payload.avatar_alt ?? null,
@@ -1775,7 +1792,32 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'PATCH') {
       const payload = await readJson(request)
-      Object.assign(item, payload, { updated_at: new Date().toISOString() })
+      if (isProject) {
+        const projectType = payload.project_type ?? item.project_type
+        if (projectType === 'github_open_source') {
+          for (const key of [
+            'technology',
+            'time_span',
+            'source_url',
+            'demo_url',
+            'status',
+          ]) {
+            delete item[key]
+          }
+          Object.assign(item, payload, {
+            project_type: 'github_open_source',
+            updated_at: new Date().toISOString(),
+          })
+        } else {
+          delete item.repository_url
+          Object.assign(item, payload, {
+            project_type: 'personal',
+            updated_at: new Date().toISOString(),
+          })
+        }
+      } else {
+        Object.assign(item, payload, { updated_at: new Date().toISOString() })
+      }
       json(response, { data: withAdminDates(item) })
       return
     }
@@ -1792,15 +1834,62 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'PATCH') {
       const payload = await readJson(request)
+      if (Object.hasOwn(payload, 'background_gallery')) {
+        const gallery = payload.background_gallery
+        const references = Array.isArray(gallery)
+          ? gallery.map((item) => String(item?.url ?? '').trim())
+          : []
+        const invalid =
+          !Array.isArray(gallery) ||
+          gallery.length > 12 ||
+          gallery.some((item) => {
+            if (
+              !item ||
+              typeof item.alt !== 'string' ||
+              !item.alt.trim() ||
+              item.alt.trim().length > 200 ||
+              typeof item.url !== 'string'
+            ) {
+              return true
+            }
+            const url = item.url.trim()
+            if (url.startsWith('/uploads/')) {
+              const key = url.slice('/uploads/'.length)
+              return !mediaAssets.some(
+                (asset) => asset.key === key && asset.kind === 'image',
+              )
+            }
+            try {
+              const parsed = new URL(url)
+              return (
+                parsed.protocol !== 'https:' ||
+                !parsed.hostname ||
+                Boolean(parsed.username || parsed.password)
+              )
+            } catch {
+              return true
+            }
+          }) ||
+          new Set(references.map((reference) => reference.toLowerCase()))
+            .size !== references.length
+        if (invalid) {
+          json(
+            response,
+            {
+              error: {
+                code: 'validation_error',
+                message:
+                  'Background Gallery entries must be unique safe HTTPS URLs or existing image Media Assets, with alternative text (up to 12 images).',
+              },
+            },
+            422,
+          )
+          return
+        }
+      }
       for (const [key, value] of Object.entries(payload)) {
         if (
-          [
-            'about',
-            'seo_defaults',
-            'footer',
-            'contact',
-            'homepage_visibility',
-          ].includes(key)
+          ['about', 'footer', 'contact', 'homepage_visibility'].includes(key)
         ) {
           settings[key] = { ...settings[key], ...value }
         } else {
@@ -1818,14 +1907,12 @@ const server = createServer(async (request, response) => {
         post.title,
         post.summary,
         post.body,
-        post.category?.name,
         ...post.tags.map((item) => item.name),
       ]
         .join(' ')
         .toLocaleLowerCase()
       return (
         (!query.status || post.status === query.status) &&
-        (!query.category || post.category?.slug === query.category) &&
         (!query.tag || post.tags.some((item) => item.slug === query.tag)) &&
         (!query.q || searchable.includes(query.q.toLocaleLowerCase()))
       )
@@ -1868,7 +1955,7 @@ const server = createServer(async (request, response) => {
         status: 'draft',
         is_pinned: Boolean(payload.is_pinned),
         reading_count: 0,
-        reading_time_minutes: Number(payload.reading_time_minutes) || 0,
+        reading_time_minutes: estimateReadingTimeMinutes(payload.body ?? ''),
         cover_url: payload.cover_url ?? null,
         cover_alt: payload.cover_alt ?? null,
         published_at: null,
@@ -1928,19 +2015,6 @@ const server = createServer(async (request, response) => {
             error: {
               code: 'post_body_required',
               message: 'A Post needs Markdown content before publishing',
-            },
-          },
-          422,
-        )
-        return
-      }
-      if (!post.category) {
-        json(
-          response,
-          {
-            error: {
-              code: 'post_category_required',
-              message: 'A published Post must have a Category',
             },
           },
           422,
@@ -2090,7 +2164,7 @@ const server = createServer(async (request, response) => {
           ? post.category?.id === item.id
           : post.tags.some((tag) => tag.id === item.id),
       )
-      if (used) {
+      if (kind === 'category' && used) {
         json(
           response,
           {
@@ -2102,6 +2176,11 @@ const server = createServer(async (request, response) => {
           409,
         )
         return
+      }
+      if (kind === 'tag') {
+        for (const post of posts) {
+          post.tags = post.tags.filter((tag) => tag.id !== item.id)
+        }
       }
       delete items[item.slug]
       json(response, { data: { deleted: true } })
@@ -2117,6 +2196,40 @@ const server = createServer(async (request, response) => {
       .filter((track) => track.is_enabled !== false)
       .map(publicMusicTrack)
     json(response, { ...paginate(playable, query.page, size) })
+    return
+  }
+  const playbackMatch = path.match(/^\/music-tracks\/(\d+)\/(playback|lyrics)$/)
+  if (playbackMatch) {
+    const track = tracks.find(
+      (candidate) =>
+        candidate.id === Number(playbackMatch[1]) && candidate.is_enabled,
+    )
+    if (!track) {
+      json(
+        response,
+        { error: { code: 'music_track_not_found', message: 'Not found' } },
+        404,
+      )
+      return
+    }
+    if (playbackMatch[2] === 'playback') {
+      json(response, {
+        data: {
+          track_id: track.id,
+          netease_song_id: track.netease_song_id,
+          provider_url: track.provider_url,
+          media_url: `https://music.163.com/song/media/outer/url?id=${track.netease_song_id}.mp3`,
+        },
+      })
+      return
+    }
+    json(response, {
+      data: {
+        track_id: track.id,
+        status: 'available',
+        lines: [{ time_ms: 0, text: '示例歌词', translation: null }],
+      },
+    })
     return
   }
   if (path === '/projects') {
@@ -2137,7 +2250,25 @@ const server = createServer(async (request, response) => {
   }
   if (path === '/moments') {
     json(response, {
-      ...paginate(filteredFeed(moments, query), query.page, size),
+      ...paginate(
+        [
+          ...filteredPosts({ q: query.q }).map((content) => ({
+            kind: 'post',
+            content: publicPost(content),
+          })),
+          ...publicChatter({ q: query.q }).map((content) => ({
+            kind: 'chatter',
+            content,
+          })),
+        ].sort(
+          (a, b) =>
+            b.content.published_at.localeCompare(a.content.published_at) ||
+            a.kind.localeCompare(b.kind) ||
+            b.content.id - a.content.id,
+        ),
+        query.page,
+        size,
+      ),
       filters: Object.fromEntries(
         Object.entries(query).filter(([key]) => ['tag', 'q'].includes(key)),
       ),
@@ -2150,7 +2281,7 @@ const server = createServer(async (request, response) => {
   }
   if (path === '/chatter') {
     json(response, {
-      ...paginate(filteredFeed(chatter, query), query.page, size),
+      ...paginate(publicChatter(query), query.page, size),
       filters: Object.fromEntries(
         Object.entries(query).filter(([key]) => ['tag', 'q'].includes(key)),
       ),

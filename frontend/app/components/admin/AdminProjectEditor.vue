@@ -20,6 +20,7 @@ const editor = useAdminPortfolioEditor<AdminProject, AdminProjectInput>({
     logo_alt: null,
     logo_url: null,
     name: '',
+    project_type: 'personal',
     source_url: null,
     status: 'developing',
     technology: [],
@@ -27,19 +28,31 @@ const editor = useAdminPortfolioEditor<AdminProject, AdminProjectInput>({
   }),
   id: props.id,
   resource: 'projects',
-  toInput: (record) => ({
-    demo_url: record.demoUrl,
-    description: record.description,
-    display_order: record.displayOrder,
-    featured: record.featured,
-    logo_alt: record.logoAlt,
-    logo_url: record.logoUrl,
-    name: record.name,
-    source_url: record.sourceUrl,
-    status: record.status,
-    technology: [...record.stack],
-    time_span: record.timeSpan,
-  }),
+  toInput: (record) => {
+    const shared = {
+      description: record.description,
+      display_order: record.displayOrder,
+      featured: record.featured,
+      logo_alt: record.logoAlt,
+      logo_url: record.logoUrl,
+      name: record.name,
+    }
+    return record.projectType === 'github_open_source'
+      ? {
+          ...shared,
+          project_type: 'github_open_source',
+          repository_url: record.repositoryUrl,
+        }
+      : {
+          ...shared,
+          demo_url: record.demoUrl,
+          project_type: 'personal',
+          source_url: record.sourceUrl,
+          status: record.status,
+          technology: [...record.stack],
+          time_span: record.timeSpan,
+        }
+  },
 })
 const {
   busy,
@@ -62,7 +75,8 @@ const validation = reactive<Record<string, string>>({})
 watch(
   record,
   (value) => {
-    if (value) stackText.value = value.stack.join(', ')
+    stackText.value =
+      value?.projectType === 'personal' ? value.stack.join(', ') : ''
   },
   { immediate: true },
 )
@@ -72,6 +86,44 @@ const isMediaUrl = (value: string) =>
   isHttpUrl(value) ||
   (/^\/uploads\/[^\s]+$/.test(value) && !value.startsWith('//'))
 
+const isGithubRepositoryUrl = (value: string) =>
+  /^https:\/\/github\.com\/[A-Za-z0-9](?:[A-Za-z0-9-]{0,37})\/[A-Za-z0-9_.-]+(?:\.git)?\/?$/i.test(
+    value,
+  )
+
+const changeProjectType = (value: string) => {
+  if (value !== 'personal' && value !== 'github_open_source') return
+  if (form.value.project_type === value) return
+  const shared = {
+    description: form.value.description,
+    display_order: form.value.display_order,
+    featured: form.value.featured,
+    logo_alt: form.value.logo_alt,
+    logo_url: form.value.logo_url,
+    name: form.value.name,
+  }
+  form.value =
+    value === 'personal'
+      ? {
+          ...shared,
+          demo_url: null,
+          project_type: 'personal',
+          source_url: null,
+          status: 'developing',
+          technology: [],
+          time_span: '',
+        }
+      : {
+          ...shared,
+          project_type: 'github_open_source',
+          repository_url: '',
+        }
+  stackText.value = ''
+  Object.keys(validation).forEach((key) =>
+    Reflect.deleteProperty(validation, key),
+  )
+}
+
 const validate = () => {
   Object.keys(validation).forEach((key) =>
     Reflect.deleteProperty(validation, key),
@@ -79,31 +131,51 @@ const validate = () => {
   if (!form.value.name.trim()) validation.name = '请输入项目名称。'
   if (!form.value.description.trim())
     validation.description = '请输入项目描述。'
-  if (!form.value.time_span.trim()) validation.timeSpan = '请输入开发时间。'
   if (form.value.logo_url && !isMediaUrl(form.value.logo_url.trim())) {
     validation.logoUrl = '请输入安全的 HTTP(S) URL 或 /uploads/ 媒体路径。'
   }
-  for (const field of ['source_url', 'demo_url'] as const) {
-    const value = form.value[field]?.trim()
-    if (value && !isHttpUrl(value))
-      validation[field] = '请输入安全的 HTTP(S) URL。'
+  if (form.value.project_type === 'personal') {
+    if (!form.value.time_span.trim()) validation.time_span = '请输入开发时间。'
+    for (const field of ['source_url', 'demo_url'] as const) {
+      const value = form.value[field]?.trim()
+      if (value && !isHttpUrl(value))
+        validation[field] = '请输入安全的 HTTP(S) URL。'
+    }
+  } else if (!isGithubRepositoryUrl(form.value.repository_url.trim())) {
+    validation.repository_url = '请输入 GitHub 上有效的仓库 URL。'
   }
   return Object.keys(validation).length === 0
 }
 
 const submit = () => {
   if (!validate()) return
-  form.value.name = form.value.name.trim()
-  form.value.description = form.value.description.trim()
-  form.value.time_span = form.value.time_span.trim()
-  form.value.technology = stackText.value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-  form.value.logo_url = form.value.logo_url?.trim() || null
-  form.value.logo_alt = form.value.logo_alt?.trim() || null
-  form.value.source_url = form.value.source_url?.trim() || null
-  form.value.demo_url = form.value.demo_url?.trim() || null
+  const common = {
+    description: form.value.description.trim(),
+    display_order: form.value.display_order,
+    featured: form.value.featured,
+    logo_alt: form.value.logo_alt?.trim() || null,
+    logo_url: form.value.logo_url?.trim() || null,
+    name: form.value.name.trim(),
+  }
+  form.value =
+    form.value.project_type === 'personal'
+      ? {
+          ...common,
+          demo_url: form.value.demo_url?.trim() || null,
+          project_type: 'personal',
+          source_url: form.value.source_url?.trim() || null,
+          status: form.value.status,
+          technology: stackText.value
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+          time_span: form.value.time_span.trim(),
+        }
+      : {
+          ...common,
+          project_type: 'github_open_source',
+          repository_url: form.value.repository_url.trim(),
+        }
   void save()
 }
 
@@ -132,6 +204,19 @@ useHead({ title: `${props.id ? '编辑' : '新建'}项目 · 后台空间` })
             <h2>项目内容</h2>
           </div>
         </div>
+        <UiSelect
+          :model-value="form.project_type"
+          label="项目类型"
+          name="project_type"
+          :options="[
+            { label: 'Personal Project（个人项目）', value: 'personal' },
+            {
+              label: 'GitHub Open-source Project（GitHub 开源项目）',
+              value: 'github_open_source',
+            },
+          ]"
+          @update:model-value="changeProjectType"
+        />
         <UiInput
           v-model="form.name"
           label="项目名称"
@@ -149,23 +234,37 @@ useHead({ title: `${props.id ? '编辑' : '新建'}项目 · 后台空间` })
           :error="validation.description"
           required
         />
+        <template v-if="form.project_type === 'personal'">
+          <UiInput
+            v-model="stackText"
+            label="技术栈"
+            name="technology"
+            description="使用逗号分隔，例如 Nuxt, TypeScript, MySQL。"
+            maxlength="1000"
+          />
+          <UiInput
+            v-model="form.time_span"
+            label="开发时间"
+            name="time_span"
+            maxlength="120"
+            :error="validation.time_span"
+            required
+          />
+        </template>
         <UiInput
-          v-model="stackText"
-          label="技术栈"
-          name="technology"
-          description="使用逗号分隔，例如 Nuxt, TypeScript, MySQL。"
-          maxlength="1000"
-        />
-        <UiInput
-          v-model="form.time_span"
-          label="开发时间"
-          name="time_span"
-          maxlength="120"
-          :error="validation.timeSpan"
+          v-else
+          :model-value="form.repository_url"
+          label="GitHub 仓库 URL"
+          name="repository_url"
+          type="url"
+          description="手动维护仓库地址；当前不会从 GitHub 同步星标或语言等信息。"
+          :error="validation.repository_url"
           required
+          @update:model-value="form.repository_url = $event"
         />
         <div class="admin-portfolio-pair">
           <UiSelect
+            v-if="form.project_type === 'personal'"
             v-model="form.status"
             label="状态"
             name="project_status"
@@ -217,6 +316,7 @@ useHead({ title: `${props.id ? '编辑' : '新建'}项目 · 后台空间` })
           @update:model-value="form.logo_alt = $event"
         />
         <UiInput
+          v-if="form.project_type === 'personal'"
           :model-value="form.source_url ?? ''"
           label="Source URL"
           name="source_url"
@@ -225,6 +325,7 @@ useHead({ title: `${props.id ? '编辑' : '新建'}项目 · 后台空间` })
           @update:model-value="form.source_url = $event"
         />
         <UiInput
+          v-if="form.project_type === 'personal'"
           :model-value="form.demo_url ?? ''"
           label="Demo URL"
           name="demo_url"
@@ -236,10 +337,10 @@ useHead({ title: `${props.id ? '编辑' : '新建'}项目 · 后台空间` })
           <span>公开呈现预览</span>
           <strong>{{ form.name || '项目名称' }}</strong>
           <p>{{ form.description || '项目描述会显示在这里。' }}</p>
-          <small
-            >{{ stackText || '技术栈' }} ·
-            {{ form.time_span || '开发时间' }}</small
-          >
+          <small v-if="form.project_type === 'personal'">
+            {{ stackText || '技术栈' }} · {{ form.time_span || '开发时间' }}
+          </small>
+          <small v-else>GitHub Open-source Project</small>
         </div>
         <UiButton type="submit" :loading="busy">保存项目</UiButton>
       </UiGlassPanel>

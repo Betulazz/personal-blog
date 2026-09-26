@@ -16,9 +16,7 @@ export const siteIdentity: SiteIdentityView = {
 export const publicNavigation = [
   { label: '首页', href: '/' },
   { label: '文章', href: '/posts' },
-  { label: '分类', href: '/categories' },
-  { label: '标签', href: '/tags' },
-  { label: '搜索', href: '/search' },
+  { label: '音乐', href: '/music' },
   { label: '动态', href: '/moments' },
   { label: '杂谈', href: '/chatter' },
   { label: '项目', href: '/projects' },

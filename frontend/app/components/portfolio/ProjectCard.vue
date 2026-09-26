@@ -11,10 +11,24 @@ const props = defineProps<{
 
 const logoUnavailable = ref(false)
 
-const sourceUrl = computed(() =>
-  getSafeExternalUrl(props.project.sourceUrl ?? props.project.githubUrl),
+const isPersonalProject = computed(
+  () => props.project.projectType === 'personal',
 )
-const demoUrl = computed(() => getSafeExternalUrl(props.project.demoUrl))
+const sourceUrl = computed(() =>
+  props.project.projectType === 'personal'
+    ? getSafeExternalUrl(props.project.sourceUrl)
+    : undefined,
+)
+const repositoryUrl = computed(() =>
+  props.project.projectType === 'github_open_source'
+    ? getSafeExternalUrl(props.project.repositoryUrl)
+    : undefined,
+)
+const demoUrl = computed(() =>
+  props.project.projectType === 'personal'
+    ? getSafeExternalUrl(props.project.demoUrl)
+    : undefined,
+)
 const statusLabels = {
   active: 'Active',
   archived: 'Archived',
@@ -52,16 +66,24 @@ const markLogoUnavailable = () => {
           </span>
         </div>
         <div>
-          <p class="project-card__eyebrow">PORTFOLIO PROJECT</p>
+          <p class="project-card__eyebrow">
+            {{
+              props.project.projectType === 'personal'
+                ? 'PERSONAL PROJECT'
+                : 'GITHUB OPEN-SOURCE PROJECT'
+            }}
+          </p>
           <h2>{{ props.project.name }}</h2>
         </div>
       </div>
       <div class="project-card__badges">
         <UiBadge
+          v-if="props.project.projectType === 'personal'"
           :tone="props.project.status === 'active' ? 'success' : 'neutral'"
         >
           {{ statusLabels[props.project.status] }}
         </UiBadge>
+        <UiBadge v-else tone="accent">GitHub 开源</UiBadge>
         <UiBadge v-if="props.project.featured" tone="accent">
           <Star :size="13" aria-hidden="true" />
           精选
@@ -71,7 +93,10 @@ const markLogoUnavailable = () => {
 
     <p class="project-card__description">{{ props.project.description }}</p>
 
-    <dl class="project-card__meta">
+    <dl
+      v-if="props.project.projectType === 'personal'"
+      class="project-card__meta"
+    >
       <div>
         <dt><Clock3 :size="14" aria-hidden="true" /> 开发时间</dt>
         <dd>{{ props.project.timeSpan }}</dd>
@@ -82,12 +107,19 @@ const markLogoUnavailable = () => {
       </div>
     </dl>
 
-    <ul class="project-card__stack" aria-label="技术栈">
+    <ul
+      v-if="props.project.projectType === 'personal'"
+      class="project-card__stack"
+      aria-label="技术栈"
+    >
       <li v-for="item in props.project.stack" :key="item">{{ item }}</li>
     </ul>
 
     <ul
-      v-if="props.project.highlights?.length"
+      v-if="
+        props.project.projectType === 'personal' &&
+        props.project.highlights?.length
+      "
       class="project-card__highlights"
     >
       <li v-for="highlight in props.project.highlights" :key="highlight">
@@ -97,7 +129,18 @@ const markLogoUnavailable = () => {
 
     <footer class="project-card__footer">
       <a
-        v-if="sourceUrl"
+        v-if="repositoryUrl"
+        :href="repositoryUrl"
+        :aria-label="`${props.project.name} GitHub 仓库（外部链接）`"
+        target="_blank"
+        rel="noopener noreferrer"
+        referrerpolicy="no-referrer"
+      >
+        <Github :size="16" aria-hidden="true" />
+        GitHub 仓库
+      </a>
+      <a
+        v-else-if="sourceUrl"
         :href="sourceUrl"
         :aria-label="`${props.project.name} 源码（外部链接）`"
         target="_blank"
@@ -107,7 +150,9 @@ const markLogoUnavailable = () => {
         <Github :size="16" aria-hidden="true" />
         Source
       </a>
-      <span v-else class="project-card__unavailable">暂无源码链接</span>
+      <span v-else-if="isPersonalProject" class="project-card__unavailable"
+        >暂无源码链接</span
+      >
       <a
         v-if="demoUrl"
         :href="demoUrl"
@@ -119,7 +164,9 @@ const markLogoUnavailable = () => {
         Demo
         <ExternalLink :size="15" aria-hidden="true" />
       </a>
-      <span v-else class="project-card__unavailable">暂无公开演示</span>
+      <span v-else-if="isPersonalProject" class="project-card__unavailable"
+        >暂无公开演示</span
+      >
     </footer>
   </UiGlassCard>
 </template>

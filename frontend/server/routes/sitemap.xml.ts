@@ -13,11 +13,6 @@ interface CollectionEnvelope {
 const PAGE_SIZE = 100
 const MAX_PAGES = 20
 
-const extractSlug = (value: unknown): string =>
-  typeof (value as { slug?: unknown }).slug === 'string'
-    ? (value as { slug: string }).slug
-    : ''
-
 const fetchAll = async <T>(
   apiBase: string,
   path: string,
@@ -63,29 +58,20 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const [posts, categories, tags] = await Promise.all([
-    collect('/posts', (value) => {
-      const post = value as {
-        canonical_url?: unknown
-        slug?: unknown
-        updated_at?: unknown
-      }
-      return {
-        canonicalUrl:
-          typeof post.canonical_url === 'string' ? post.canonical_url : null,
-        slug: typeof post.slug === 'string' ? post.slug : '',
-        updatedAt: typeof post.updated_at === 'string' ? post.updated_at : null,
-      }
-    }),
-    collect('/categories', extractSlug),
-    collect('/tags', extractSlug),
-  ])
+  const posts = await collect('/posts', (value) => {
+    const post = value as {
+      slug?: unknown
+      updated_at?: unknown
+    }
+    return {
+      slug: typeof post.slug === 'string' ? post.slug : '',
+      updatedAt: typeof post.updated_at === 'string' ? post.updated_at : null,
+    }
+  })
 
   const entries: SitemapEntry[] = buildSitemapEntries({
-    categories: categories.filter(Boolean),
     posts: posts.filter((post) => post.slug),
     siteUrl,
-    tags: tags.filter(Boolean),
   })
 
   setHeader(event, 'content-type', 'application/xml; charset=utf-8')

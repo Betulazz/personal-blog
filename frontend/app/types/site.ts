@@ -31,10 +31,20 @@ export interface AboutSettings {
   timeline: AboutTimelineItem[]
 }
 
+export interface BackgroundGalleryImage {
+  alt: string
+  url: string
+}
+
+export interface AdminBackgroundGalleryImage extends BackgroundGalleryImage {
+  reference: string
+}
+
 export interface PublicSiteSettings {
   avatarAlt?: string
   avatarUrl?: string
   about: AboutSettings
+  backgroundGallery: BackgroundGalleryImage[]
   contact: {
     email: string
     note: string
@@ -49,14 +59,6 @@ export interface PublicSiteSettings {
   homepageVisibility: HomepageVisibility
   name: string
   profile: string
-  seoDefaults: {
-    canonicalUrl?: string
-    description: string
-    keywords: string[]
-    ogImageUrl?: string
-    title: string
-    twitterCard: 'summary' | 'summary_large_image'
-  }
   socialLinks: SiteSocialLink[]
   tagline: string
 }

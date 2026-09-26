@@ -11,6 +11,8 @@ An independent Nuxt 4 + FastAPI personal blog inspired by the visual language of
 - Animation, responsive, accessibility, and performance convergence: complete
 - Cloud-server Docker deployment and operations: complete
 - Final v1 regression and release decision: complete (v1 release-ready)
+- v2 native integrated acceptance: complete; see [issue 07](.scratch/personal-blog-v2/issues/07-integrated-acceptance.md) and the [2026-09-25 verification record](docs/deployment.md#v2-integrated-acceptance-record-2026-09-25). Docker deployment was not revalidated for v2.
+- v2 polish acceptance: complete; see [ticket 08](.scratch/personal-blog-v2-polish/issues/08-run-integrated-polish-acceptance.md), the [2026-09-26 acceptance record](docs/deployment.md#v2-polish-integrated-acceptance-record-2026-09-26), and the [fidelity ledger](docs/personal-blog-v2-polish-fidelity-ledger.md). The browser run used local API fixtures; external playback and Docker deployment were not revalidated.
 
 ## Repository layout
 

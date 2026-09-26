@@ -14,6 +14,7 @@ const loading = ref(false)
 const error = ref('')
 const search = ref('')
 const filter = ref('all')
+const projectTypeFilter = ref('all')
 let requestNumber = 0
 let loadController: AbortController | null = null
 
@@ -53,6 +54,10 @@ const load = async () => {
             page: page.value,
             pageSize: 10,
             q: search.value.trim() || undefined,
+            projectType:
+              projectTypeFilter.value !== 'all'
+                ? (projectTypeFilter.value as 'personal' | 'github_open_source')
+                : undefined,
             status:
               filter.value !== 'all'
                 ? (filter.value as 'active' | 'archived' | 'developing')
@@ -93,6 +98,10 @@ const syncFromRoute = () => {
   search.value = typeof route.query.q === 'string' ? route.query.q : ''
   filter.value =
     typeof route.query.filter === 'string' ? route.query.filter : 'all'
+  projectTypeFilter.value =
+    typeof route.query.project_type === 'string'
+      ? route.query.project_type
+      : 'all'
   void load()
 }
 
@@ -102,6 +111,9 @@ const applyFilters = () =>
     query: {
       ...(search.value.trim() ? { q: search.value.trim() } : {}),
       ...(filter.value !== 'all' ? { filter: filter.value } : {}),
+      ...(projectTypeFilter.value !== 'all'
+        ? { project_type: projectTypeFilter.value }
+        : {}),
     },
   })
 
@@ -110,6 +122,9 @@ const pageHref = (nextPage: number) => ({
   query: {
     ...(search.value.trim() ? { q: search.value.trim() } : {}),
     ...(filter.value !== 'all' ? { filter: filter.value } : {}),
+    ...(projectTypeFilter.value !== 'all'
+      ? { project_type: projectTypeFilter.value }
+      : {}),
     ...(nextPage > 1 ? { page: String(nextPage) } : {}),
   },
 })
@@ -174,6 +189,19 @@ function isAbortError(error: unknown) {
           :placeholder="isProjects ? '名称或描述' : '名称、描述或地址'"
         />
         <UiSelect
+          v-if="isProjects"
+          v-model="projectTypeFilter"
+          label="筛选项目类型"
+          :options="[
+            { label: '全部类型', value: 'all' },
+            { label: 'Personal Project', value: 'personal' },
+            {
+              label: 'GitHub Open-source Project',
+              value: 'github_open_source',
+            },
+          ]"
+        />
+        <UiSelect
           v-model="filter"
           label="筛选状态"
           :options="
@@ -229,12 +257,22 @@ function isAbortError(error: unknown) {
             <span class="admin-portfolio-row__main">
               <strong>{{ entry.name }}</strong>
               <span>{{ entry.description }}</span>
-              <small v-if="'status' in entry">
-                {{ statusLabel(entry.status) }} ·
+              <small
+                v-if="
+                  'projectType' in entry && entry.projectType === 'personal'
+                "
+              >
+                Personal Project · {{ statusLabel(entry.status) }} ·
                 {{ entry.featured ? '首页精选' : '普通项目' }} ·
                 {{ entry.stack.join('、') || '暂无技术栈' }} ·
                 {{ entry.timeSpan }}
               </small>
+              <small v-else-if="'projectType' in entry"
+                >GitHub Open-source Project · 首页精选：{{
+                  entry.featured ? '是' : '否'
+                }}
+                · 展示顺序 {{ entry.displayOrder }}</small
+              >
               <small v-else>
                 {{ entry.isActive ? '公开展示' : '已隐藏' }} · 展示顺序
                 {{ entry.displayOrder }} · 更新于
@@ -243,21 +281,27 @@ function isAbortError(error: unknown) {
             </span>
             <UiBadge
               :tone="
-                'status' in entry
-                  ? entry.status === 'active'
-                    ? 'success'
-                    : 'neutral'
-                  : entry.isActive
-                    ? 'success'
-                    : 'neutral'
+                'projectType' in entry &&
+                entry.projectType === 'github_open_source'
+                  ? 'accent'
+                  : 'status' in entry
+                    ? entry.status === 'active'
+                      ? 'success'
+                      : 'neutral'
+                    : entry.isActive
+                      ? 'success'
+                      : 'neutral'
               "
             >
               {{
-                'status' in entry
-                  ? statusLabel(entry.status)
-                  : entry.isActive
-                    ? '公开'
-                    : '隐藏'
+                'projectType' in entry &&
+                entry.projectType === 'github_open_source'
+                  ? 'GitHub 开源'
+                  : 'status' in entry
+                    ? statusLabel(entry.status)
+                    : entry.isActive
+                      ? '公开'
+                      : '隐藏'
               }}
             </UiBadge>
           </NuxtLink>

@@ -22,10 +22,11 @@ test('homepage aggregates distinct content domains with accessible metadata', as
     consoleProblems.push(`pageerror: ${error.message}`)
   })
 
-  await page.goto('/')
+  const response = await page.goto('/')
+  const ssrHtml = (await response?.text()) ?? ''
 
   await expect(page.getByRole('heading', { name: '最新文章' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '最近动态' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '最近动态' })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '最近杂谈' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '精选项目' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '保持联系' })).toBeVisible()
@@ -42,17 +43,25 @@ test('homepage aggregates distinct content domains with accessible metadata', as
     'content',
     '关于技术、生活与缓慢生长的个人记录。',
   )
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    'content',
+    'https://example.com/media/site-avatar.webp',
+  )
   await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
     'content',
-    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3000/',
   )
   await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
     'content',
-    'summary',
+    'summary_large_image',
   )
   await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute(
     'content',
     '夜航手记',
+  )
+  await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
+    'content',
+    'https://example.com/media/site-avatar.webp',
   )
   await expect(
     page.locator('meta[name="twitter:description"]'),
@@ -64,6 +73,13 @@ test('homepage aggregates distinct content domains with accessible metadata', as
   await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(
     1,
   )
+  expect(ssrHtml).toContain('<title>夜航手记</title>')
+  expect(ssrHtml).toContain('rel="canonical"')
+  expect(ssrHtml).toContain('http://127.0.0.1:3000/')
+  expect(ssrHtml).toContain(
+    'property="og:image" content="https://example.com/media/site-avatar.webp"',
+  )
+  expect(ssrHtml).toContain('application/ld+json')
   const jsonLd = JSON.parse(
     (await page.locator('script[type="application/ld+json"]').textContent()) ??
       '{}',
@@ -80,7 +96,7 @@ test('homepage aggregates distinct content domains with accessible metadata', as
   ).toBeVisible()
   await expect(
     page.getByRole('article').filter({ hasText: '今天把首页' }),
-  ).toBeVisible()
+  ).toHaveCount(0)
   await expect(
     page.getByRole('article').filter({ hasText: '让界面先学会呼吸' }),
   ).toBeVisible()

@@ -57,7 +57,6 @@ defineEmits<{
           <a class="home-post-card__link" :href="`/posts/${post.slug}`">
             <div class="home-post-card__body">
               <div class="home-post-card__meta" aria-label="文章元数据">
-                <UiBadge tone="accent">{{ post.category.name }}</UiBadge>
                 <time :datetime="post.publishedAt">{{
                   formatHomepageDate(post.publishedAt)
                 }}</time>

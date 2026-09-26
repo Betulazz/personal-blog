@@ -46,10 +46,13 @@ test('native administration crosses Nuxt, FastAPI, and MySQL for Post CRUD', asy
     .fill('真实 API 与 MySQL 的 CRUD 验收。')
   await page.getByLabel('Markdown 正文').fill(markdown)
 
-  const categorySelect = page.getByRole('combobox', { name: '分类' })
-  await categorySelect.click()
-  await page.getByRole('option', { name: '工程实践' }).press('Enter')
-  await expect(categorySelect).toContainText('工程实践')
+  await expect(page.getByRole('heading', { name: '文章标签' })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: '分类' })).toHaveCount(0)
+  await page
+    .locator('.admin-tag-option')
+    .filter({ hasText: 'Markdown' })
+    .getByRole('checkbox')
+    .check()
 
   await page.getByRole('button', { name: '保存草稿' }).click()
   await expect(page).toHaveURL(/\/admin\/posts\/\d+\/edit$/)
