@@ -25,6 +25,7 @@ onMounted(() => {
   <div class="public-shell">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <VisualFoundationHeader />
+    <VisualClickRipple />
     <div
       v-if="isHydrated && (settingsPending || settingsError)"
       class="public-shell__settings-status"
