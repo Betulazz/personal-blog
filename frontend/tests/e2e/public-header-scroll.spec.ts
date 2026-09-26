@@ -128,6 +128,42 @@ test('public header follows scroll direction across desktop and mobile routes', 
   })
 })
 
+test('header hides after pointer navigation even when the link retains focus', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const browserErrors = collectBrowserErrors(page)
+  await page.goto('/')
+  await expect(page.locator('.menu-button')).toBeEnabled()
+
+  const header = page.locator('.site-header')
+  const projectsLink = page
+    .getByRole('navigation', { name: '主导航' })
+    .getByRole('link', { name: '项目', exact: true })
+  await projectsLink.click()
+  await expect(page).toHaveURL(/\/projects$/)
+  await expect(header).not.toHaveClass(/site-header--hidden/)
+
+  await page.waitForTimeout(100)
+  const pointerFocusState = await page.evaluate(() => ({
+    activeElementInHeader: Boolean(
+      document.activeElement?.closest('.site-header'),
+    ),
+    activeElementMatchesFocusVisible:
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement.matches(':focus-visible'),
+  }))
+  expect(pointerFocusState).toEqual({
+    activeElementInHeader: true,
+    activeElementMatchesFocusVisible: false,
+  })
+
+  await scrollTo(page, 0)
+  await scrollTo(page, 320)
+  await expect(header).toHaveClass(/site-header--hidden/, { timeout: 2_000 })
+  expect(browserErrors).toEqual([])
+})
+
 test('keyboard focus, mobile menu, route changes, and reduced motion preserve access', async ({
   page,
 }) => {
@@ -150,6 +186,15 @@ test('keyboard focus, mobile menu, route changes, and reduced motion preserve ac
   await page.keyboard.press('Tab')
   await expect(desktopHeader).not.toHaveClass(/site-header--hidden/)
   await expect(page.locator('.site-brand')).toBeFocused()
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.activeElement instanceof HTMLElement &&
+          document.activeElement.matches(':focus-visible'),
+      ),
+    )
+    .toBe(true)
   await page.locator('.site-brand').evaluate((element) => {
     ;(element as HTMLElement).blur()
   })
@@ -179,8 +224,12 @@ test('keyboard focus, mobile menu, route changes, and reduced motion preserve ac
   await expect(menuTrigger).toBeEnabled()
   await scrollTo(page, 320)
   await expect(mobileHeader).toHaveClass(/site-header--hidden/)
-  await menuTrigger.focus()
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Tab')
+  await expect(page.locator('.site-brand')).toBeFocused()
   await expect(mobileHeader).not.toHaveClass(/site-header--hidden/)
+  await page.keyboard.press('Tab')
+  await expect(menuTrigger).toBeFocused()
   await menuTrigger.click()
   const mobileNavigation = page.getByRole('navigation', {
     name: '移动端主导航',

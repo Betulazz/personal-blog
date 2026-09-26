@@ -56,7 +56,8 @@ const handleWindowScroll = () => {
   if (
     isMenuOpen.value ||
     (activeElement instanceof HTMLElement &&
-      activeElement.closest('.site-header'))
+      activeElement.closest('.site-header') &&
+      activeElement.matches(':focus-visible'))
   ) {
     revealHeader()
     resetScrollIntent()
@@ -228,13 +229,13 @@ onBeforeUnmount(() => {
   transform: translateY(calc(-100% - var(--site-header-offset-top) - 1px));
 }
 
-.site-header--hidden:focus-within {
+.site-header--hidden:has(:focus-visible) {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
 }
 
-.site-header:focus-within {
+.site-header:has(:focus-visible) {
   transition-duration: 0ms;
 }
 
@@ -373,7 +374,7 @@ onBeforeUnmount(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .site-header,
-  .site-header:focus-within {
+  .site-header:has(:focus-visible) {
     transition: none;
   }
 
