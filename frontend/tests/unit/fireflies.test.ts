@@ -7,14 +7,15 @@ import {
 } from '../../app/utils/fireflies'
 
 describe('firefly density', () => {
-  it('keeps the desktop particle count within its fixed budget', () => {
-    expect(getFireflyCount(1440, 900)).toBeLessThanOrEqual(MAX_FIREFLIES)
+  it('matches the reference desktop firefly field within its fixed budget', () => {
+    expect(getFireflyCount(768, 1024)).toBe(MAX_FIREFLIES)
+    expect(getFireflyCount(1440, 900)).toBe(MAX_FIREFLIES)
     expect(getFireflyCount(1920, 1080)).toBe(MAX_FIREFLIES)
   })
 
-  it('uses a lower cap on phone and tablet viewports', () => {
-    expect(getFireflyCount(430, 932)).toBeLessThanOrEqual(MAX_MOBILE_FIREFLIES)
-    expect(getFireflyCount(768, 1024)).toBe(MAX_MOBILE_FIREFLIES)
+  it('omits the firefly layer below the reference desktop breakpoint', () => {
+    expect(getFireflyCount(430, 932)).toBe(MAX_MOBILE_FIREFLIES)
+    expect(getFireflyCount(767, 1024)).toBe(MAX_MOBILE_FIREFLIES)
     expect(getFireflyCount(430, 932)).toBeLessThan(getFireflyCount(1440, 900))
   })
 

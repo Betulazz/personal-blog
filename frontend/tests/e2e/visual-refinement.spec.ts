@@ -65,10 +65,7 @@ test('Timeline and Music render cleanly at all six supported viewports', async (
       expect(report.title).not.toBe('')
       expect(report.horizontalOverflow).toBe(false)
       expect(report.audioCount).toBe(1)
-      expect(report.fireflyCount).toBeGreaterThan(0)
-      expect(report.fireflyCount).toBeLessThanOrEqual(
-        viewport.width <= 768 ? 10 : 32,
-      )
+      expect(report.fireflyCount).toBe(viewport.width < 768 ? 0 : 50)
       expect(report.viewportWidth).toBe(viewport.width)
 
       const stem = `${target.name}-${viewport.width}x${viewport.height}`
