@@ -18,20 +18,99 @@ import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 
 const isMenuOpen = ref(false)
 const isHydrated = ref(false)
+const isHeaderHidden = ref(false)
 const motionEnabled = useMotionPreference()
 const route = useRoute()
 const { identity } = await usePublicSiteSettings()
 
+const headerScrollThreshold = 80
+const scrollIntentThreshold = 8
+let previousScrollY = 0
+let scrollDirection = 0
+let scrollDirectionDistance = 0
+
 const isCurrentRoute = (href: string) =>
   route.path === href || (href !== '/' && route.path.startsWith(`${href}/`))
 
+const resetScrollIntent = () => {
+  scrollDirection = 0
+  scrollDirectionDistance = 0
+}
+
+const revealHeader = () => {
+  isHeaderHidden.value = false
+}
+
+const handleWindowScroll = () => {
+  const currentScrollY = Math.max(0, window.scrollY)
+  const delta = currentScrollY - previousScrollY
+  previousScrollY = currentScrollY
+
+  if (currentScrollY <= headerScrollThreshold) {
+    revealHeader()
+    resetScrollIntent()
+    return
+  }
+
+  const activeElement = document.activeElement
+  if (
+    isMenuOpen.value ||
+    (activeElement instanceof HTMLElement &&
+      activeElement.closest('.site-header'))
+  ) {
+    revealHeader()
+    resetScrollIntent()
+    return
+  }
+
+  if (delta === 0) return
+
+  const nextDirection = Math.sign(delta)
+  if (nextDirection !== scrollDirection) {
+    scrollDirection = nextDirection
+    scrollDirectionDistance = 0
+  }
+
+  scrollDirectionDistance += Math.abs(delta)
+  if (scrollDirectionDistance < scrollIntentThreshold) return
+
+  isHeaderHidden.value = nextDirection > 0
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    revealHeader()
+    resetScrollIntent()
+    if (import.meta.client) previousScrollY = window.scrollY
+  },
+  { flush: 'sync' },
+)
+
+watch(isMenuOpen, (open) => {
+  if (open) revealHeader()
+})
+
 onMounted(() => {
   isHydrated.value = true
+  previousScrollY = window.scrollY
+  window.addEventListener('scroll', handleWindowScroll, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleWindowScroll)
 })
 </script>
 
 <template>
-  <UiGlassPanel as="header" class="site-header" tone="subtle" padding="compact">
+  <UiGlassPanel
+    as="header"
+    class="site-header"
+    :class="{ 'site-header--hidden': isHeaderHidden }"
+    tone="subtle"
+    padding="compact"
+    @focusin="revealHeader"
+  >
     <NuxtLink class="site-brand" to="/" :aria-label="`${identity.name}首页`">
       {{ identity.name }}
     </NuxtLink>
@@ -122,6 +201,8 @@ onMounted(() => {
 
 <style scoped>
 .site-header {
+  --site-header-offset-top: var(--space-5);
+
   position: fixed;
   z-index: var(--z-sticky);
   top: var(--space-5);
@@ -135,6 +216,26 @@ onMounted(() => {
   margin-inline: auto;
   border-radius: var(--radius-medium);
   padding-inline: var(--space-6);
+  transition:
+    transform 500ms var(--motion-ease-standard),
+    opacity 500ms var(--motion-ease-standard);
+  will-change: transform;
+}
+
+.site-header--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(calc(-100% - var(--site-header-offset-top) - 1px));
+}
+
+.site-header--hidden:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.site-header:focus-within {
+  transition-duration: 0ms;
 }
 
 .site-brand {
@@ -182,6 +283,8 @@ onMounted(() => {
 
 @media (width <= 48rem) {
   .site-header {
+    --site-header-offset-top: var(--space-6);
+
     top: var(--space-6);
     min-height: 4rem;
     padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
@@ -265,6 +368,17 @@ onMounted(() => {
   .mobile-navigation a[aria-current='page'] {
     background: rgb(124 131 255 / 15%);
     color: var(--color-text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header,
+  .site-header:focus-within {
+    transition: none;
+  }
+
+  .site-header--hidden {
+    transform: none;
   }
 }
 </style>
