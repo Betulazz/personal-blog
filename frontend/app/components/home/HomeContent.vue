@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+import type { HomepageContent, HomepageSectionKey } from '~/types/homepage'
 import type { HomepageVisibility } from '~/types/site'
 
-const { content, retry } = await useHomepageContent()
+defineProps<{
+  content: HomepageContent
+  retry: (section: HomepageSectionKey) => Promise<unknown>
+}>()
 const { settings } = await usePublicSiteSettings()
 const isVisible = (section: keyof HomepageVisibility) =>
   settings.value.homepageVisibility[section]
@@ -11,8 +15,6 @@ const isVisible = (section: keyof HomepageVisibility) =>
 <template>
   <section id="reading" class="home-content" aria-label="首页内容">
     <UiPageContainer class="home-content__container" width="wide">
-      <HomeProfileSection :stats="content.stats" />
-
       <div class="home-content__sections">
         <HomeReveal v-if="isVisible('posts')">
           <HomePostsSection :section="content.posts" @retry="retry('posts')" />

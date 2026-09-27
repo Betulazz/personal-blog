@@ -9,7 +9,8 @@ export function getActiveMusicLyricIndex(
   let activeIndex = -1
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
-    if (!line || line.timeMs > timeMs) break
+    if (!line || !Number.isFinite(line.timeMs)) continue
+    if (line.timeMs > timeMs) break
     activeIndex = index
   }
   return activeIndex

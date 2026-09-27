@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { motion } from 'motion-v'
 import { motionTransitions } from '~/config/motion'
+import { useHomepageContent } from '~/composables/useHomepageContent'
 import { useMotionPreference } from '~/composables/useMotionPreference'
 
 const motionEnabled = useMotionPreference({ disableOnMobile: true })
+const { content, retry } = await useHomepageContent()
 </script>
 
 <template>
@@ -15,7 +17,7 @@ const motionEnabled = useMotionPreference({ disableOnMobile: true })
       :animate="{ y: 0 }"
       :transition="motionTransitions.entry"
     >
-      <VisualFoundationHero />
+      <VisualFoundationHero :stats="content.stats" />
     </component>
     <component
       :is="motionEnabled ? motion.div : 'div'"
@@ -24,7 +26,7 @@ const motionEnabled = useMotionPreference({ disableOnMobile: true })
       :animate="{ y: 0 }"
       :transition="motionTransitions.entryStagger"
     >
-      <HomeContent />
+      <HomeContent :content="content" :retry="retry" />
     </component>
   </div>
 </template>

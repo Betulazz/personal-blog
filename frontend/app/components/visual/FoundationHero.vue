@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ArrowDown, ArrowRight } from 'lucide-vue-next'
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
+import type { HomepageStat } from '~/types/homepage'
 
-const { identity } = await usePublicSiteSettings()
+defineProps<{ stats: HomepageStat[] }>()
+const { identity, settings } = await usePublicSiteSettings()
 </script>
 
 <template>
@@ -18,29 +20,27 @@ const { identity } = await usePublicSiteSettings()
         />
 
         <div class="hero__actions">
-          <a class="action action--primary" href="/posts">
+          <NuxtLink class="action action--primary" to="/posts">
             开始阅读
             <ArrowRight :size="20" aria-hidden="true" />
-          </a>
-          <a class="action action--secondary" href="/about">了解我</a>
+          </NuxtLink>
+          <NuxtLink class="action action--secondary" to="/about">
+            了解我
+          </NuxtLink>
         </div>
 
         <UiBadge class="hero__meta">WRITING · BUILDING · LIVING</UiBadge>
       </div>
 
-      <UiGlassCard
-        class="hero__window"
-        padding="none"
-        media
-        hoverable
-        aria-hidden="true"
-      >
-        <template #media>
-          <VisualResponsiveBackgroundMedia
-            sizes="(max-width: 767px) calc(100vw - 32px), 42vw"
-          />
-        </template>
-      </UiGlassCard>
+      <div class="hero__aside">
+        <HomeProfileSection :stats="stats" />
+        <HomeMusicCard v-if="settings.homepageVisibility.music" />
+      </div>
+
+      <HomeLyricStrip
+        v-if="settings.homepageVisibility.music"
+        class="hero__lyrics"
+      />
     </section>
 
     <a class="scroll-cue" href="#reading" aria-label="继续浏览">
@@ -56,17 +56,27 @@ const { identity } = await usePublicSiteSettings()
   display: grid;
   min-height: 100svh;
   align-items: center;
-  padding-top: 8rem;
-  padding-bottom: var(--space-16);
+  padding-top: clamp(8rem, 9vw, 10rem);
+  padding-bottom: var(--space-20);
 }
 
 .hero__content {
   display: grid;
   width: min(100%, var(--container-wide));
-  grid-template-columns: minmax(0, 1.08fr) minmax(24rem, 0.92fr);
+  grid-template-columns: minmax(0, 1.04fr) minmax(23rem, 0.96fr);
   align-items: center;
-  gap: clamp(3rem, 6vw, 7rem);
+  gap: clamp(2.5rem, 5vw, 6rem);
   margin-inline: auto;
+}
+
+.hero__aside {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-5);
+}
+
+.hero__lyrics {
+  grid-column: 1 / -1;
 }
 
 .hero__copy {
@@ -83,6 +93,7 @@ const { identity } = await usePublicSiteSettings()
 .hero__heading :deep(.section-header__description) {
   margin-top: var(--space-4);
   font-size: clamp(1rem, 1.5vw, 1.25rem);
+  line-height: var(--leading-body);
 }
 
 .hero__actions {
@@ -146,25 +157,6 @@ const { identity } = await usePublicSiteSettings()
   letter-spacing: 0.32em;
 }
 
-.hero__window {
-  overflow: hidden;
-  border-color: var(--glass-border-strong);
-}
-
-.hero__window :deep(.responsive-background-media),
-.hero__window :deep(.responsive-background-media__image) {
-  display: block;
-  width: 100%;
-}
-
-.hero__window :deep(.responsive-background-media__image) {
-  aspect-ratio: 1.2;
-  object-fit: cover;
-  object-position: 48% center;
-  opacity: 0.72;
-  filter: saturate(0.78) brightness(0.6) contrast(1.05);
-}
-
 .scroll-cue {
   position: absolute;
   bottom: var(--space-6);
@@ -185,10 +177,10 @@ const { identity } = await usePublicSiteSettings()
   background: linear-gradient(transparent, var(--color-accent-soft));
 }
 
-@media (width < 64rem) {
+@media (width <= 64rem) {
   .hero__content {
-    grid-template-columns: 1fr 0.8fr;
-    gap: var(--space-10);
+    grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+    gap: var(--space-8);
   }
 }
 
@@ -196,16 +188,17 @@ const { identity } = await usePublicSiteSettings()
   .hero {
     align-items: start;
     padding-top: 11rem;
-    padding-bottom: var(--space-24);
+    padding-bottom: var(--space-16);
+    min-height: auto;
   }
 
   .hero__content {
     grid-template-columns: 1fr;
-    gap: var(--space-12);
+    gap: var(--space-8);
   }
 
   .hero__heading :deep(h1) {
-    font-size: clamp(2.65rem, 11vw, 3.3rem);
+    font-size: clamp(2.5rem, 10.25vw, 3.15rem);
     letter-spacing: -0.04em;
   }
 
@@ -217,7 +210,7 @@ const { identity } = await usePublicSiteSettings()
     display: grid;
     grid-template-columns: 1.2fr 1fr;
     gap: var(--space-3);
-    margin-top: var(--space-8);
+    margin-top: var(--space-6);
   }
 
   .action {
@@ -227,20 +220,13 @@ const { identity } = await usePublicSiteSettings()
 
   .hero__meta {
     overflow-wrap: anywhere;
-    margin-top: var(--space-8);
-    padding-top: var(--space-5);
+    margin-top: var(--space-6);
     font-size: 0.6875rem;
     letter-spacing: 0.22em;
   }
 
-  .hero__window :deep(.responsive-background-media__image) {
-    aspect-ratio: 1.08;
-    opacity: 0.68;
-    object-position: 38% center;
-  }
-
   .scroll-cue {
-    bottom: var(--space-5);
+    display: none;
   }
 }
 

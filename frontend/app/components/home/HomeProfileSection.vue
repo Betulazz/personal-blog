@@ -8,9 +8,17 @@ defineProps<{
   stats: HomepageStat[]
 }>()
 
-const { identity } = await usePublicSiteSettings()
-const monogram = computed(() => identity.value.name.slice(0, 1))
+const { identity, settings } = await usePublicSiteSettings()
+const monogram = computed(() => identity.value.name.trim().slice(0, 1) || '访')
+const avatarFailed = ref(false)
 const socialIcons = { code: Github, social: Globe2 } as const
+
+watch(
+  () => settings.value.avatarUrl,
+  () => {
+    avatarFailed.value = false
+  },
+)
 </script>
 
 <template>
@@ -28,12 +36,27 @@ const socialIcons = { code: Github, social: Globe2 } as const
       </div>
 
       <div class="home-profile__identity">
-        <span class="home-profile__monogram" aria-hidden="true">{{
-          monogram
-        }}</span>
+        <div class="home-profile__avatar">
+          <img
+            v-if="settings.avatarUrl && !avatarFailed"
+            :src="settings.avatarUrl"
+            :alt="settings.avatarAlt || `${identity.name}头像`"
+            width="80"
+            height="80"
+            decoding="async"
+            @error="avatarFailed = true"
+          />
+          <span
+            v-else
+            class="home-profile__monogram"
+            role="img"
+            :aria-label="`${identity.name}头像`"
+            >{{ monogram }}</span
+          >
+        </div>
         <div>
           <p class="home-profile__eyebrow">个人简介</p>
-          <h2 id="home-profile-title">在这里，记录技术、生活与仍在发生的事</h2>
+          <h2 id="home-profile-title">{{ identity.name }}</h2>
         </div>
       </div>
 
@@ -49,7 +72,11 @@ const socialIcons = { code: Github, social: Globe2 } as const
         </div>
       </dl>
 
-      <div class="home-profile__social" data-homepage-social-links>
+      <div
+        v-if="identity.socialLinks.length"
+        class="home-profile__social"
+        data-homepage-social-links
+      >
         <span class="home-profile__social-label">找到我</span>
         <ul>
           <li v-for="social in identity.socialLinks" :key="social.href">
@@ -116,26 +143,44 @@ const socialIcons = { code: Github, social: Globe2 } as const
 
 .home-profile__identity {
   gap: var(--space-5);
-  margin-top: var(--space-10);
+  margin-top: var(--space-6);
 }
 
+.home-profile__avatar,
 .home-profile__monogram {
   display: grid;
-  width: 4.25rem;
-  height: 4.25rem;
+  width: 5rem;
+  height: 5rem;
   flex: 0 0 auto;
   place-items: center;
+  overflow: hidden;
   border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-round);
   background: linear-gradient(
     135deg,
     var(--color-accent),
     var(--color-secondary)
   );
   box-shadow: var(--shadow-glow);
+}
+
+.home-profile__avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-profile__monogram {
+  border: 0;
+  background: linear-gradient(
+    135deg,
+    var(--color-accent),
+    var(--color-secondary)
+  );
   color: var(--color-text);
   font-family: var(--font-display);
-  font-size: 1.7rem;
+  font-size: 2rem;
   font-weight: var(--font-weight-bold);
 }
 
@@ -149,18 +194,18 @@ const socialIcons = { code: Github, social: Globe2 } as const
 }
 
 .home-profile h2 {
-  max-width: 26ch;
+  max-width: 18ch;
   margin: 0;
   color: var(--color-text);
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 2.7vw, 2.35rem);
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
   line-height: var(--leading-display);
   text-wrap: balance;
 }
 
 .home-profile__description {
   max-width: 52ch;
-  margin: var(--space-8) 0 0;
+  margin: var(--space-5) 0 0;
   color: var(--color-text-muted);
   font-size: var(--text-body);
   line-height: var(--leading-body);
@@ -170,7 +215,7 @@ const socialIcons = { code: Github, social: Globe2 } as const
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
-  margin: var(--space-10) 0 0;
+  margin: var(--space-6) 0 0;
 }
 
 .home-profile__stat {
@@ -213,7 +258,7 @@ const socialIcons = { code: Github, social: Globe2 } as const
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-top: var(--space-10);
+  margin-top: var(--space-6);
   padding-top: var(--space-5);
   border-top: var(--border-hairline) solid var(--glass-border);
 }
@@ -266,9 +311,12 @@ const socialIcons = { code: Github, social: Globe2 } as const
   }
 
   .home-profile__identity {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
     gap: var(--space-4);
+  }
+
+  .home-profile h2 {
+    font-size: 1.65rem;
   }
 
   .home-profile__stats {

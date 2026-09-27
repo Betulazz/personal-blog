@@ -213,4 +213,24 @@ describe('music lyric selection', () => {
     expect(getActiveMusicLyricIndex([], 24_000)).toBe(-1)
     expect(getActiveMusicLyricIndex(lines, Number.NaN)).toBe(-1)
   })
+
+  it('ignores lyric lines without finite timestamps', () => {
+    const linesWithUntimedEntry = [
+      { timeMs: null, text: '没有时间戳', translation: null },
+      { timeMs: 0, text: '开场', translation: 'Opening' },
+      { timeMs: Number.NaN, text: '无效时间', translation: null },
+      {
+        timeMs: 24_000,
+        text: '星河落入远方',
+        translation: 'The stars drift away',
+      },
+    ] as unknown as typeof lines
+
+    expect(getActiveMusicLyricIndex(linesWithUntimedEntry, 0)).toBe(1)
+    expect(getActiveMusicLyricIndex(linesWithUntimedEntry, 23_999)).toBe(1)
+    expect(getActiveMusicLyricIndex(linesWithUntimedEntry, 24_000)).toBe(3)
+    expect(getActiveMusicLyricIndex([linesWithUntimedEntry[0]!], 24_000)).toBe(
+      -1,
+    )
+  })
 })
