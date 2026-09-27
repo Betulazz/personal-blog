@@ -36,6 +36,13 @@ export interface GithubOpenSourceProject {
 }
 
 export type Project = PersonalProject | GithubOpenSourceProject
+export type ProjectType = Project['projectType']
+
+export interface ProjectListQuery {
+  page?: number
+  pageSize?: number
+  projectType?: ProjectType
+}
 
 export interface ProjectCollectionResponse {
   data: Project[]
@@ -86,5 +93,8 @@ export interface AboutProfile {
 export interface PortfolioProvider {
   getAbout: (signal?: AbortSignal) => Promise<AboutProfile>
   listFriends: (signal?: AbortSignal) => Promise<FriendCollectionResponse>
-  listProjects: (signal?: AbortSignal) => Promise<ProjectCollectionResponse>
+  listProjects: (
+    signal?: AbortSignal,
+    query?: ProjectListQuery,
+  ) => Promise<ProjectCollectionResponse>
 }

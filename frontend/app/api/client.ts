@@ -69,6 +69,7 @@ import type {
   FriendCollectionResponse,
   Project,
   ProjectCollectionResponse,
+  ProjectListQuery,
 } from '~/types/portfolio'
 import type {
   PublicCollectionPagination,
@@ -459,7 +460,10 @@ export interface BlogApiClient {
     query: PostQuery,
     signal?: AbortSignal,
   ) => Promise<PostCollectionResponse>
-  listProjects: (signal?: AbortSignal) => Promise<ProjectCollectionResponse>
+  listProjects: (
+    signal?: AbortSignal,
+    query?: ProjectListQuery,
+  ) => Promise<ProjectCollectionResponse>
   listTags: (
     signal?: AbortSignal,
   ) => Promise<TaxonomyCollectionResponse<PostTag>>
@@ -1638,9 +1642,16 @@ export function useApiClient(): BlogApiClient {
     }
   }
 
-  const listProjects = async (signal?: AbortSignal) => {
+  const listProjects = async (
+    signal?: AbortSignal,
+    query?: ProjectListQuery,
+  ) => {
     const response = await request<RawCollection<RawProject>>('/projects', {
-      query: { page: 1, page_size: 100 },
+      query: {
+        page: query?.page ?? 1,
+        page_size: query?.pageSize ?? 100,
+        ...(query?.projectType ? { project_type: query.projectType } : {}),
+      },
       signal,
     })
     return {

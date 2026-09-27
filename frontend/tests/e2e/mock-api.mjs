@@ -1048,6 +1048,13 @@ const server = createServer(async (request, response) => {
     json(response, { data: settings.background_gallery })
     return
   }
+  if (path === '/__control/projects' && request.method === 'POST') {
+    const payload = await readJson(request)
+    const replacement = Array.isArray(payload.projects) ? payload.projects : []
+    projects.splice(0, projects.length, ...structuredClone(replacement))
+    json(response, { count: projects.length })
+    return
+  }
   if (path === '/__control/reset') {
     failures.clear()
     adminMoments.length = 0
@@ -2233,8 +2240,12 @@ const server = createServer(async (request, response) => {
     return
   }
   if (path === '/projects') {
+    const filteredProjects = projects.filter(
+      (project) =>
+        !query.project_type || project.project_type === query.project_type,
+    )
     json(response, {
-      ...paginate(projects.map(publicPortfolioItem), query.page, size),
+      ...paginate(filteredProjects.map(publicPortfolioItem), query.page, size),
     })
     return
   }

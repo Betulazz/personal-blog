@@ -25,11 +25,19 @@ class ProjectRepository:
     async def delete(self, project: Project) -> None:
         await self._session.delete(project)
 
-    async def count_public(self) -> int:
-        return int(await self._session.scalar(select(func.count(Project.id))) or 0)
+    async def count_public(self, *, project_type: str | None) -> int:
+        statement = select(func.count(Project.id))
+        if project_type:
+            statement = statement.where(Project.project_type == project_type)
+        return int(await self._session.scalar(statement) or 0)
 
-    async def list_public(self, *, offset: int, limit: int) -> list[Project]:
-        statement = select(Project).order_by(
+    async def list_public(
+        self, *, project_type: str | None, offset: int, limit: int
+    ) -> list[Project]:
+        statement = select(Project)
+        if project_type:
+            statement = statement.where(Project.project_type == project_type)
+        statement = statement.order_by(
             Project.featured.desc(), Project.display_order.asc(), Project.id.asc()
         )
         return list(await self._session.scalars(statement.offset(offset).limit(limit)))

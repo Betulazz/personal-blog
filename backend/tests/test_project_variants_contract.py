@@ -178,6 +178,76 @@ async def test_github_project_contract_rejects_invalid_urls_and_personal_fields(
     assert invalid_filter.json()["error"]["code"] == "invalid_project_type"
 
 
+@pytest.mark.asyncio
+async def test_public_project_type_filter_precedes_pagination(
+    mysql_client: AsyncClient,
+    isolated_mysql_session: AsyncSession,
+    clean_projects: None,
+) -> None:
+    personal_projects = [
+        Project(
+            project_type="personal",
+            name=f"Personal Project {index:02d}",
+            description="A manually curated Personal Project.",
+            technology=["Python"],
+            time_span="2026",
+            source_url=f"https://github.com/example/personal-{index:02d}",
+            status="active",
+            featured=False,
+            display_order=index,
+        )
+        for index in range(22)
+    ]
+    github_project = Project(
+        project_type="github_open_source",
+        name="Open-source Project",
+        description="A manually curated GitHub Open-source Project.",
+        repository_url="https://github.com/example/open-source-project",
+        featured=False,
+        display_order=0,
+    )
+    isolated_mysql_session.add_all([*personal_projects, github_project])
+    await isolated_mysql_session.commit()
+
+    first_page = await mysql_client.get("/api/v1/projects", params={"project_type": "personal"})
+    second_page = await mysql_client.get(
+        "/api/v1/projects", params={"project_type": "personal", "page": 2}
+    )
+    github_only = await mysql_client.get(
+        "/api/v1/projects", params={"project_type": "github_open_source"}
+    )
+
+    assert first_page.status_code == second_page.status_code == github_only.status_code == 200
+    first_data = first_page.json()
+    second_data = second_page.json()
+    github_data = github_only.json()
+    assert first_data["pagination"] == {
+        "page": 1,
+        "page_size": 20,
+        "total": 22,
+        "total_pages": 2,
+    }
+    assert len(first_data["data"]) == 20
+    assert second_data["pagination"]["total"] == 22
+    assert second_data["pagination"]["total_pages"] == 2
+    assert [item["name"] for item in second_data["data"]] == [
+        "Personal Project 20",
+        "Personal Project 21",
+    ]
+    assert all(item["project_type"] == "personal" for item in first_data["data"])
+    assert all(item["project_type"] == "personal" for item in second_data["data"])
+    assert first_data["data"][0]["source_url"].startswith("https://github.com/")
+    assert github_data["pagination"]["total"] == 1
+    assert [item["name"] for item in github_data["data"]] == ["Open-source Project"]
+    assert {item["id"] for item in github_data["data"]}.isdisjoint(
+        {item["id"] for item in first_data["data"] + second_data["data"]}
+    )
+
+    invalid_type = await mysql_client.get("/api/v1/projects", params={"project_type": "repository"})
+    assert invalid_type.status_code == 422
+    assert invalid_type.json()["error"]["code"] == "invalid_project_type"
+
+
 async def _login(client: AsyncClient) -> str:
     csrf_response = await client.get("/api/v1/auth/csrf")
     assert csrf_response.status_code == 200

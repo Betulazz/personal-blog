@@ -41,8 +41,14 @@ async def list_projects(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    project_type_filter: str | None = Query(default=None, alias="project_type"),
 ) -> ProjectCollectionResponse:
-    projects, total = await ProjectService(session).public_list(page=page, page_size=page_size)
+    _validate_project_type(project_type_filter)
+    projects, total = await ProjectService(session).public_list(
+        page=page,
+        page_size=page_size,
+        project_type=project_type_filter,
+    )
     return ProjectCollectionResponse(
         data=[_public_project(project) for project in projects],
         pagination=_pagination(page, page_size, total),

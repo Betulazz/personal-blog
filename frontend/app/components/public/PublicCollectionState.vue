@@ -4,12 +4,14 @@ type PublicCollectionStatus =
 
 const props = withDefaults(
   defineProps<{
+    emptyMessage?: string
     errorMessage?: string
     label: string
     recoveryHref: string
     status: PublicCollectionStatus
   }>(),
   {
+    emptyMessage: '换一个关键词或标签，也许下一次就会遇见它。',
     errorMessage: '内容服务暂时没有响应，请稍后再试。',
   },
 )
@@ -50,7 +52,7 @@ const emit = defineEmits<{
   >
     <span class="public-collection-state__symbol" aria-hidden="true">◇</span>
     <strong>还没有找到{{ props.label }}</strong>
-    <p>换一个关键词或标签，也许下一次就会遇见它。</p>
+    <p>{{ props.emptyMessage }}</p>
     <NuxtLink class="public-collection-state__action" :to="props.recoveryHref">
       查看全部{{ props.label }}
     </NuxtLink>
