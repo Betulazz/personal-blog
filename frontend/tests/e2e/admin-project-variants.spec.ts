@@ -103,6 +103,7 @@ test('administrator creates, filters, and publishes a GitHub Open-source Project
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/projects')
   await expect(page).toHaveTitle(/项目/)
+  await expect(page).toHaveURL(/\/projects\?type=github_open_source$/)
   const githubCard = page
     .getByRole('article')
     .filter({ hasText: 'Open Source Atlas' })
@@ -118,19 +119,26 @@ test('administrator creates, filters, and publishes a GitHub Open-source Project
   await expect(repositoryLink).toHaveAttribute('rel', 'noopener noreferrer')
   await expect(githubCard).not.toContainText('开发时间')
   await expect(githubCard).not.toContainText('暂无公开演示')
+  await expect(
+    page.getByRole('article').filter({ hasText: 'Lumen Notes' }),
+  ).toHaveCount(0)
 
   const personalCard = page
     .getByRole('article')
     .filter({ hasText: 'Lumen Notes' })
+  await page.getByText('自己的项目', { exact: true }).click()
+  await expect(page).toHaveURL(/\/projects\?type=personal$/)
+  await expect(page.getByRole('article')).toHaveCount(3)
   await expect(personalCard).toContainText('Active')
   await expect(personalCard).toContainText('开发时间')
   await expect(personalCard).toContainText('Nuxt')
   await captureViewport(page, testInfo.project.name, 'desktop')
+  await page.getByText('开源项目', { exact: true }).click()
   await githubCard.scrollIntoViewIfNeeded()
   await captureViewport(page, testInfo.project.name, 'github-desktop')
 
   await page.setViewportSize({ width: 375, height: 812 })
-  await page.goto('/projects')
+  await page.goto('/projects?type=github_open_source')
   const mobileDimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,

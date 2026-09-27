@@ -1,4 +1,4 @@
-import { computed } from 'vue'
+import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 
 import { toPublicAbout, useApiClient } from '~/api/client'
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
@@ -7,6 +7,7 @@ import type {
   FriendCollectionResponse,
   PortfolioProvider,
   ProjectCollectionResponse,
+  ProjectListQuery,
 } from '~/types/portfolio'
 
 export function createPortfolioProvider(
@@ -22,12 +23,17 @@ export function createPortfolioProvider(
   }
 }
 
-export function useProjects(provider?: PortfolioProvider) {
+export function useProjects(
+  query: MaybeRefOrGetter<ProjectListQuery> = {},
+  provider?: PortfolioProvider,
+) {
   const activeProvider = provider ?? createPortfolioProvider(useApiClient())
+  const activeQuery = computed(() => toValue(query))
   return useAsyncData<ProjectCollectionResponse>(
     'public-projects',
-    (_nuxtApp, { signal }) => activeProvider.listProjects(signal),
-    { deep: false },
+    (_nuxtApp, { signal }) =>
+      activeProvider.listProjects(signal, activeQuery.value),
+    { deep: false, watch: [activeQuery] },
   )
 }
 

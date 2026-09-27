@@ -26,10 +26,16 @@ class ProjectService:
         self._session = session
         self._repository = ProjectRepository(session)
 
-    async def public_list(self, *, page: int, page_size: int) -> tuple[list[Project], int]:
+    async def public_list(
+        self, *, page: int, page_size: int, project_type: str | None
+    ) -> tuple[list[Project], int]:
         return (
-            await self._repository.list_public(offset=(page - 1) * page_size, limit=page_size),
-            await self._repository.count_public(),
+            await self._repository.list_public(
+                project_type=project_type,
+                offset=(page - 1) * page_size,
+                limit=page_size,
+            ),
+            await self._repository.count_public(project_type=project_type),
         )
 
     async def admin_list(
