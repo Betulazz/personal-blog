@@ -1,7 +1,7 @@
 # 08: Verify the complete visual refresh across routes and viewports
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 01, 02, 03, 04, 05, 06, 07
 
 ## What to build
@@ -12,7 +12,7 @@ Run production-like browser and contract acceptance for the seven implemented ch
 
 - [x] Public Home, Music, Projects, and representative other routes work at 375×812, 430×932, 768×1024, 1024×768, 1440×900, and 1920×1080 CSS pixels. Save viewport and full-page screenshots separately for meaningful states and compare against `../research.md`.
 - [x] Header hides/restores, ripple does not block navigation, Home music card and compact player share one track/clock, mini-player is absent from Home/Music, and Project type/deep-link/history/pagination states remain correct through route changes.
-- [ ] Both live gallery images are managed and rotate on the 10-second clock; hidden-page, failed-image, and reduced-motion states pass. Administrator workspace is validated after authenticated entry, with no clipped editors or controls.
+- [x] Both live gallery images are managed and rotate on the 10-second clock; hidden-page, failed-image, and reduced-motion states pass. Administrator workspace is validated after authenticated entry, with no clipped editors or controls.
 - [x] Check accessible names, keyboard focus/operation, screen-reader lyric noise, touch targets, console/page errors, framework overlays, missing assets, visual overlap, and horizontal overflow. Test no-track, missing-lyric, artwork failure, and provider failure states without claiming mocked media is live-playable.
 - [x] Run affected frontend typecheck/lint/format/build, targeted Playwright suites, and backend lint/typing/contracts. Preserve and incorporate the pre-existing uncommitted music lyric changes rather than resetting them. Record exact commands, results, screenshots, and remaining external-service limitations in this ticket's Comments.
 - [x] Review the final diff against this spec, `CONTEXT.md`, ADR-0004/0005, and existing v2/polish behavior before marking this and dependent tickets resolved.
@@ -42,3 +42,14 @@ Run production-like browser and contract acceptance for the seven implemented ch
   - 2026-09-27 bug-fix review from fixed point `6e503546e31afe5c5243c52b2e4ab31af804b099`:
     - Standards axis: no documented-standard violations; one heuristic `Duplicated Code` judgment call notes repeated CSRF/admin login setup in `backend/tests/test_dashboard_contract.py`.
     - Spec axis: no scope creep or implementation mismatch. The Administrator workspace acceptance remains partial because the follow-up route sweep was redirected to login after 401 responses.
+
+  - 2026-09-27 final authenticated workspace acceptance:
+    - After the user re-authenticated, the real Administrator session covered 19 admin routes (`/admin`, posts list/new/edit, tags, Chatter list/new/edit, projects list/new/edit, friends list/new/edit, music list/new/edit, media, and settings) at 1920×1080, 1024×768, 768×1024, and 430×932: 76 route/viewport cells. Every cell remained authenticated, had one main region, no error state, no horizontal overflow, and zero clipped controls. No editor was changed or submitted.
+    - On the 430×932 Dashboard, the mobile navigation opened as a dialog with its links visible; Escape closed it and restored focus to the open-navigation button. The settings page showed two ordered gallery images, both loaded (natural widths 2560px and 3500px). Dashboard and post-editor real-admin screenshots remain outside the repository at `C:\Users\Birchtula\.codex\visualizations\2026\09\27\01a0e274-93c8-73b1-893b-b727dc9405bc\visual-refresh-integrated-acceptance\final-screenshots\real-admin-dashboard-{1920-1080,430-932}-viewport.png` and `real-admin-post-editor-{1920-1080,430-932}-viewport.png`.
+    - Console errors were absent. The attached development tab emitted two existing NUXT/nostics warnings; the production polish suite completed without page/test errors. A redundant settings reload after the 3.1-minute gallery suite found that the separate admin session had expired; this later attempt is not counted as a pass or a failure, and no application data was changed.
+    - Inspection found that the Site Identity editor still said “30 seconds” although the accepted spec and shared rotator use 10 seconds. Updated the user-facing text to 10 seconds and added a regression assertion. ESLint and Prettier passed on both changed files; `npm exec --yes --package=node@22.22.2 -- npm run test:e2e:polish -- tests/e2e/background-gallery.spec.ts` passed 12/12 production desktop/mobile cases, including rotation, hidden-page pause, reduced motion, empty/unavailable settings, broken-image fallback, and the administrator copy assertion. Build completed with existing chunk-size, plugin-timing, and dependency-deprecation warnings.
+    - Follow-up code review since `70f3b6772f25f842573fa6f98bd1a9e64c501bed`: Standards found no documented-standard breaches or baseline smells. Spec found no missing requirements, scope creep, or implementation concerns in the two-file follow-up diff.
+
+## Answer
+
+Integrated acceptance is complete. The seven dependent tickets (01–07) are resolved; public-route, gallery, accessibility, browser-error, and build/contract checks are recorded above. The authenticated Administrator workspace passed the 76-cell four-viewport sweep without clipped controls or horizontal overflow. The stale gallery interval copy now matches the live 10-second behavior and is covered by production E2E. Actual audio playback was not started, so provider URLs are not claimed as live-playable; dependency/build warnings and that media limitation are the remaining recorded caveats.

@@ -461,7 +461,7 @@ function isAbortError(failure: unknown) {
           >
         </div>
         <p class="admin-settings-note">
-          公开页面会按顺序显示并每 30 秒切换。支持安全 HTTPS 图片链接或
+          公开页面会按顺序显示并每 10 秒切换。支持安全 HTTPS 图片链接或
           <NuxtLink to="/admin/media">媒体库</NuxtLink>
           中已有的图片；空图库会使用内置背景。
         </p>

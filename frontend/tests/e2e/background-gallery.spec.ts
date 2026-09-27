@@ -17,6 +17,9 @@ test('administrator adds, previews, reorders, removes, saves, and reloads galler
   await login(page)
   await page.goto('/admin/settings')
   const gallery = page.getByRole('list', { name: '背景图库顺序' })
+  await expect(
+    page.getByText(/公开页面会按顺序显示并每 10 秒切换/),
+  ).toBeVisible()
 
   await page
     .getByLabel('背景图片 HTTPS URL')
