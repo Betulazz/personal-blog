@@ -107,10 +107,6 @@ test('desktop homepage sections reveal after entering the viewport', async ({
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
-  await expect(page.locator('[data-testid="music-player"]')).toHaveAttribute(
-    'data-player-ready',
-    'true',
-  )
 
   const firstSection = page.locator('[data-homepage-section]').first()
   await expect(firstSection).not.toHaveAttribute('data-revealed', 'true')
@@ -130,19 +126,16 @@ test('desktop homepage sections reveal after entering the viewport', async ({
     .toBe(0)
 })
 
-test('mobile removes nonessential ambient motion and protects the footer from the player', async ({
+test('mobile removes ambient motion and hides the compact player at Home and the footer', async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.setViewportSize({ width: 430, height: 932 })
   await page.goto('/')
+  await expect(page.locator('[data-testid="music-player"]')).toHaveCount(0)
 
-  const checks = await page.evaluate(() => {
-    const player = document.querySelector('[data-testid="music-player"]')
-    const footer = document.querySelector('footer')
+  const homepageChecks = await page.evaluate(() => {
     const section = document.querySelector('[data-homepage-section]')
-    const playerRect = player?.getBoundingClientRect()
-    const footerRect = footer?.getBoundingClientRect()
 
     return {
       ambientGlows: [
@@ -151,51 +144,47 @@ test('mobile removes nonessential ambient motion and protects the footer from th
       homepageSectionAnimation: section
         ? getComputedStyle(section).animationName
         : 'missing',
-      playerControls: [
-        ...document.querySelectorAll(
-          '[data-testid="music-player"] button, [data-testid="music-player"] input',
-        ),
-      ].map((element) => {
-        const rect = element.getBoundingClientRect()
-        return { height: rect.height, width: rect.width }
-      }),
-      playerFooterGap:
-        playerRect && footerRect
-          ? Math.max(0, playerRect.top - footerRect.bottom)
-          : -1,
     }
   })
 
-  expect(checks.ambientGlows).toEqual(['none', 'none'])
-  expect(checks.homepageSectionAnimation).toBe('none')
-  expect(checks.playerControls).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        height: expect.any(Number),
-        width: expect.any(Number),
-      }),
-    ]),
+  expect(homepageChecks.ambientGlows).toEqual(['none', 'none'])
+  expect(homepageChecks.homepageSectionAnimation).toBe('none')
+
+  await page.goto('/projects')
+  const player = page.getByTestId('music-player')
+  await expect(player).toBeVisible()
+  const playerControls = await player.locator('button').evaluateAll((buttons) =>
+    buttons.map((element) => {
+      const rect = element.getBoundingClientRect()
+      return { height: rect.height, width: rect.width }
+    }),
   )
+  expect(playerControls.length).toBe(2)
   expect(
-    checks.playerControls.every(
-      ({ height, width }) => height >= 44 && width >= 44,
-    ),
+    playerControls.every(({ height, width }) => height >= 44 && width >= 44),
   ).toBe(true)
 
   await page.evaluate(() =>
     window.scrollTo(0, document.documentElement.scrollHeight),
   )
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const player = document
-          .querySelector('[data-testid="music-player"]')
-          ?.getBoundingClientRect()
-        const footer = document.querySelector('footer')?.getBoundingClientRect()
-        return player && footer ? footer.bottom <= player.top : false
-      }),
+  await expect(page.locator('.site-footer')).toBeInViewport()
+  const footerOverlap = await page.evaluate(() => {
+    const playerRect = document
+      .querySelector('[data-testid="music-player"]')
+      ?.getBoundingClientRect()
+    const footerRect = document
+      .querySelector('.site-footer')
+      ?.getBoundingClientRect()
+    return Boolean(
+      playerRect &&
+      footerRect &&
+      playerRect.left < footerRect.right &&
+      playerRect.right > footerRect.left &&
+      playerRect.top < footerRect.bottom &&
+      playerRect.bottom > footerRect.top,
     )
-    .toBe(true)
+  })
+  expect(footerOverlap).toBe(false)
 })
 
 test('required visual widths do not overflow horizontally', async ({

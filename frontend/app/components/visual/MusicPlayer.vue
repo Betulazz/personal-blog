@@ -1,29 +1,15 @@
 <script setup lang="ts">
-import {
-  Music2,
-  Pause,
-  Play,
-  Repeat,
-  Repeat1,
-  Shuffle,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  VolumeX,
-} from 'lucide-vue-next'
-import { motion } from 'motion-v'
+import { Music2, Pause, Play, SkipForward } from 'lucide-vue-next'
 
-import { motionTransitions } from '~/config/motion'
-import { useMotionPreference } from '~/composables/useMotionPreference'
-import {
-  musicPlaybackModeLabel,
-  useMusicPlayback,
-} from '~/composables/musicPlayback'
+import { useApiClient } from '~/api/client'
+import { useMusicPlayback } from '~/composables/musicPlayback'
 import { useMusicTracks } from '~/composables/useMusicTracks'
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import { useMusicPlayerStore } from '~/stores/musicPlayer'
+import { getActiveMusicLyricIndex } from '~/utils/music-lyrics'
 
 const player = useMusicPlayerStore()
+const api = useApiClient()
 const playback = useMusicPlayback()
 const route = useRoute()
 const {
@@ -33,22 +19,18 @@ const {
   refresh: refreshTracks,
 } = await useMusicTracks()
 const { settings } = await usePublicSiteSettings()
+
 const musicVisible = computed(() => settings.value.homepageVisibility.music)
-const isDedicatedMusicPage = computed(() => route.path === '/music')
-const musicStateMessage = computed(() => {
-  if (tracksPending.value) {
-    return '正在加载音乐…'
-  }
-
-  if (trackError.value) {
-    return '音乐暂时无法加载，请稍后重试。'
-  }
-
-  return '暂时没有可播放的音乐。'
-})
-const isReady = ref(false)
+const isExcludedRoute = computed(
+  () => route.path === '/' || route.path === '/music',
+)
 const isHydrated = ref(false)
-const motionEnabled = useMotionPreference({ disableOnMobile: true })
+const isFooterVisible = ref(false)
+const failedArtworkTrackId = ref<string | null>(null)
+const artworkImage = ref<HTMLImageElement | null>(null)
+let playerHeight = 72
+let playerBottomInset = 16
+let footerCheckFrame = 0
 
 watch(
   trackResponse,
@@ -58,103 +40,224 @@ watch(
   { immediate: true },
 )
 
-const errorMessage = computed(() => {
-  if (player.error === 'source-unavailable') {
-    return '当前音源暂不可用，可切换到下一首。'
+watch(
+  () => player.currentTrack?.id,
+  (trackId) => {
+    failedArtworkTrackId.value = null
+    if (isHydrated.value) {
+      void player.loadLyrics(api.getMusicTrackLyrics, trackId)
+    }
+    void nextTick(checkArtwork)
+  },
+)
+
+const currentLyric = computed(() => {
+  if (
+    !player.currentTrack ||
+    player.error ||
+    !player.hasClockPosition ||
+    player.lyricsTrackId !== player.currentTrack.id ||
+    player.lyricsStatus !== 'ready' ||
+    !player.lyrics ||
+    player.lyrics.status !== 'available'
+  ) {
+    return null
   }
 
-  if (player.error === 'autoplay-blocked') {
-    return '浏览器阻止了自动播放，请再次点击播放。'
-  }
-
-  if (player.error === 'playback-failed') {
-    return '播放没有成功，请稍后重试或切换歌曲。'
-  }
-
-  return ''
+  const index = getActiveMusicLyricIndex(
+    player.lyrics.lines,
+    player.currentTime * 1000,
+  )
+  return index < 0 ? null : (player.lyrics.lines[index]?.text ?? null)
 })
 
-const formattedCurrentTime = computed(() => formatTime(player.currentTime))
-const formattedDuration = computed(() => formatTime(player.duration))
-const progressValue = computed(() =>
-  player.duration > 0 ? player.currentTime : 0,
-)
-const isUnavailable = computed(() => player.error === 'source-unavailable')
+const lyricStateMessage = computed(() => {
+  if (!isHydrated.value) {
+    return '播放后显示同步歌词'
+  }
+  if (player.error === 'source-unavailable') {
+    return '当前歌曲暂不可用'
+  }
+  if (player.error === 'autoplay-blocked') {
+    return '请点击播放以继续'
+  }
+  if (player.error === 'playback-failed') {
+    return '播放暂时失败'
+  }
+  if (!player.currentTrack) {
+    return tracksPending.value ? '正在加载音乐…' : '暂无可播放歌曲'
+  }
+  if (player.lyricsTrackId !== player.currentTrack.id) {
+    return '正在同步歌词…'
+  }
+  if (player.lyricsStatus === 'loading') {
+    return '正在同步歌词…'
+  }
+  if (player.lyricsStatus === 'error') {
+    return '歌词暂时无法加载'
+  }
+  if (
+    player.lyricsStatus === 'ready' &&
+    (player.lyrics?.status !== 'available' || !player.lyrics.lines.length)
+  ) {
+    return '暂无同步歌词'
+  }
+  if (!player.hasClockPosition) {
+    return '播放后显示同步歌词'
+  }
+  return '前奏 · 暂无同步歌词'
+})
 
-function formatTime(value: number) {
-  if (!Number.isFinite(value) || value < 0) {
-    return '00:00'
+const playbackErrorMessage = computed(() => {
+  switch (player.error) {
+    case 'source-unavailable':
+      return '当前音源暂不可用，可切换到下一首。'
+    case 'autoplay-blocked':
+      return '浏览器阻止了自动播放，请再次点击播放。'
+    case 'playback-failed':
+      return '播放没有成功，请稍后重试或切换歌曲。'
+    default:
+      return ''
+  }
+})
+
+const shouldShowPlayer = computed(
+  () =>
+    !isExcludedRoute.value &&
+    musicVisible.value &&
+    !isFooterVisible.value &&
+    (player.currentTrack || isHydrated.value),
+)
+
+function updateFooterAvoidance() {
+  const footer = document.querySelector('.site-footer')
+  if (!footer) {
+    isFooterVisible.value = false
+    return
   }
 
-  const totalSeconds = Math.floor(value)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  const playerElement = document.querySelector('.music-player')
+  if (playerElement) {
+    playerHeight = playerElement.getBoundingClientRect().height
+    const bottomValue = Number.parseFloat(
+      getComputedStyle(playerElement).bottom,
+    )
+    if (Number.isFinite(bottomValue)) playerBottomInset = bottomValue
+  }
+
+  const footerRect = footer.getBoundingClientRect()
+  const playerBottom = window.innerHeight - playerBottomInset
+  const playerTop = playerBottom - playerHeight
+  isFooterVisible.value =
+    footerRect.top < playerBottom && footerRect.bottom > playerTop
 }
 
-function changeVolume(event: Event) {
-  const value = Number((event.target as HTMLInputElement).value)
-  playback.setVolume(value)
+function scheduleFooterCheck() {
+  if (footerCheckFrame) return
+  footerCheckFrame = window.requestAnimationFrame(() => {
+    footerCheckFrame = 0
+    updateFooterAvoidance()
+  })
 }
 
-function changeProgress(event: Event) {
-  playback.seek(Number((event.target as HTMLInputElement).value))
+function retryTracks() {
+  void refreshTracks()
 }
 
-const playbackModeLabel = computed(() =>
-  musicPlaybackModeLabel(player.playbackMode),
-)
+function handleArtworkError() {
+  failedArtworkTrackId.value = player.currentTrack?.id ?? null
+}
+
+function checkArtwork() {
+  const image = artworkImage.value
+  if (image?.complete && image.naturalWidth === 0) {
+    handleArtworkError()
+  }
+}
 
 onMounted(() => {
-  isReady.value = true
   isHydrated.value = true
+  updateFooterAvoidance()
+  void nextTick(checkArtwork)
+  void player.loadLyrics(api.getMusicTrackLyrics, player.currentTrack?.id)
+  window.addEventListener('scroll', scheduleFooterCheck, { passive: true })
+  window.addEventListener('resize', scheduleFooterCheck)
+})
+
+watch(
+  () => route.path,
+  async () => {
+    await nextTick()
+    updateFooterAvoidance()
+  },
+)
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', scheduleFooterCheck)
+  window.removeEventListener('resize', scheduleFooterCheck)
+  if (footerCheckFrame) window.cancelAnimationFrame(footerCheckFrame)
 })
 </script>
 
 <template>
   <section
-    v-if="
-      !isDedicatedMusicPage &&
-      musicVisible &&
-      (player.currentTrack || isHydrated)
-    "
+    v-if="shouldShowPlayer"
     class="music-player"
     data-testid="music-player"
-    aria-label="音乐播放器"
-    :data-player-ready="isReady"
+    data-compact-player="true"
+    :data-player-ready="isHydrated"
     :data-player-status="player.status"
+    :aria-busy="tracksPending || undefined"
+    aria-label="音乐播放器"
   >
-    <component
-      :is="motionEnabled ? motion.div : 'div'"
-      v-if="player.currentTrack"
-      class="music-player__motion"
-      :initial="motionEnabled ? { y: 8 } : undefined"
-      :animate="motionEnabled ? { y: 0 } : undefined"
-      :transition="motionEnabled ? motionTransitions.entry : undefined"
-    >
-      <div class="music-player__identity">
-        <span class="music-player__icon" aria-hidden="true">
-          <Music2 :size="18" />
+    <template v-if="player.currentTrack">
+      <div
+        class="music-player__record"
+        :class="{ 'music-player__record--playing': player.isPlaying }"
+      >
+        <img
+          v-if="
+            player.currentTrack.artworkUrl &&
+            failedArtworkTrackId !== player.currentTrack.id
+          "
+          :key="player.currentTrack.id"
+          ref="artworkImage"
+          class="music-player__artwork"
+          :src="player.currentTrack.artworkUrl"
+          :alt="
+            player.currentTrack.artworkAlt ||
+            `${player.currentTrack.title} 封面`
+          "
+          decoding="async"
+          @error="handleArtworkError"
+        />
+        <span
+          v-else
+          class="music-player__artwork-fallback"
+          role="img"
+          :aria-label="`${player.currentTrack.title} 的封面暂不可用`"
+        >
+          <Music2 :size="19" stroke-width="1.6" aria-hidden="true" />
         </span>
-        <div class="music-player__track">
-          <span class="music-player__eyebrow">NOW PLAYING · AMBIENT</span>
-          <strong>{{ player.currentTrack.title }}</strong>
-          <span>{{ player.currentTrack.artist }}</span>
-        </div>
+        <span class="music-player__record-hole" aria-hidden="true" />
       </div>
 
-      <div class="music-player__controls">
+      <div class="music-player__copy">
+        <strong class="music-player__title" :title="player.currentTrack.title">
+          {{ player.currentTrack.title }}
+        </strong>
+        <span class="music-player__artist" :title="player.currentTrack.artist">
+          {{ player.currentTrack.artist }}
+        </span>
+        <span class="music-player__lyric" aria-live="off">
+          {{ currentLyric || lyricStateMessage }}
+        </span>
+      </div>
+
+      <div class="music-player__controls" aria-label="音乐播放控制">
         <button
           type="button"
-          aria-label="上一首"
-          class="music-player__control"
-          @click="playback.previousTrack"
-        >
-          <SkipBack :size="18" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="music-player__control music-player__control--primary"
+          class="music-player__control music-player__control--play"
           :aria-label="player.isPlaying ? '暂停' : '播放'"
           :aria-busy="player.status === 'loading' || undefined"
           @click="playback.togglePlayback"
@@ -164,99 +267,39 @@ onMounted(() => {
         </button>
         <button
           type="button"
-          aria-label="下一首"
           class="music-player__control"
+          aria-label="下一首"
           @click="playback.skipNext"
         >
-          <SkipForward :size="18" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="music-player__control"
-          :aria-label="`播放模式：${playbackModeLabel}`"
-          :title="`播放模式：${playbackModeLabel}`"
-          @click="player.cyclePlaybackMode"
-        >
-          <Repeat1
-            v-if="player.playbackMode === 'single-loop'"
-            :size="17"
-            aria-hidden="true"
-          />
-          <Shuffle
-            v-else-if="player.playbackMode === 'shuffle'"
-            :size="17"
-            aria-hidden="true"
-          />
-          <Repeat v-else :size="17" aria-hidden="true" />
+          <SkipForward :size="19" aria-hidden="true" />
         </button>
       </div>
+    </template>
 
-      <div class="music-player__progress">
-        <label class="visually-hidden" for="music-progress">播放进度</label>
-        <input
-          id="music-progress"
-          class="music-player__range"
-          type="range"
-          min="0"
-          :max="player.duration || 0"
-          step="0.1"
-          :value="progressValue"
-          :disabled="!player.duration || isUnavailable"
-          aria-label="播放进度"
-          :aria-valuetext="`${formattedCurrentTime} / ${formattedDuration}`"
-          @input="changeProgress"
-        />
-        <span class="music-player__time" aria-live="off">
-          {{ formattedCurrentTime }} / {{ formattedDuration }}
-        </span>
-      </div>
-
-      <div class="music-player__volume">
-        <button
-          type="button"
-          class="music-player__control"
-          :aria-label="player.volume > 0 ? '静音' : '取消静音'"
-          @click="playback.toggleMute"
-        >
-          <Volume2 v-if="player.volume > 0" :size="17" aria-hidden="true" />
-          <VolumeX v-else :size="17" aria-hidden="true" />
-        </button>
-        <label class="visually-hidden" for="music-volume">音量</label>
-        <input
-          id="music-volume"
-          class="music-player__range music-player__range--volume"
-          type="range"
-          min="0"
-          max="1"
-          step="0.05"
-          :value="player.volume"
-          aria-label="音量"
-          @input="changeVolume"
-        />
-      </div>
-
-      <div v-if="errorMessage" class="music-player__message" role="status">
-        {{ errorMessage }}
-      </div>
-    </component>
-
-    <div
-      v-else
-      class="music-player__state"
-      :role="trackError ? 'alert' : 'status'"
-      :aria-busy="tracksPending"
-    >
-      <Music2 :size="18" aria-hidden="true" />
-      <span>{{ musicStateMessage }}</span>
+    <div v-else class="music-player__empty" role="status">
+      <Music2 :size="20" aria-hidden="true" />
+      <span>
+        {{
+          tracksPending
+            ? '正在加载音乐…'
+            : trackError
+              ? '音乐暂时无法加载。'
+              : '暂时没有可播放的音乐。'
+        }}
+      </span>
       <button
         v-if="trackError"
         type="button"
         class="music-player__retry"
-        @click="() => refreshTracks()"
+        @click="retryTracks"
       >
         重新加载
       </button>
     </div>
+
+    <p v-if="playbackErrorMessage" class="music-player__message" role="status">
+      {{ playbackErrorMessage }}
+    </p>
   </section>
 </template>
 
@@ -264,100 +307,111 @@ onMounted(() => {
 .music-player {
   position: fixed;
   z-index: var(--z-sticky);
-  right: var(--gutter-page);
-  bottom: var(--space-5);
-  left: var(--gutter-page);
-  display: grid;
-  grid-template-columns: minmax(12rem, 1.1fr) auto minmax(12rem, 1.5fr) minmax(
-      9rem,
-      0.8fr
-    );
+  right: max(var(--space-4), env(safe-area-inset-right));
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  display: flex;
+  width: max-content;
+  max-width: calc(100vw - 1.5rem);
   align-items: center;
-  gap: var(--space-4);
-  max-width: 78rem;
-  margin-inline: auto;
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-2);
   border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-large);
+  border-radius: var(--radius-round);
   background: var(--glass-elevated-bg);
   box-shadow: var(--shadow-panel), var(--glass-highlight), var(--shadow-glow);
   backdrop-filter: blur(var(--glass-blur-panel))
     saturate(var(--glass-saturation));
 }
 
-.music-player__motion {
+.music-player__record {
+  position: relative;
   display: grid;
-  width: 100%;
-  grid-template-columns: inherit;
-  align-items: inherit;
-  gap: inherit;
-}
-
-.music-player__identity,
-.music-player__controls,
-.music-player__progress,
-.music-player__volume {
-  display: flex;
-  align-items: center;
-}
-
-.music-player__identity {
-  min-width: 0;
-  gap: var(--space-3);
-}
-
-.music-player__icon {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 3.25rem;
+  height: 3.25rem;
   flex: 0 0 auto;
   place-items: center;
-  border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-medium);
-  background: linear-gradient(
-    135deg,
-    var(--color-accent),
-    var(--color-secondary)
-  );
-  box-shadow: var(--shadow-glow);
-  color: var(--color-text);
+  overflow: hidden;
+  border: 1px solid rgb(211 217 255 / 24%);
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle,
+      transparent 0 4px,
+      rgb(240 242 255 / 11%) 5px 6px
+    ),
+    radial-gradient(circle at 34% 26%, #333e71, #0b1022 64%, #03050d 100%);
+  box-shadow: inset 0 0 1rem rgb(255 255 255 / 6%);
 }
 
-.music-player__track {
+.music-player__record--playing {
+  animation: compact-record-rotate var(--motion-duration-record) linear infinite;
+}
+
+.music-player__artwork,
+.music-player__artwork-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.music-player__artwork {
+  object-fit: cover;
+}
+
+.music-player__artwork-fallback {
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle, #343b69, #171d3b 58%, #0c1024);
+  color: #e0e3ff;
+}
+
+.music-player__record-hole {
+  position: absolute;
+  width: 17%;
+  aspect-ratio: 1;
+  border: 1px solid rgb(225 228 255 / 78%);
+  border-radius: 50%;
+  background: #11162c;
+  box-shadow: 0 0 0 2px rgb(10 14 32 / 22%);
+  pointer-events: none;
+}
+
+.music-player__copy {
   display: grid;
   min-width: 0;
-  gap: 0.1rem;
+  width: min(13rem, calc(100vw - 12rem));
+  gap: 0.075rem;
 }
 
-.music-player__eyebrow {
-  color: var(--color-accent-soft);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: var(--tracking-label);
-  white-space: nowrap;
-}
-
-.music-player__track strong,
-.music-player__track > span:last-child {
+.music-player__title,
+.music-player__artist,
+.music-player__lyric {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.music-player__track strong {
+.music-player__title {
   color: var(--color-text);
   font-size: var(--text-small);
+  font-weight: 600;
 }
 
-.music-player__track > span:last-child,
-.music-player__time {
+.music-player__artist {
   color: var(--color-text-subtle);
-  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.music-player__lyric {
+  color: var(--color-accent-soft);
   font-size: var(--text-caption);
 }
 
 .music-player__controls {
-  gap: var(--space-1);
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.125rem;
 }
 
 .music-player__control {
@@ -366,8 +420,8 @@ onMounted(() => {
   height: 2.75rem;
   flex: 0 0 auto;
   place-items: center;
-  border: var(--border-hairline) solid transparent;
-  border-radius: var(--radius-round);
+  border: 1px solid transparent;
+  border-radius: 50%;
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -383,147 +437,65 @@ onMounted(() => {
   color: var(--color-text);
 }
 
-.music-player__control--primary {
+.music-player__control--play {
   border-color: var(--glass-border-hover);
   background: var(--badge-accent-bg);
   color: var(--color-text);
 }
 
-.music-player__progress {
-  min-width: 0;
-  gap: var(--space-3);
-}
-
-.music-player__range {
-  width: 100%;
-  min-width: 4rem;
-  height: 2.75rem;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-
-.music-player__range:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.music-player__time {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.music-player__volume {
-  min-width: 0;
-  gap: var(--space-2);
-}
-
-.music-player__range--volume {
-  width: min(7rem, 100%);
+.music-player__control:focus-visible,
+.music-player__retry:focus-visible {
+  outline: 2px solid var(--color-accent-soft);
+  outline-offset: 2px;
 }
 
 .music-player__message {
-  grid-column: 1 / -1;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  max-width: min(22rem, calc(100vw - 2rem));
   margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hairline) solid var(--glass-border-hover);
+  border-radius: var(--radius-medium);
+  background: var(--glass-elevated-bg);
+  box-shadow: var(--shadow-card);
   color: var(--color-accent-soft);
   font-size: var(--text-caption);
 }
 
-.music-player__state {
+.music-player__empty {
   display: flex;
   min-height: 2.75rem;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--text-small);
 }
 
 .music-player__retry {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   padding: var(--space-2) var(--space-3);
   border: var(--border-hairline) solid var(--glass-border-hover);
   border-radius: var(--radius-small);
   background: var(--glass-card-bg);
   color: var(--color-text);
+  cursor: pointer;
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-@media (width <= 64rem) {
-  .music-player,
-  .music-player__motion {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
-
-  .music-player__progress {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .music-player__volume {
-    justify-self: end;
-  }
-}
-
-@media (width <= 48rem) {
-  .music-player {
-    right: var(--space-3);
-    bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
-    left: var(--space-3);
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--space-2) var(--space-3);
-    padding: var(--space-3);
-    border-radius: var(--radius-medium);
-  }
-
-  .music-player__motion {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--space-2) var(--space-3);
-  }
-
-  .music-player__controls {
-    gap: 0;
-  }
-
-  .music-player__volume {
-    display: flex;
-    grid-column: 1 / -1;
-    grid-row: 3;
-    justify-self: stretch;
-  }
-
-  .music-player__range--volume {
-    width: 100%;
-  }
-
-  .music-player__progress {
-    gap: var(--space-2);
+@keyframes compact-record-rotate {
+  to {
+    transform: rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .music-player__record--playing {
+    animation: none;
+  }
+
   .music-player__control {
     transition: none;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) and (width > 48rem) {
-  .music-player__icon {
-    transition: transform var(--motion-duration-normal)
-      var(--motion-ease-emphasized);
-  }
-
-  .music-player[data-player-status='playing'] .music-player__icon {
-    transform: translateY(-0.125rem);
   }
 }
 </style>

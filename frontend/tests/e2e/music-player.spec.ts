@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
 import { mockFixtureMedia } from './support/fixture-media'
 
@@ -16,6 +19,7 @@ async function navigateTo(page: Page, href: string, label: string) {
   if (await desktopLink.isVisible()) {
     await desktopLink.click()
   } else {
+    await page.evaluate(() => window.scrollTo(0, 0))
     await page.getByRole('button', { name: '打开主导航' }).click()
     await page
       .getByRole('navigation', { name: '移动端主导航' })
@@ -35,6 +39,55 @@ async function setAudioTime(page: Page, currentTime: number) {
     audio.dispatchEvent(new Event('timeupdate'))
   }, currentTime)
 }
+
+test('keeps the compact player within mobile and desktop viewports', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(120_000)
+  const evidenceDirectory =
+    process.env.BLOG_MUSIC_SCREENSHOT_DIR ??
+    join(tmpdir(), 'blog-compact-music-player')
+  await mkdir(evidenceDirectory, { recursive: true })
+
+  for (const viewport of [
+    { name: '375x812', width: 375, height: 812 },
+    { name: '430x932', width: 430, height: 932 },
+    { name: '1440x900', width: 1440, height: 900 },
+    { name: '1920x1080', width: 1920, height: 1080 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/posts')
+    const player = page.getByTestId('music-player')
+    await expect(player).toBeVisible()
+
+    const layout = await page.evaluate(() => {
+      const element = document.querySelector('[data-testid="music-player"]')!
+      const rect = element.getBoundingClientRect()
+      return {
+        bottom: rect.bottom,
+        clientWidth: document.documentElement.clientWidth,
+        left: rect.left,
+        right: rect.right,
+        scrollWidth: document.documentElement.scrollWidth,
+        top: rect.top,
+      }
+    })
+    expect(layout.left).toBeGreaterThanOrEqual(0)
+    expect(layout.right).toBeLessThanOrEqual(viewport.width)
+    expect(layout.top).toBeGreaterThanOrEqual(0)
+    expect(layout.bottom).toBeLessThanOrEqual(viewport.height)
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth)
+
+    await page.screenshot({
+      path: join(
+        evidenceDirectory,
+        `compact-player-${testInfo.project.name}-${viewport.name}.png`,
+      ),
+      fullPage: false,
+      scale: 'css',
+    })
+  }
+})
 
 test.beforeEach(async ({ page }) => {
   await mockFixtureMedia(page)
@@ -216,7 +269,7 @@ test('keeps time-zero lyrics at the initial position until the audio clock is es
   await expect(lyrics.getByText('The stars drift away')).toBeVisible()
 })
 
-test('keeps one accessible player instance across client-side navigation', async ({
+test('keeps one compact player and shared audio state across public routes', async ({
   page,
 }) => {
   const consoleProblems: string[] = []
@@ -230,56 +283,140 @@ test('keeps one accessible player instance across client-side navigation', async
   })
 
   await page.goto('/')
+  await expect(page.locator('[data-testid="music-player"]')).toHaveCount(0)
+  await page.goto('/projects')
   const player = page.getByRole('region', { name: '音乐播放器' })
   await expect(player).toBeVisible()
   await expect(player).toHaveAttribute('data-player-ready', 'true')
+  await expect(player).toHaveAttribute('data-compact-player', 'true')
   await expect(player.getByText('月光落在窗边')).toBeVisible()
-  await expect(player.getByRole('button', { name: '上一首' })).toBeVisible()
+  await expect(player.getByText('本地示例音源')).toBeVisible()
+  await expect(player.getByText('播放后显示同步歌词')).toBeVisible()
+  await expect(player.locator('.music-player__artwork')).toHaveAttribute(
+    'alt',
+    '月光落在窗边的示例封面',
+  )
+  await expect
+    .poll(() =>
+      player
+        .locator('.music-player__artwork')
+        .evaluate((image) => (image as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0)
   await expect(
     player.getByRole('button', { name: '播放', exact: true }),
   ).toBeVisible()
-  await expect(player.getByRole('button', { name: '静音' })).toBeVisible()
+  await expect(player.getByRole('button', { name: '下一首' })).toBeVisible()
+  await expect(player.getByRole('button', { name: '上一首' })).toHaveCount(0)
+  await expect(player.getByRole('slider')).toHaveCount(0)
+  await expect
+    .poll(() =>
+      page.locator('audio').evaluate((audio) => ({
+        paused: audio.paused,
+        hasSource: Boolean(audio.getAttribute('src')),
+      })),
+    )
+    .toEqual({ paused: true, hasSource: false })
 
-  await player.getByRole('button', { name: '播放', exact: true }).click()
+  const playButton = player.getByRole('button', { name: '播放', exact: true })
+  await playButton.focus()
+  await expect(playButton).toBeFocused()
+  await expect
+    .poll(() =>
+      playButton.evaluate((button) => getComputedStyle(button).outlineWidth),
+    )
+    .toBe('2px')
+  await playButton.press('Enter')
   await expect(player.getByRole('button', { name: '暂停' })).toBeVisible()
+  await expect(player.locator('.music-player__record')).toHaveClass(
+    /music-player__record--playing/,
+  )
 
-  await page.locator('audio').dispatchEvent('loadedmetadata')
-  const progressSlider = player.getByRole('slider', { name: '播放进度' })
-  await expect(progressSlider).toBeEnabled()
-  await progressSlider.focus()
-  await progressSlider.press('ArrowRight')
-  await expect(progressSlider).toHaveValue('0.1')
-
-  const volumeSlider = player.getByRole('slider', { name: '音量' })
-  await volumeSlider.focus()
-  await volumeSlider.press('ArrowDown')
-  await expect(volumeSlider).toHaveValue('0.6')
+  await setAudioTime(page, 1)
+  await expect(player.locator('.music-player__lyric')).toHaveText(
+    '月光落在窗边',
+  )
+  await setAudioTime(page, 24)
+  await expect(player.locator('.music-player__lyric')).toHaveText(
+    '星河落入远方',
+  )
 
   const audioMarker = await page.locator('audio').evaluate((audio) => {
     const marker = crypto.randomUUID()
     audio.dataset.testMarker = marker
     return marker
   })
-
-  await player.getByRole('button', { name: '下一首' }).click()
-  await expect(player.getByText('雨落在玻璃上')).toBeVisible()
-
-  await page.evaluate(() => {
-    window.history.pushState({}, '', '/design-system')
-    window.dispatchEvent(new PopStateEvent('popstate'))
-  })
-  await expect(page).toHaveURL(/\/design-system$/)
-  await expect(page.getByRole('region', { name: '音乐播放器' })).toBeVisible()
+  await navigateTo(page, '/music', '音乐')
+  await expect(page.locator('[data-testid="music-player"]')).toHaveCount(0)
   await expect(page.locator('audio')).toHaveCount(1)
   await expect(page.locator('audio')).toHaveAttribute(
     'data-test-marker',
     audioMarker,
   )
+  await expect(page.locator('.music-page__track-info h2')).toHaveText(
+    '月光落在窗边',
+  )
   await expect(
-    page.getByRole('button', { name: '暂停', exact: true }),
-  ).toBeVisible()
+    page.locator('.music-page').getByRole('button', { name: '星河落入远方' }),
+  ).toHaveAttribute('aria-current', 'true')
+
+  await navigateTo(page, '/projects', '项目')
+  await expect(player.getByText('星河落入远方')).toBeVisible()
+  await expect(player.getByRole('button', { name: '暂停' })).toBeVisible()
+  await expect(page.locator('audio')).toHaveCount(1)
+  await expect(page.locator('audio')).toHaveAttribute(
+    'data-test-marker',
+    audioMarker,
+  )
+  await player.getByRole('button', { name: '下一首' }).click()
+  await expect(player.getByText('雨落在玻璃上')).toBeVisible()
+  await expect(player.getByText('暂无同步歌词')).toBeVisible()
+  await navigateTo(page, '/music', '音乐')
+  await expect(page.locator('[data-testid="music-player"]')).toHaveCount(0)
+  await expect(page.locator('.music-page__track-info h2')).toHaveText(
+    '雨落在玻璃上',
+  )
 
   expect(consoleProblems).toEqual([])
+})
+
+test('keeps the mini-player lyric honest before the first line and after seek or track change', async ({
+  page,
+}) => {
+  await page.route('**/music-tracks/1/lyrics', (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          track_id: 1,
+          status: 'available',
+          lines: [
+            { time_ms: 5000, text: '第一句延后出现', translation: null },
+            { time_ms: 15000, text: '第二句歌词', translation: null },
+          ],
+        },
+      },
+    }),
+  )
+  await page.goto('/projects')
+  const player = page.getByRole('region', { name: '音乐播放器' })
+  await expect(player).toHaveAttribute('data-player-ready', 'true')
+  const lyric = player.locator('.music-player__lyric')
+  await expect(lyric).toHaveText('播放后显示同步歌词')
+  await player.getByRole('button', { name: '播放', exact: true }).click()
+  await expect(player.getByRole('button', { name: '暂停' })).toBeVisible()
+
+  await setAudioTime(page, 1)
+  await expect(lyric).toHaveText('前奏 · 暂无同步歌词')
+  await setAudioTime(page, 5)
+  await expect(lyric).toHaveText('第一句延后出现')
+  await setAudioTime(page, 15)
+  await expect(lyric).toHaveText('第二句歌词')
+  await setAudioTime(page, 1)
+  await expect(lyric).toHaveText('前奏 · 暂无同步歌词')
+
+  await player.getByRole('button', { name: '下一首' }).click()
+  await expect(player.getByText('雨落在玻璃上')).toBeVisible()
+  await expect(lyric).toHaveText('暂无同步歌词')
 })
 
 test('music page shares the mini-player, synchronized lyrics, playlist, and controls', async ({
@@ -323,11 +460,9 @@ test('music page shares the mini-player, synchronized lyrics, playlist, and cont
   ).toHaveAttribute('aria-current', 'true')
 
   await navigateTo(page, '/projects', '项目')
-  await expect(
-    page
-      .getByRole('region', { name: '音乐播放器' })
-      .getByRole('slider', { name: '播放进度' }),
-  ).toHaveValue('24')
+  const miniPlayer = page.getByRole('region', { name: '音乐播放器' })
+  await expect(miniPlayer.getByText('星河落入远方')).toBeVisible()
+  await expect(miniPlayer.getByRole('button', { name: '暂停' })).toBeVisible()
   await navigateTo(page, '/music', '音乐')
   await expect(
     page.locator('.music-page').getByRole('button', { name: '星河落入远方' }),
@@ -374,15 +509,12 @@ test('music page shares the mini-player, synchronized lyrics, playlist, and cont
     return marker
   })
   await navigateTo(page, '/projects', '项目')
-  const miniPlayer = page.getByRole('region', { name: '音乐播放器' })
   await expect(miniPlayer.getByText('雨落在玻璃上')).toBeVisible()
   await expect(miniPlayer.getByRole('button', { name: '暂停' })).toBeVisible()
-  await expect(
-    miniPlayer.getByRole('button', { name: '播放模式：随机播放' }),
-  ).toBeVisible()
-  await expect(miniPlayer.getByRole('slider', { name: '音量' })).toHaveValue(
-    '0.6',
+  await expect(miniPlayer.getByRole('button', { name: '上一首' })).toHaveCount(
+    0,
   )
+  await expect(miniPlayer.getByRole('slider')).toHaveCount(0)
   await expect(page.locator('audio')).toHaveCount(1)
   await expect(page.locator('audio')).toHaveAttribute(
     'data-test-marker',
@@ -618,6 +750,40 @@ test('rotates the record only during playback and stops it on pause or source er
     .toBe('none')
 })
 
+test('falls back for failed artwork and disables record rotation with reduced motion', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.route('**/images/background/ambient-640.avif', (route) =>
+    route.abort(),
+  )
+  await page.goto('/projects')
+
+  const player = page.getByRole('region', { name: '音乐播放器' })
+  const record = player.locator('.music-player__record')
+  await expect(
+    player.getByRole('img', { name: /月光落在窗边.*封面暂不可用/ }),
+  ).toBeVisible()
+  await expect
+    .poll(() =>
+      record.evaluate((element) => getComputedStyle(element).animationName),
+    )
+    .toBe('none')
+
+  await player.getByRole('button', { name: '播放', exact: true }).click()
+  await expect(record).toHaveClass(/music-player__record--playing/)
+  await expect
+    .poll(() =>
+      record.evaluate((element) => getComputedStyle(element).animationName),
+    )
+    .toBe('none')
+  await player.getByRole('button', { name: '下一首' }).click()
+  await expect(player.getByText('雨落在玻璃上')).toBeVisible()
+  await expect(
+    player.getByRole('img', { name: /雨落在玻璃上.*封面暂不可用/ }),
+  ).toBeVisible()
+})
+
 test('explains browser autoplay rejection and lets the visitor retry', async ({
   page,
 }) => {
@@ -654,20 +820,21 @@ test('explains browser autoplay rejection and lets the visitor retry', async ({
 test('explains unavailable media and provides keyboard-accessible recovery', async ({
   page,
 }) => {
-  await page.goto('/')
+  await page.goto('/projects')
   const player = page.getByRole('region', { name: '音乐播放器' })
   const playButton = player.getByRole('button', { name: '播放', exact: true })
 
   await expect(player).toHaveAttribute('data-player-ready', 'true')
   await playButton.focus()
   await expect(playButton).toBeFocused()
-  await playButton.click()
+  await playButton.press('Enter')
   await expect(page.locator('audio')).toHaveAttribute('src', /id=32001\.mp3/)
   await page.locator('audio').dispatchEvent('error')
 
-  await expect(player).toContainText('当前音源暂不可用')
-  await expect(player.getByRole('slider', { name: '播放进度' })).toBeDisabled()
+  await expect(player.getByText('当前歌曲暂不可用')).toBeVisible()
+  await expect(player.getByRole('button', { name: '播放' })).toBeVisible()
 
   await player.getByRole('button', { name: '下一首' }).press('Enter')
   await expect(player.getByText('雨落在玻璃上')).toBeVisible()
+  await expect(player.getByText('暂无同步歌词')).toBeVisible()
 })

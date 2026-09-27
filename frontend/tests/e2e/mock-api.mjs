@@ -491,7 +491,7 @@ const tracks = [
     title: '月光落在窗边',
     artist: '本地示例音源',
     album: '夜航',
-    artwork_url: null,
+    artwork_url: '/images/background/ambient-640.avif',
     artwork_alt: '月光落在窗边的示例封面',
     duration_seconds: 214,
     display_order: 0,

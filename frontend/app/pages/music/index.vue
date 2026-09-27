@@ -20,7 +20,6 @@ import {
 import { useMusicTracks } from '~/composables/useMusicTracks'
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import { useMusicPlayerStore } from '~/stores/musicPlayer'
-import type { MusicLyrics } from '~/types/music'
 import { getActiveMusicLyricIndex } from '~/utils/music-lyrics'
 
 const api = useApiClient()
@@ -58,63 +57,17 @@ useHead({ link: [{ href: `${siteUrl}/music`, rel: 'canonical' }] })
 
 const activePanel = ref<'lyrics' | 'playlist'>('lyrics')
 const isHydrated = ref(false)
-const lyrics = ref<MusicLyrics | null>(null)
-const lyricsPending = ref(false)
-const lyricsError = ref(false)
-let lyricsRequest = 0
-let lyricsAbortController: AbortController | undefined
+const lyrics = computed(() => player.lyrics)
+const lyricsPending = computed(() => player.lyricsStatus === 'loading')
+const lyricsError = computed(() => player.lyricsStatus === 'error')
 
 onMounted(() => {
   isHydrated.value = true
 })
 
-async function loadLyrics(trackId = player.currentTrack?.id) {
-  lyricsAbortController?.abort()
-  const request = ++lyricsRequest
-  const currentTrackId = trackId
-  lyrics.value = null
-  lyricsError.value = false
-  if (!currentTrackId) {
-    lyricsPending.value = false
-    return
-  }
-
-  const controller = new AbortController()
-  lyricsAbortController = controller
-  lyricsPending.value = true
-
-  try {
-    const response = await api.getMusicTrackLyrics(
-      currentTrackId,
-      controller.signal,
-    )
-    if (
-      request === lyricsRequest &&
-      !controller.signal.aborted &&
-      response.trackId === currentTrackId
-    ) {
-      lyrics.value = response
-    }
-  } catch {
-    if (request === lyricsRequest && !controller.signal.aborted) {
-      lyricsError.value = true
-    }
-  } finally {
-    if (request === lyricsRequest) {
-      lyricsPending.value = false
-    }
-  }
+function loadLyrics() {
+  void player.loadLyrics(api.getMusicTrackLyrics, player.currentTrack?.id, true)
 }
-
-watch(
-  () => player.currentTrack?.id,
-  (trackId) => loadLyrics(trackId),
-  { immediate: true },
-)
-onBeforeUnmount(() => {
-  lyricsRequest += 1
-  lyricsAbortController?.abort()
-})
 
 const currentLyricIndex = computed(() => {
   if (!player.hasClockPosition) return -1

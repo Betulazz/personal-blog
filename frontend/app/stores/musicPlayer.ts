@@ -1,7 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import type { MusicPlaybackError, MusicTrack } from '../types/music'
+import type { BlogApiClient } from '../api/client'
+import type {
+  MusicLyrics,
+  MusicPlaybackError,
+  MusicTrack,
+} from '../types/music'
 
 export type MusicPlayerStatus = 'idle' | 'loading' | 'paused' | 'playing'
 export type MusicPlaybackMode = 'playlist-loop' | 'single-loop' | 'shuffle'
@@ -20,6 +25,12 @@ export const useMusicPlayerStore = defineStore('music-player', () => {
   const status = ref<MusicPlayerStatus>('idle')
   const playbackMode = ref<MusicPlaybackMode>('playlist-loop')
   const error = ref<MusicPlaybackError>()
+  const lyrics = ref<MusicLyrics | null>(null)
+  const lyricsTrackId = ref<string | null>(null)
+  const lyricsStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const lyricsCache = new Map<string, MusicLyrics>()
+  let lyricsRequest = 0
+  let lyricsAbortController: AbortController | undefined
 
   const currentTrack = computed(() => tracks.value[currentTrackIndex.value])
   const progress = computed(() =>
@@ -145,6 +156,64 @@ export const useMusicPlayerStore = defineStore('music-player', () => {
     }
   }
 
+  async function loadLyrics(
+    getTrackLyrics: BlogApiClient['getMusicTrackLyrics'],
+    trackId = currentTrack.value?.id,
+    force = false,
+  ) {
+    if (!trackId) {
+      lyricsAbortController?.abort()
+      lyricsRequest += 1
+      lyrics.value = null
+      lyricsTrackId.value = null
+      lyricsStatus.value = 'idle'
+      return
+    }
+
+    if (
+      !force &&
+      lyricsTrackId.value === trackId &&
+      (lyricsStatus.value === 'loading' || lyricsStatus.value === 'ready')
+    ) {
+      return
+    }
+
+    lyricsAbortController?.abort()
+    const request = ++lyricsRequest
+
+    const cachedLyrics = lyricsCache.get(trackId)
+    if (!force && cachedLyrics) {
+      lyrics.value = cachedLyrics
+      lyricsTrackId.value = trackId
+      lyricsStatus.value = 'ready'
+      return
+    }
+
+    lyrics.value = null
+    lyricsTrackId.value = trackId
+    lyricsStatus.value = 'loading'
+    const controller = new AbortController()
+    lyricsAbortController = controller
+
+    try {
+      const response = await getTrackLyrics(trackId, controller.signal)
+      if (
+        request === lyricsRequest &&
+        !controller.signal.aborted &&
+        currentTrack.value?.id === trackId &&
+        response.trackId === trackId
+      ) {
+        lyricsCache.set(trackId, response)
+        lyrics.value = response
+        lyricsStatus.value = 'ready'
+      }
+    } catch {
+      if (request === lyricsRequest && !controller.signal.aborted) {
+        lyricsStatus.value = 'error'
+      }
+    }
+  }
+
   return {
     clearError,
     currentTime,
@@ -154,6 +223,10 @@ export const useMusicPlayerStore = defineStore('music-player', () => {
     duration,
     error,
     isPlaying,
+    lyrics,
+    lyricsStatus,
+    lyricsTrackId,
+    loadLyrics,
     nextTrack,
     playbackMode,
     previousTrack,
