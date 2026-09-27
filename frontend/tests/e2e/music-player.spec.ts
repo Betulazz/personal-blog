@@ -99,6 +99,95 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
+test('starts long lyrics at the first line and keeps later lines in sync', async ({
+  page,
+}) => {
+  await page.route('**/music-tracks/*/lyrics', (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          track_id: Number(
+            new URL(route.request().url()).pathname.match(
+              /music-tracks\/(\d+)\/lyrics/,
+            )?.[1],
+          ),
+          status: 'available',
+          lines: Array.from({ length: 30 }, (_, index) => ({
+            time_ms: index * 4000,
+            text: `歌词第${index + 1}句`,
+            translation: null,
+          })),
+        },
+      },
+    }),
+  )
+
+  await openMusicPage(page)
+  const lyrics = page.locator('.music-page__lyrics')
+  const firstLine = lyrics.locator('[data-lyric-index="0"]')
+  const firstLineVisible = async () =>
+    lyrics.evaluate((container) => {
+      const first = container.querySelector('[data-lyric-index="0"]')!
+      const containerRect = container.getBoundingClientRect()
+      const firstRect = first.getBoundingClientRect()
+      return (
+        firstRect.top >= containerRect.top &&
+        firstRect.bottom <= containerRect.bottom
+      )
+    })
+
+  await expect(lyrics).toHaveJSProperty('scrollTop', 0)
+  await expect.poll(firstLineVisible).toBe(true)
+  await expect
+    .poll(() =>
+      lyrics.evaluate((container) => {
+        const first = container.querySelector('[data-lyric-index="0"]')!
+        return (
+          first.getBoundingClientRect().top -
+          container.getBoundingClientRect().top
+        )
+      }),
+    )
+    .toBeLessThanOrEqual(144)
+  await expect(firstLine).not.toHaveAttribute('aria-current', 'true')
+
+  await setAudioTime(page, 96)
+  await expect(
+    lyrics.getByRole('button', { name: '歌词第25句' }),
+  ).toHaveAttribute('aria-current', 'true')
+  await expect
+    .poll(() =>
+      lyrics.evaluate((container) => {
+        const active = container.querySelector('[aria-current="true"]')!
+        const containerRect = container.getBoundingClientRect()
+        const activeRect = active.getBoundingClientRect()
+        return (
+          activeRect.top >= containerRect.top &&
+          activeRect.bottom <= containerRect.bottom
+        )
+      }),
+    )
+    .toBe(true)
+
+  await setAudioTime(page, 116)
+  await expect(
+    lyrics.getByRole('button', { name: '歌词第30句' }),
+  ).toHaveAttribute('aria-current', 'true')
+  await expect
+    .poll(() =>
+      lyrics.evaluate((container) => {
+        const active = container.querySelector('[aria-current="true"]')!
+        const containerRect = container.getBoundingClientRect()
+        const activeRect = active.getBoundingClientRect()
+        return (
+          activeRect.top >= containerRect.top &&
+          activeRect.bottom <= containerRect.bottom
+        )
+      }),
+    )
+    .toBe(true)
+})
+
 test('keeps time-zero lyrics at the initial position until the audio clock is established', async ({
   page,
 }) => {

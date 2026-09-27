@@ -825,7 +825,6 @@ function requestTrack(index: number) {
   display: flex;
   max-height: 36rem;
   flex-direction: column;
-  justify-content: center;
   overflow: auto;
   padding: var(--space-8) var(--space-2);
   mask-image: linear-gradient(transparent, black 8%, black 92%, transparent);
@@ -841,7 +840,7 @@ function requestTrack(index: number) {
 .music-page__lyric-list {
   display: grid;
   gap: var(--space-4);
-  padding-block: 40%;
+  padding-block: var(--space-16) 40%;
   text-align: center;
 }
 
