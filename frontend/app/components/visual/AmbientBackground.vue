@@ -9,7 +9,7 @@ const props = withDefaults(
   { gallery: () => [] },
 )
 
-const rotationIntervalMs = 30_000
+const rotationIntervalMs = 10_000
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 const pageVisible = ref(true)
 const rotatorReady = ref(false)

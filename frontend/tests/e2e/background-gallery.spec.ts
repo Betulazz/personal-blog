@@ -72,14 +72,18 @@ test('administrator adds, previews, reorders, removes, saves, and reloads galler
   await expect(gallery.locator('li').nth(1)).toContainText('媒体库中的夜空')
 })
 
-test('public gallery rotates every 30 seconds and continues across routes', async ({
+test('public gallery rotates every 10 seconds and continues across routes', async ({
   page,
 }, testInfo) => {
   const consoleProblems: string[] = []
+  const failedRequests: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error') consoleProblems.push(message.text())
   })
   page.on('pageerror', (failure) => consoleProblems.push(failure.message))
+  page.on('requestfailed', (request) => {
+    failedRequests.push(`${request.url()} (${request.failure()?.errorText})`)
+  })
   await page.clock.install({ time: new Date('2026-09-26T08:00:00.000Z') })
   await fulfillImages(page)
   await setGallery(page, [
@@ -101,7 +105,11 @@ test('public gallery rotates every 30 seconds and continues across routes', asyn
     'data-rotator-ready',
     'true',
   )
-  await page.clock.fastForward(30_000)
+  await page.clock.fastForward(9_999)
+  await expect(
+    page.getByTestId('background-gallery-image').last(),
+  ).toHaveAttribute('src', 'https://images.example.test/one.svg')
+  await page.clock.fastForward(1)
   await expect(
     page.locator(
       '[data-testid="background-gallery-image"][src="https://images.example.test/two.svg"]',
@@ -126,13 +134,15 @@ test('public gallery rotates every 30 seconds and continues across routes', asyn
       .click()
   }
   await expect(page).toHaveURL(/\/posts$/)
-  await page.clock.fastForward(30_000)
+  await page.clock.fastForward(10_000)
   await expect(
     page.locator(
       '[data-testid="background-gallery-image"][src="https://images.example.test/one.svg"]',
     ),
   ).toBeVisible()
-  expect(consoleProblems).toEqual([])
+  expect(consoleProblems, `Failed browser requests: ${failedRequests.join('; ')}`).toEqual(
+    [],
+  )
 })
 
 test('reduced motion holds the first configured image', async ({ page }) => {
@@ -158,7 +168,7 @@ test('reduced motion holds the first configured image', async ({ page }) => {
   ).toHaveAttribute('src', 'https://images.example.test/one.svg')
 })
 
-test('hidden pages pause the timer and resume with a full 30-second interval', async ({
+test('hidden pages pause the timer and resume with a full 10-second interval', async ({
   page,
 }) => {
   await page.clock.install({ time: new Date('2026-09-26T08:00:00.000Z') })
@@ -182,7 +192,7 @@ test('hidden pages pause the timer and resume with a full 30-second interval', a
     page.getByTestId('background-gallery-image').last(),
   ).toHaveAttribute('src', 'https://images.example.test/one.svg')
   await setVisibility(page, 'visible')
-  await page.clock.fastForward(29_999)
+  await page.clock.fastForward(9_999)
   await expect(
     page.getByTestId('background-gallery-image').last(),
   ).toHaveAttribute('src', 'https://images.example.test/one.svg')

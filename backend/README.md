@@ -93,6 +93,18 @@ committed, retry cleanup through the protected
 `DELETE /api/v1/admin/media/orphans/<key>` endpoint using the key in the safe
 error details.
 
+Import the repository-managed `bg.jpeg` into the Media Asset library and append
+it to the current Background Gallery with:
+
+```powershell
+Push-Location backend
+python -m app.cli import-background
+Pop-Location
+```
+
+The import is content-addressed and safe to repeat; it preserves the existing
+gallery order and other Site Identity fields.
+
 ## Backend checks
 
 ```powershell

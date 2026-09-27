@@ -106,20 +106,60 @@ class MediaAssetService:
 
     async def upload(self, file: UploadFile) -> MediaAsset:
         inspection = await inspect_upload(file, self._settings)
-        key = self._new_key(inspection)
-        stored = None
-        for _ in range(3):
+        for attempt in range(3):
             try:
-                stored = await self._storage.put(
-                    key=key,
-                    content_type=inspection.content_type,
-                    content=_one_chunk(inspection.content),
-                )
-                break
-            except StorageCollisionError:
-                key = self._new_key(inspection)
-            except StorageError as error:
-                raise storage_error_to_app_error(error, operation="upload") from error
+                return await self._store_inspection(inspection, self._new_key(inspection))
+            except AppError as error:
+                if error.code != "media_storage_collision" or attempt == 2:
+                    raise
+        raise AssertionError("upload collision retry loop exited unexpectedly")
+
+    async def import_managed_image(self, file: UploadFile, *, key: str) -> MediaAsset:
+        """Persist a repository-managed image under a stable key, reusing identical imports."""
+
+        inspection = await inspect_upload(file, self._settings)
+        if inspection.media_kind is not MediaKind.IMAGE:
+            raise AppError(
+                "media_type_unsupported",
+                "Only image Media Assets may be imported as managed backgrounds",
+                422,
+            )
+        try:
+            self._storage.public_url(key)
+        except StorageError as error:
+            raise storage_error_to_app_error(error, operation="managed import") from error
+
+        existing = await self._repository.find_by_key(key)
+        if existing is not None:
+            return await self._reuse_managed_asset(existing, inspection.content)
+
+        try:
+            return await self._store_inspection(inspection, key)
+        except AppError as error:
+            if error.code != "media_storage_collision":
+                raise
+            # Another importer may have completed the same content-addressed asset.
+            existing = await self._repository.find_by_key(key)
+            if existing is None:
+                raise
+            return await self._reuse_managed_asset(existing, inspection.content)
+
+    async def _store_inspection(self, inspection: MediaInspection, key: str) -> MediaAsset:
+        stored = None
+        try:
+            stored = await self._storage.put(
+                key=key,
+                content_type=inspection.content_type,
+                content=_one_chunk(inspection.content),
+            )
+        except StorageCollisionError as error:
+            raise AppError(
+                "media_storage_collision",
+                "The Media Asset key already exists without matching metadata",
+                409,
+            ) from error
+        except StorageError as error:
+            raise storage_error_to_app_error(error, operation="upload") from error
         if stored is None:
             raise AppError(
                 "media_storage_collision",
@@ -155,6 +195,31 @@ class MediaAssetService:
                 503,
             ) from error
         return await self._require(asset.id)
+
+    async def _reuse_managed_asset(self, asset: MediaAsset, expected_content: bytes) -> MediaAsset:
+        if asset.media_kind != MediaKind.IMAGE or not asset.content_type.startswith("image/"):
+            raise AppError(
+                "media_managed_import_conflict",
+                "The managed background key belongs to a non-image Media Asset",
+                409,
+            )
+        try:
+            existing_content = await self._storage.read(asset.key)
+        except StorageObjectNotFound as error:
+            raise AppError(
+                "media_bytes_missing",
+                "The managed background Media Asset exists but its bytes are missing",
+                409,
+            ) from error
+        except StorageError as error:
+            raise storage_error_to_app_error(error, operation="managed import") from error
+        if existing_content != expected_content:
+            raise AppError(
+                "media_managed_import_conflict",
+                "The managed background key contains different image bytes",
+                409,
+            )
+        return asset
 
     async def delete(self, asset_id: int, *, purge_metadata: bool = False) -> dict[str, bool]:
         asset = await self._require(asset_id)
