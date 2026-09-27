@@ -28,4 +28,5 @@ Move the administrator sidebar toward the left viewport gutter and let the main 
 - Playwright 使用隔离的真实 API/MySQL `_test` 环境登录，验证了 HttpOnly access/refresh Cookie。Dashboard、文章列表与编辑器、Project 列表与编辑器、Media、Site Identity 在 1024/768/430px 下共检查 21 个页面状态，均无横向溢出或水平越界控件。1920px 主区、Project Select 弹层层级与焦点、移动导航与 Escape 焦点返回、文章预览、媒体类型过滤和设置开关均通过；公开 header 仍为 1280px。
 - Browser 插件未在会话工具中提供，按要求回退到 Playwright。截图保存在仓库外：`C:\Users\Birchtula\.codex\visualizations\2026\09\27\01a0e1f2-2a05-7a03-8589-f4ee13bc0922\admin-workspace-qa\`。
 - 检查通过：`npm run test:e2e -- admin-shell.spec.ts admin-post-authoring.spec.ts --project=chromium`（7 passed）、authenticated Playwright workspace QA、`npm run lint`、`npm run typecheck`、改动文件 Prettier check、`npm run build`。
+- 补充检查：`npm run test:e2e -- --config playwright.admin-selects.config.ts --project=chromium`（1 passed）。默认 Playwright 配置下的首次 shared-selects 调用超时，错误快照停在“正在加载后台”；隔离配置重跑后该测试通过。
 - 浏览器无应用级 console/page 错误。唯一失败资源请求为既有验收种子数据引用的缺失图片 `/uploads/live-acceptance/missing-moment.webp`。Production build 完成，但仍报告现有大于 500KB 的 client chunks 和依赖导出路径弃用警告。
