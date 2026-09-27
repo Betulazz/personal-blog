@@ -45,6 +45,72 @@ test('authenticated administrator sees protected dashboard without browser stora
   expect(localStorageKeys).toEqual([])
 })
 
+test('administrator workspace uses the viewport width and keeps navigation usable', async ({
+  page,
+}) => {
+  await login(page)
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  await expect(
+    page.getByRole('complementary', { name: '后台侧栏' }),
+  ).toBeVisible()
+  await page.setViewportSize({ width: 1920, height: 1080 })
+
+  const desktopLayout = await page.evaluate(() => {
+    const body = document.querySelector<HTMLElement>('.admin-shell__body')!
+    const header = document.querySelector<HTMLElement>(
+      '.admin-shell__header-inner',
+    )!
+    const sidebar = document.querySelector<HTMLElement>(
+      '.admin-shell__sidebar',
+    )!
+    const main = document.querySelector<HTMLElement>('.admin-shell__main')!
+    return {
+      bodyWidth: body.getBoundingClientRect().width,
+      headerGutter: Number.parseFloat(getComputedStyle(header).paddingLeft),
+      mainWidth: main.getBoundingClientRect().width,
+      sidebarLeft: sidebar.getBoundingClientRect().left,
+    }
+  })
+  expect(desktopLayout.bodyWidth).toBe(1920)
+  expect(desktopLayout.sidebarLeft).toBeLessThanOrEqual(32.5)
+  expect(desktopLayout.headerGutter).toBeCloseTo(32, 0)
+  expect(desktopLayout.mainWidth).toBeGreaterThan(1400)
+
+  for (const width of [1024, 768, 430]) {
+    await page.setViewportSize({ width, height: 932 })
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+
+    const dimensions = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      main: document
+        .querySelector<HTMLElement>('.admin-shell__main')!
+        .getBoundingClientRect(),
+      scrollWidth: document.documentElement.scrollWidth,
+    }))
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
+    expect(dimensions.main.left).toBeGreaterThanOrEqual(0)
+    expect(dimensions.main.right).toBeLessThanOrEqual(width)
+    await expect(
+      page.getByRole('button', { name: '打开后台导航' }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('complementary', { name: '后台侧栏' }),
+    ).toBeHidden()
+
+    const menuButton = page.getByRole('button', { name: '打开后台导航' })
+    await menuButton.click()
+    await expect(
+      page.getByRole('navigation', { name: '移动端后台导航' }),
+    ).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(menuButton).toBeFocused()
+  }
+
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.goto('/')
+  await expect(page.locator('.site-header')).toHaveCSS('max-width', '1280px')
+})
+
 test('expired access session refreshes and preserves the protected route', async ({
   page,
 }) => {

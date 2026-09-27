@@ -120,6 +120,8 @@ watch(
 
 <style scoped>
 .admin-shell {
+  --admin-shell-gutter: clamp(1rem, 1.6667vw, 2rem);
+
   position: relative;
   z-index: var(--z-base);
   min-height: 100svh;
@@ -140,12 +142,13 @@ watch(
 
 .admin-shell__header-inner {
   display: flex;
-  width: min(100%, var(--container-wide));
+  width: 100%;
+  max-width: none;
   min-height: 4.5rem;
   align-items: center;
   gap: var(--space-5);
   margin-inline: auto;
-  padding-inline: var(--gutter-page);
+  padding-inline: var(--admin-shell-gutter);
 }
 
 .admin-shell__brand {
@@ -197,12 +200,13 @@ watch(
 
 .admin-shell__body {
   display: grid;
-  width: min(100%, var(--container-wide));
+  width: 100%;
+  max-width: none;
   min-height: calc(100svh - 4.5rem);
   grid-template-columns: 15rem minmax(0, 1fr);
   gap: var(--space-10);
   margin-inline: auto;
-  padding: var(--space-8) var(--gutter-page) var(--space-16);
+  padding: var(--space-8) var(--admin-shell-gutter) var(--space-16);
 }
 
 .admin-shell__sidebar {

@@ -412,7 +412,10 @@ watch(
 }
 
 .admin-markdown-editor :deep(.admin-markdown-editor__content) {
+  width: 100%;
+  max-width: 80ch;
   min-height: max(38rem, 64vh);
+  margin-inline: auto;
   padding: var(--space-5);
   outline: none;
   color: var(--color-text);
