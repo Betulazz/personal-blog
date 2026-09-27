@@ -81,6 +81,41 @@ async def test_dashboard_returns_content_counts_and_recent_activity(
     assert len(payload["recent_activity"]) <= 8
 
 
+@pytest.mark.asyncio
+async def test_dashboard_includes_github_project_without_lifecycle_status(
+    mysql_client: AsyncClient,
+    isolated_mysql_session,
+    auth_admin: None,
+) -> None:
+    project = Project(
+        project_type="github_open_source",
+        name="Dashboard GitHub project",
+        description="This variant intentionally has no lifecycle status.",
+        repository_url="https://github.com/example/dashboard-project",
+    )
+    isolated_mysql_session.add(project)
+    await isolated_mysql_session.commit()
+
+    csrf = await _get_csrf(mysql_client)
+    login = await mysql_client.post(
+        "/api/v1/auth/login",
+        headers={"X-CSRF-Token": csrf},
+        json={"identifier": "owner", "password": "a sufficiently long password"},
+    )
+    assert login.status_code == 200
+
+    response = await mysql_client.get("/api/v1/admin/dashboard")
+
+    assert response.status_code == 200
+    activity = next(
+        item
+        for item in response.json()["data"]["recent_activity"]
+        if item["title"] == "Dashboard GitHub project"
+    )
+    assert activity["type"] == "project"
+    assert activity["status"] is None
+
+
 async def _get_csrf(client: AsyncClient) -> str:
     response = await client.get("/api/v1/auth/csrf")
     assert response.status_code == 200

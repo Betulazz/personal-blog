@@ -45,6 +45,19 @@ test('authenticated administrator sees protected dashboard without browser stora
   expect(localStorageKeys).toEqual([])
 })
 
+test('dashboard omits lifecycle status for a statusless GitHub project', async ({
+  page,
+}) => {
+  await login(page)
+
+  const projectActivity = page.getByRole('link', {
+    name: /Dashboard GitHub 项目/,
+  })
+  await expect(
+    projectActivity.locator('.admin-dashboard__activity-copy > span'),
+  ).toHaveText('项目')
+})
+
 test('administrator workspace uses the viewport width and keeps navigation usable', async ({
   page,
 }) => {

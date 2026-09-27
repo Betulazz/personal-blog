@@ -113,7 +113,7 @@ interface RawAdminDashboard {
   }
   recent_activity: Array<{
     id: number
-    status: string
+    status: string | null
     title: string
     type: AdminRecentActivity['type']
     updated_at: string

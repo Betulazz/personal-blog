@@ -25,7 +25,7 @@ class DashboardActivity:
     id: int
     type: str
     title: str
-    status: str
+    status: str | None
     updated_at: datetime
 
 

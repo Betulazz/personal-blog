@@ -20,7 +20,7 @@ class DashboardActivityResponse(BaseModel):
     id: int
     type: DashboardActivityType
     title: str
-    status: str
+    status: str | None
     updated_at: datetime
 
 

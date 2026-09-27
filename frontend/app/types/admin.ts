@@ -20,7 +20,7 @@ export type AdminActivityType = 'chatter' | 'friend' | 'post' | 'project'
 
 export interface AdminRecentActivity {
   id: string
-  status: string
+  status: string | null
   title: string
   type: AdminActivityType
   updatedAt: string

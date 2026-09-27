@@ -44,7 +44,9 @@ const activityHref: Record<AdminActivityType, string> = {
   project: '/admin/projects',
 }
 
-const statusLabel = (status: string) => {
+const statusLabel = (status: string | null) => {
+  if (!status) return ''
+
   const labels: Record<string, string> = {
     active: '启用',
     draft: '草稿',
@@ -175,8 +177,10 @@ useHead({ title: 'Dashboard · 后台空间' })
                 <span class="admin-dashboard__activity-copy">
                   <strong>{{ item.title }}</strong>
                   <span>
-                    {{ activityLabel[item.type] }} ·
-                    {{ statusLabel(item.status) }}
+                    {{ activityLabel[item.type] }}
+                    <template v-if="item.status">
+                      · {{ statusLabel(item.status) }}
+                    </template>
                   </span>
                 </span>
                 <time :datetime="item.updatedAt">{{

@@ -973,6 +973,13 @@ const dashboard = {
       type: 'chatter',
       updated_at: '2026-09-17T13:30:00.000Z',
     },
+    {
+      id: 2,
+      status: null,
+      title: 'Dashboard GitHub 项目',
+      type: 'project',
+      updated_at: '2026-09-16T08:00:00.000Z',
+    },
   ],
 }
 
