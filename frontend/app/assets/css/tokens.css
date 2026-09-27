@@ -129,6 +129,9 @@
   --motion-duration-slow: 480ms;
   --motion-duration-shimmer: 1.8s;
   --motion-duration-background-crossfade: 1.2s;
+  --motion-duration-header: 500ms;
+  --motion-duration-ripple: 620ms;
+  --motion-duration-immediate: 0.01ms;
   --motion-duration-record: 18s;
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -186,6 +189,9 @@
     --motion-duration-slow: 0.01ms;
     --motion-duration-shimmer: 0.01ms;
     --motion-duration-background-crossfade: 0.01ms;
+    --motion-duration-header: 0.01ms;
+    --motion-duration-ripple: 0.01ms;
+    --motion-duration-immediate: 0.01ms;
     --motion-duration-record: 0.01ms;
     --motion-delay-entry-stagger: 0ms;
     --motion-distance-small: 0;

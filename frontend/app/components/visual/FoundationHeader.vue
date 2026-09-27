@@ -218,8 +218,8 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-medium);
   padding-inline: var(--space-6);
   transition:
-    transform 500ms var(--motion-ease-standard),
-    opacity 500ms var(--motion-ease-standard);
+    transform var(--motion-duration-header) var(--motion-ease-standard),
+    opacity var(--motion-duration-header) var(--motion-ease-standard);
   will-change: transform;
 }
 
@@ -236,7 +236,7 @@ onBeforeUnmount(() => {
 }
 
 .site-header:has(:focus-visible) {
-  transition-duration: 0ms;
+  transition-duration: var(--motion-duration-immediate);
 }
 
 .site-brand {

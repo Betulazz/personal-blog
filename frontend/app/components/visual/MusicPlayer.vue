@@ -25,10 +25,11 @@ const isExcludedRoute = computed(
   () => route.path === '/' || route.path === '/music',
 )
 const isHydrated = ref(false)
-const isFooterVisible = ref(false)
+const footerClearance = ref(0)
+const footerBlocksPlayer = ref(false)
+const measuredPlayerHeight = ref(77)
 const failedArtworkTrackId = ref<string | null>(null)
 const artworkImage = ref<HTMLImageElement | null>(null)
-let playerHeight = 72
 let playerBottomInset = 16
 let footerCheckFrame = 0
 
@@ -125,31 +126,32 @@ const shouldShowPlayer = computed(
   () =>
     !isExcludedRoute.value &&
     musicVisible.value &&
-    !isFooterVisible.value &&
+    !footerBlocksPlayer.value &&
     (player.currentTrack || isHydrated.value),
 )
 
 function updateFooterAvoidance() {
   const footer = document.querySelector('.site-footer')
-  if (!footer) {
-    isFooterVisible.value = false
-    return
-  }
-
   const playerElement = document.querySelector('.music-player')
   if (playerElement) {
-    playerHeight = playerElement.getBoundingClientRect().height
+    measuredPlayerHeight.value = playerElement.getBoundingClientRect().height
     const bottomValue = Number.parseFloat(
       getComputedStyle(playerElement).bottom,
     )
-    if (Number.isFinite(bottomValue)) playerBottomInset = bottomValue
+    if (Number.isFinite(bottomValue)) {
+      playerBottomInset = Math.max(0, bottomValue - footerClearance.value)
+    }
+  }
+
+  if (!footer) {
+    footerClearance.value = 0
+    return
   }
 
   const footerRect = footer.getBoundingClientRect()
-  const playerBottom = window.innerHeight - playerBottomInset
-  const playerTop = playerBottom - playerHeight
-  isFooterVisible.value =
-    footerRect.top < playerBottom && footerRect.bottom > playerTop
+  footerBlocksPlayer.value = footerRect.top < measuredPlayerHeight.value + 16
+  const footerSafeBottom = window.innerHeight - footerRect.top + 16
+  footerClearance.value = Math.max(0, footerSafeBottom - playerBottomInset)
 }
 
 function scheduleFooterCheck() {
@@ -177,8 +179,10 @@ function checkArtwork() {
 
 onMounted(() => {
   isHydrated.value = true
-  updateFooterAvoidance()
-  void nextTick(checkArtwork)
+  void nextTick(() => {
+    updateFooterAvoidance()
+    checkArtwork()
+  })
   void player.loadLyrics(api.getMusicTrackLyrics, player.currentTrack?.id)
   window.addEventListener('scroll', scheduleFooterCheck, { passive: true })
   window.addEventListener('resize', scheduleFooterCheck)
@@ -203,6 +207,7 @@ onBeforeUnmount(() => {
   <section
     v-if="shouldShowPlayer"
     class="music-player"
+    :style="{ '--player-footer-clearance': `${footerClearance}px` }"
     data-testid="music-player"
     data-compact-player="true"
     :data-player-ready="isHydrated"
@@ -308,7 +313,10 @@ onBeforeUnmount(() => {
   position: fixed;
   z-index: var(--z-sticky);
   right: max(var(--space-4), env(safe-area-inset-right));
-  bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  bottom: calc(
+    var(--space-4) + env(safe-area-inset-bottom) +
+      var(--player-footer-clearance, 0px)
+  );
   display: flex;
   width: max-content;
   max-width: calc(100vw - 1.5rem);

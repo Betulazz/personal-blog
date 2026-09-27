@@ -11,14 +11,25 @@ defineProps<{
 const { identity, settings } = await usePublicSiteSettings()
 const monogram = computed(() => identity.value.name.trim().slice(0, 1) || '访')
 const avatarFailed = ref(false)
+const avatarImage = ref<HTMLImageElement | null>(null)
 const socialIcons = { code: Github, social: Globe2 } as const
+
+function checkAvatarImage() {
+  const image = avatarImage.value
+  if (image?.complete && image.naturalWidth === 0) {
+    avatarFailed.value = true
+  }
+}
 
 watch(
   () => settings.value.avatarUrl,
   () => {
     avatarFailed.value = false
+    void nextTick(checkAvatarImage)
   },
 )
+
+onMounted(() => void nextTick(checkAvatarImage))
 </script>
 
 <template>
@@ -39,6 +50,7 @@ watch(
         <div class="home-profile__avatar">
           <img
             v-if="settings.avatarUrl && !avatarFailed"
+            ref="avatarImage"
             :src="settings.avatarUrl"
             :alt="settings.avatarAlt || `${identity.name}头像`"
             width="80"

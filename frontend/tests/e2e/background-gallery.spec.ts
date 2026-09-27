@@ -140,9 +140,10 @@ test('public gallery rotates every 10 seconds and continues across routes', asyn
       '[data-testid="background-gallery-image"][src="https://images.example.test/one.svg"]',
     ),
   ).toBeVisible()
-  expect(consoleProblems, `Failed browser requests: ${failedRequests.join('; ')}`).toEqual(
-    [],
-  )
+  expect(
+    consoleProblems,
+    `Failed browser requests: ${failedRequests.join('; ')}`,
+  ).toEqual([])
 })
 
 test('reduced motion holds the first configured image', async ({ page }) => {

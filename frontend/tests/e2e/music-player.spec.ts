@@ -26,7 +26,14 @@ async function navigateTo(page: Page, href: string, label: string) {
       .getByRole('link', { name: label })
       .click()
   }
-  await expect(page).toHaveURL(new RegExp(`${href}$`))
+  await expect(page).toHaveURL((url) => {
+    const currentUrl = new URL(url)
+    return (
+      currentUrl.pathname === href &&
+      (href !== '/projects' ||
+        currentUrl.searchParams.get('type') === 'github_open_source')
+    )
+  })
 }
 
 async function setAudioTime(page: Page, currentTime: number) {
@@ -87,6 +94,42 @@ test('keeps the compact player within mobile and desktop viewports', async ({
       scale: 'css',
     })
   }
+})
+
+test('keeps the compact player clear of the footer when space allows', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 430, height: 932 })
+  await page.goto('/projects?type=github_open_source')
+
+  const player = page.getByTestId('music-player')
+  const footer = page.locator('.site-footer')
+  await expect(player).toBeVisible()
+
+  const topLayout = await page.evaluate(() => {
+    const playerRect = document
+      .querySelector('[data-testid="music-player"]')!
+      .getBoundingClientRect()
+    const footerRect = document
+      .querySelector('.site-footer')!
+      .getBoundingClientRect()
+    return {
+      footerTop: footerRect.top,
+      playerBottom: playerRect.bottom,
+      viewportHeight: window.innerHeight,
+    }
+  })
+  expect(topLayout.playerBottom).toBeLessThanOrEqual(topLayout.viewportHeight)
+  expect(topLayout.playerBottom).toBeLessThanOrEqual(topLayout.footerTop - 15)
+
+  await page.evaluate(() =>
+    window.scrollTo(0, document.documentElement.scrollHeight),
+  )
+  await expect(player).toHaveCount(0)
+
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await expect(player).toBeVisible()
+  await expect(footer).toBeVisible()
 })
 
 test.beforeEach(async ({ page }) => {

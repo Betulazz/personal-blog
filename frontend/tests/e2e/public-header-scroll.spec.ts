@@ -7,6 +7,7 @@ const viewports = [
   { name: 'desktop', width: 1440, height: 900 },
   { name: 'mobile-430', width: 430, height: 932 },
 ] as const
+const control = 'http://127.0.0.1:8787/__control'
 
 const publicRoutes = ['/', '/posts', '/about'] as const
 
@@ -22,6 +23,10 @@ const collectBrowserErrors = (page: Page) => {
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`))
   return errors
 }
+
+test.beforeEach(async ({ page }) => {
+  await page.request.get(`${control}/reset`)
+})
 
 const assertNoHorizontalOverflow = async (page: Page) => {
   const dimensions = await page.evaluate(() => ({
@@ -141,7 +146,7 @@ test('header hides after pointer navigation even when the link retains focus', a
     .getByRole('navigation', { name: '主导航' })
     .getByRole('link', { name: '项目', exact: true })
   await projectsLink.click()
-  await expect(page).toHaveURL(/\/projects$/)
+  await expect(page).toHaveURL(/\/projects\?type=github_open_source$/)
   await expect(header).not.toHaveClass(/site-header--hidden/)
 
   await page.waitForTimeout(100)
@@ -208,7 +213,7 @@ test('keyboard focus, mobile menu, route changes, and reduced motion preserve ac
     .evaluate((element) => {
       ;(element as HTMLAnchorElement).click()
     })
-  await expect(page).toHaveURL(/\/projects$/)
+  await expect(page).toHaveURL(/\/projects\?type=github_open_source$/)
   await expect(desktopHeader).not.toHaveClass(/site-header--hidden/)
 
   await page.setViewportSize({ width: 430, height: 932 })

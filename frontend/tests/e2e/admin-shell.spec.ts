@@ -48,6 +48,7 @@ test('authenticated administrator sees protected dashboard without browser stora
 test('administrator workspace uses the viewport width and keeps navigation usable', async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
   await login(page)
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
   await expect(

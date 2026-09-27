@@ -359,8 +359,12 @@ test('does not activate lyrics that have no usable timestamp', async ({
 test('falls back to the site monogram when the configured avatar fails', async ({
   page,
 }) => {
-  await page.route('**/media/site-avatar.webp', (route) => route.abort())
+  const avatarFailure = page.waitForEvent('requestfailed', (request) =>
+    request.url().includes('/media/site-avatar.webp'),
+  )
+  await page.route('**/*site-avatar.webp*', (route) => route.abort())
   await page.goto('/')
+  await avatarFailure
 
   const profile = page.locator('[data-homepage-profile]')
   await expect(profile.locator('img')).toHaveCount(0)

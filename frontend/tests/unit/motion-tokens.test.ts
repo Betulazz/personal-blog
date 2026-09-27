@@ -88,6 +88,9 @@ describe('motion tokens', () => {
     expect(read('--motion-duration-normal')).toBeLessThan(
       read('--motion-duration-slow'),
     )
+    expect(read('--motion-duration-header')).toBe(500)
+    expect(read('--motion-duration-ripple')).toBe(620)
+    expect(read('--motion-duration-immediate')).toBe(0.01)
     expect(read('--motion-duration-slow')).toBeLessThan(
       read('--motion-duration-shimmer'),
     )
@@ -103,6 +106,9 @@ describe('motion tokens', () => {
       '--motion-duration-shimmer',
       '--motion-delay-entry-stagger',
       '--motion-duration-background-crossfade',
+      '--motion-duration-header',
+      '--motion-duration-ripple',
+      '--motion-duration-immediate',
     ]) {
       expect(reducedMotion).toContain(token)
     }

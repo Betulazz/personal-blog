@@ -145,9 +145,9 @@ const displayedText = computed(() => currentLyric.value || lyricMessage.value)
 .lyric-reveal-enter-active,
 .lyric-reveal-leave-active {
   transition:
-    opacity 220ms var(--motion-ease-standard),
-    transform 220ms var(--motion-ease-standard),
-    filter 220ms var(--motion-ease-standard);
+    opacity var(--motion-duration-normal) var(--motion-ease-standard),
+    transform var(--motion-duration-normal) var(--motion-ease-standard),
+    filter var(--motion-duration-normal) var(--motion-ease-standard);
 }
 
 .lyric-reveal-enter-from {

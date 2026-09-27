@@ -306,7 +306,8 @@ function retryTracks() {
     ),
     #0b1021;
   box-shadow: 0 0.5rem 1.5rem rgb(3 6 22 / 38%);
-  animation: home-record-rotate 12s linear infinite paused;
+  animation: home-record-rotate var(--motion-duration-record) linear infinite
+    paused;
 }
 
 .home-music__record--playing {

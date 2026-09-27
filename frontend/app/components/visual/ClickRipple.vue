@@ -180,7 +180,8 @@ onBeforeUnmount(() => {
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(0.08);
-  animation: public-click-ripple 620ms cubic-bezier(0.18, 0.65, 0.3, 1) forwards;
+  animation: public-click-ripple var(--motion-duration-ripple)
+    cubic-bezier(0.18, 0.65, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
