@@ -27,7 +27,11 @@ export interface AboutTimelineItem {
 export interface AboutSettings {
   interests: string[]
   skills: AboutSkillGroup[]
+  storyHeading: string
+  storyIntroduction: string
   story: string[]
+  timelineHeading: string
+  timelineIntroduction: string
   timeline: AboutTimelineItem[]
 }
 

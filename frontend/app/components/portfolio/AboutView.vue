@@ -114,9 +114,12 @@ const markAvatarUnavailable = () => {
             <div class="about-page__main">
               <section aria-labelledby="about-story-title">
                 <p class="about-page__section-label">01 / THE STORY</p>
-                <h2 id="about-story-title">我为什么写这里</h2>
-                <p class="about-page__section-intro">
-                  这不是完成时的简历，而是一份仍在生长中的公开记录。
+                <h2 id="about-story-title">{{ profile.storyHeading }}</h2>
+                <p
+                  v-if="profile.storyIntroduction"
+                  class="about-page__section-intro"
+                >
+                  {{ profile.storyIntroduction }}
                 </p>
                 <div class="about-page__story">
                   <p v-for="paragraph in profile.story" :key="paragraph">
@@ -127,9 +130,12 @@ const markAvatarUnavailable = () => {
 
               <section aria-labelledby="about-timeline-title">
                 <p class="about-page__section-label">02 / A SMALL TIMELINE</p>
-                <h2 id="about-timeline-title">时间线</h2>
-                <p class="about-page__section-intro">
-                  几个让我继续走下去的节点。
+                <h2 id="about-timeline-title">{{ profile.timelineHeading }}</h2>
+                <p
+                  v-if="profile.timelineIntroduction"
+                  class="about-page__section-intro"
+                >
+                  {{ profile.timelineIntroduction }}
                 </p>
                 <ol class="about-page__timeline">
                   <li

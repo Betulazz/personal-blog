@@ -85,8 +85,12 @@ export interface AboutProfile {
   profile: string
   skills: AboutSkillGroup[]
   socialLinks: SiteSocialLink[]
+  storyHeading: string
+  storyIntroduction: string
   story: string[]
   tagline: string
+  timelineHeading: string
+  timelineIntroduction: string
   timeline: AboutTimelineItem[]
 }
 

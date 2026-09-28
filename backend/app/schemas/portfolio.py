@@ -582,8 +582,28 @@ class AboutTimelineItem(BaseModel):
 class AboutSettings(BaseModel):
     interests: list[str] = Field(default_factory=list, max_length=30)
     skills: list[AboutSkillGroup] = Field(default_factory=list, max_length=20)
+    story_heading: str = Field(default="我为什么写这里", min_length=1, max_length=120)
+    story_introduction: str = Field(
+        default="这不是完成时的简历，而是一份仍在生长中的公开记录。",
+        max_length=2000,
+    )
     story: list[str] = Field(default_factory=list, max_length=20)
+    timeline_heading: str = Field(default="时间线", min_length=1, max_length=120)
+    timeline_introduction: str = Field(
+        default="几个让我继续走下去的节点。",
+        max_length=2000,
+    )
     timeline: list[AboutTimelineItem] = Field(default_factory=list, max_length=20)
+
+    @field_validator("story_heading", "timeline_heading")
+    @classmethod
+    def normalize_section_heading(cls, value: str) -> str:
+        return _required_text(value, "About section heading")
+
+    @field_validator("story_introduction", "timeline_introduction")
+    @classmethod
+    def normalize_section_introduction(cls, value: str) -> str:
+        return value.strip()
 
     @field_validator("interests", "story")
     @classmethod

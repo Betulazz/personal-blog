@@ -75,7 +75,17 @@ import type {
   PublicCollectionPagination,
   PublicFeedQuery,
 } from '~/types/public-content'
-import type { PublicSiteSettings, SiteIdentityView } from '~/types/site'
+import type {
+  AboutSettings,
+  PublicSiteSettings,
+  SiteIdentityView,
+} from '~/types/site'
+import {
+  DEFAULT_ABOUT_STORY_HEADING,
+  DEFAULT_ABOUT_STORY_INTRODUCTION,
+  DEFAULT_ABOUT_TIMELINE_HEADING,
+  DEFAULT_ABOUT_TIMELINE_INTRODUCTION,
+} from '~/utils/about-content'
 
 interface RawPagination {
   page: number
@@ -201,7 +211,11 @@ interface RawSiteSettings {
   about: {
     interests: string[]
     skills: AboutSkillGroup[]
+    story_heading?: string
+    story_introduction?: string
     story: string[]
+    timeline_heading?: string
+    timeline_introduction?: string
     timeline: AboutTimelineItem[]
   }
   background_gallery: Array<{ alt: string; url: string }>
@@ -676,7 +690,7 @@ const toSiteSettings = (
   value: RawSiteSettings,
   resolveMediaUrl: MediaUrlResolver,
 ): PublicSiteSettings => ({
-  about: value.about,
+  about: toAboutSettings(value.about),
   backgroundGallery: value.background_gallery.map((image) => ({
     alt: image.alt,
     url: resolveMediaUrl(image.url),
@@ -694,6 +708,20 @@ const toSiteSettings = (
   profile: value.profile,
   socialLinks: value.social_links,
   tagline: value.tagline,
+})
+
+const toAboutSettings = (value: RawSiteSettings['about']): AboutSettings => ({
+  interests: value.interests ?? [],
+  skills: value.skills ?? [],
+  storyHeading: value.story_heading?.trim() || DEFAULT_ABOUT_STORY_HEADING,
+  storyIntroduction:
+    value.story_introduction ?? DEFAULT_ABOUT_STORY_INTRODUCTION,
+  story: value.story ?? [],
+  timelineHeading:
+    value.timeline_heading?.trim() || DEFAULT_ABOUT_TIMELINE_HEADING,
+  timelineIntroduction:
+    value.timeline_introduction ?? DEFAULT_ABOUT_TIMELINE_INTRODUCTION,
+  timeline: value.timeline ?? [],
 })
 
 const toAdminSiteSettings = (
@@ -737,8 +765,12 @@ const toAbout = (
   profile: value.profile || value.description,
   skills: value.about.skills,
   socialLinks: value.socialLinks,
+  storyHeading: value.about.storyHeading,
+  storyIntroduction: value.about.storyIntroduction,
   story: value.about.story,
   tagline: value.tagline,
+  timelineHeading: value.about.timelineHeading,
+  timelineIntroduction: value.about.timelineIntroduction,
   timeline: value.about.timeline,
 })
 

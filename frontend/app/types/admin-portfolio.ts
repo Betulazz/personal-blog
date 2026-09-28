@@ -130,7 +130,7 @@ export interface AdminSiteSettings extends Omit<
 }
 
 export interface AdminSiteSettingsInput {
-  about?: AboutSettings
+  about?: Partial<AboutSettings>
   avatar_alt: string | null
   avatar_url: string | null
   background_gallery: Array<{ alt: string; url: string }>

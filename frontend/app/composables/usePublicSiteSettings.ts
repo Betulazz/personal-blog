@@ -3,12 +3,22 @@ import { computed } from 'vue'
 import { toPublicSiteIdentity, useApiClient } from '~/api/client'
 import { siteIdentity } from '~/config/siteIdentity'
 import type { PublicSiteSettings, SiteIdentityView } from '~/types/site'
+import {
+  DEFAULT_ABOUT_STORY_HEADING,
+  DEFAULT_ABOUT_STORY_INTRODUCTION,
+  DEFAULT_ABOUT_TIMELINE_HEADING,
+  DEFAULT_ABOUT_TIMELINE_INTRODUCTION,
+} from '~/utils/about-content'
 
 const fallbackSettings: PublicSiteSettings = {
   about: {
     interests: [],
     skills: [],
+    storyHeading: DEFAULT_ABOUT_STORY_HEADING,
+    storyIntroduction: DEFAULT_ABOUT_STORY_INTRODUCTION,
     story: [],
+    timelineHeading: DEFAULT_ABOUT_TIMELINE_HEADING,
+    timelineIntroduction: DEFAULT_ABOUT_TIMELINE_INTRODUCTION,
     timeline: [],
   },
   backgroundGallery: [],

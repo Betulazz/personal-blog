@@ -15,6 +15,7 @@ const navigation = [
   { label: '友链', to: '/admin/friends' },
   { label: '音乐', to: '/admin/music' },
   { label: '媒体', to: '/admin/media' },
+  { label: '关于页面', to: '/admin/about' },
   { label: '网站设置', to: '/admin/settings' },
 ]
 
