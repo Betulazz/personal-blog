@@ -100,11 +100,13 @@ test('About presents profile context, long-form story, timeline, contact, and so
   }
 })
 
-test('About keeps Profile fixed through long-skill scrolling and flows in one mobile column', async ({
+test('About keeps Profile at its desktop anchor after deep links and flows in one mobile column', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/about?variant=b', { waitUntil: 'networkidle' })
+  await page.goto('/about?variant=b#about-contact-title', {
+    waitUntil: 'networkidle',
+  })
 
   const identity = page.locator('.about-page__identity')
   const portrait = page.locator('.about-page__portrait')
@@ -144,6 +146,11 @@ test('About keeps Profile fixed through long-skill scrolling and flows in one mo
     }
   })
   expect(profileInitialPosition.position).toBe('fixed')
+  const profileDocumentTop = await identity.evaluate((element) => {
+    const slot = element.parentElement!.parentElement!
+    return slot.getBoundingClientRect().top + window.scrollY
+  })
+  expect(profileInitialPosition.top).toBeCloseTo(profileDocumentTop, 0)
 
   const longSkills = page.locator('.about-page__skill-groups')
   await longSkills.evaluate((element) => {

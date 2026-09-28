@@ -28,7 +28,7 @@ const identitySlot = ref<HTMLElement | null>(null)
 const identityShell = ref<HTMLElement | null>(null)
 const identitySlotStyle = ref<Record<string, string>>({})
 const identityStyle = ref<Record<string, string>>({})
-let identityViewportTop: number | null = null
+let identityDocumentTop: number | null = null
 
 const setStyleIfChanged = (
   target: { value: Record<string, string> },
@@ -58,14 +58,15 @@ const updateIdentityPosition = () => {
     return
   }
 
-  identityViewportTop ??= slotBounds.top
+  // Preserve the document anchor if a restored scroll or hash moved the page before mount.
+  identityDocumentTop ??= slotBounds.top + window.scrollY
   const cardHeight = shell.getBoundingClientRect().height
 
   setStyleIfChanged(identitySlotStyle, { minHeight: `${cardHeight}px` })
   setStyleIfChanged(identityStyle, {
     position: 'fixed',
     zIndex: '3',
-    top: `${identityViewportTop}px`,
+    top: `${identityDocumentTop}px`,
     left: `${slotBounds.left}px`,
     width: `${slotBounds.width}px`,
   })
