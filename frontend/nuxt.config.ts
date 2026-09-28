@@ -22,6 +22,8 @@ const localApiOrigin = /^https?:\/\//.test(apiBase)
   : null
 
 export default defineNuxtConfig({
+  // The fixture E2E server needs its own Nuxt dev lock and generated files.
+  buildDir: process.env.NUXT_E2E_BUILD_DIR ?? '.nuxt',
   app: {
     head: {
       htmlAttrs: { lang: 'zh-CN' },

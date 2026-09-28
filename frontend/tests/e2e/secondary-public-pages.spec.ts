@@ -21,7 +21,7 @@ const assertNoHorizontalOverflow = async (page: Page) => {
 test('Projects communicate complete portfolio metadata and safe outbound links', async ({
   page,
 }) => {
-  await page.goto('/projects')
+  await page.goto('/projects?type=personal')
 
   await expect(page).toHaveTitle(/项目 · 夜航手记/)
   await expect(

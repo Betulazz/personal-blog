@@ -445,7 +445,7 @@ const settings = {
   tagline: '在夜色里，写下仍然发光的事',
   description: '关于技术、生活与缓慢生长的个人记录。',
   profile: '一个喜欢把复杂问题拆小、把长期工作做得可持续的人。',
-  avatar_url: 'https://example.com/media/site-avatar.webp',
+  avatar_url: '/uploads/images/site-avatar.webp',
   background_gallery: [],
   avatar_alt: null,
   favicon_url: null,

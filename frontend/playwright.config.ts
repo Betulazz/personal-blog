@@ -18,30 +18,33 @@ export default defineConfig({
   },
   workers: 1,
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: 'http://127.0.0.1:3103',
     trace: 'on-first-retry',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
   ],
+  // Keep fixture traffic separate from the live development app and API.
   webServer: [
     {
       command: 'node tests/e2e/mock-api.mjs',
-      reuseExistingServer: !process.env.CI,
+      env: { MOCK_API_ORIGIN: 'http://127.0.0.1:3103' },
+      reuseExistingServer: false,
       timeout: 120_000,
       url: 'http://127.0.0.1:8787/health',
     },
     {
-      command: 'npm run dev -- --host 127.0.0.1',
+      command: 'npm run dev -- --host 127.0.0.1 --port 3103',
       env: {
+        NUXT_E2E_BUILD_DIR: '.cache/nuxt-e2e',
         NUXT_API_BASE: 'http://127.0.0.1:8787/api/v1',
         NUXT_DESIGN_SYSTEM_FIXTURES: 'true',
         NUXT_PUBLIC_API_BASE: 'http://127.0.0.1:8787/api/v1',
       },
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
-      url: 'http://127.0.0.1:3000',
+      url: 'http://127.0.0.1:3103',
     },
   ],
 })
