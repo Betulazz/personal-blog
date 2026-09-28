@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowUpRight, Github, Globe2, Mail } from 'lucide-vue-next'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 import type { AboutProfile } from '~/types/portfolio'
 import { getSafeExternalUrl } from '~/utils/external-links'
@@ -24,71 +24,6 @@ const status = computed(() => {
 
 const socialIcons = { code: Github, social: Globe2 } as const
 const avatarUnavailable = ref(false)
-const identitySlot = ref<HTMLElement | null>(null)
-const identityShell = ref<HTMLElement | null>(null)
-const identitySlotStyle = ref<Record<string, string>>({})
-const identityStyle = ref<Record<string, string>>({})
-let identityDocumentTop: number | null = null
-
-const setStyleIfChanged = (
-  target: { value: Record<string, string> },
-  next: Record<string, string>,
-) => {
-  const current = target.value
-  const keys = Object.keys(next)
-  if (
-    keys.length === Object.keys(current).length &&
-    keys.every((key) => current[key] === next[key])
-  ) {
-    return
-  }
-  target.value = next
-}
-
-const updateIdentityPosition = () => {
-  const slot = identitySlot.value
-  const shell = identityShell.value
-  if (!slot || !shell) return
-
-  const slotBounds = slot.getBoundingClientRect()
-
-  if (window.matchMedia('(width <= 64rem)').matches) {
-    setStyleIfChanged(identitySlotStyle, {})
-    setStyleIfChanged(identityStyle, {})
-    return
-  }
-
-  // Preserve the document anchor if a restored scroll or hash moved the page before mount.
-  identityDocumentTop ??= slotBounds.top + window.scrollY
-  const cardHeight = shell.getBoundingClientRect().height
-
-  setStyleIfChanged(identitySlotStyle, { minHeight: `${cardHeight}px` })
-  // Keep Profile at its initial screen coordinates for the full document scroll.
-  setStyleIfChanged(identityStyle, {
-    position: 'fixed',
-    zIndex: '3',
-    top: `${identityDocumentTop}px`,
-    left: `${slotBounds.left}px`,
-    width: `${slotBounds.width}px`,
-  })
-}
-
-onMounted(() => {
-  window.addEventListener('resize', updateIdentityPosition)
-  void nextTick(updateIdentityPosition)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateIdentityPosition)
-})
-
-watch(
-  () => props.profile,
-  async () => {
-    await nextTick()
-    updateIdentityPosition()
-  },
-)
 
 const markAvatarUnavailable = () => {
   avatarUnavailable.value = true
@@ -139,34 +74,22 @@ const markAvatarUnavailable = () => {
 
           <div class="about-page__layout">
             <aside class="about-page__rail" aria-label="个人资料与技能">
-              <div
-                ref="identitySlot"
-                class="about-page__identity-slot"
-                :style="identitySlotStyle"
+              <UiGlassPanel
+                class="about-page__identity"
+                tone="panel"
+                padding="spacious"
               >
-                <div
-                  ref="identityShell"
-                  class="about-page__identity-shell"
-                  :style="identityStyle"
+                <p class="about-page__eyebrow">PROFILE</p>
+                <h2 id="about-profile-title">{{ profile.name }}</h2>
+                <p class="about-page__bio">{{ profile.profile }}</p>
+                <a
+                  class="about-page__contact-link"
+                  :href="`mailto:${profile.contact.email}`"
                 >
-                  <UiGlassPanel
-                    class="about-page__identity"
-                    tone="panel"
-                    padding="spacious"
-                  >
-                    <p class="about-page__eyebrow">PROFILE</p>
-                    <h2 id="about-profile-title">{{ profile.name }}</h2>
-                    <p class="about-page__bio">{{ profile.profile }}</p>
-                    <a
-                      class="about-page__contact-link"
-                      :href="`mailto:${profile.contact.email}`"
-                    >
-                      <Mail :size="16" aria-hidden="true" />
-                      联系我
-                    </a>
-                  </UiGlassPanel>
-                </div>
-              </div>
+                  <Mail :size="16" aria-hidden="true" />
+                  联系我
+                </a>
+              </UiGlassPanel>
 
               <UiGlassPanel
                 class="about-page__skills"

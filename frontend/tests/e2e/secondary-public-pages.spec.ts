@@ -100,17 +100,17 @@ test('About presents profile context, long-form story, timeline, contact, and so
   }
 })
 
-test('About keeps Profile at its desktop anchor after deep links and flows in one mobile column', async ({
+test('About keeps Profile in document flow above Skills on desktop and mobile', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/about?variant=b#about-contact-title', {
-    waitUntil: 'networkidle',
-  })
+  await page.goto('/about?variant=b', { waitUntil: 'networkidle' })
 
   const identity = page.locator('.about-page__identity')
   const portrait = page.locator('.about-page__portrait')
   const avatar = portrait.locator('img')
+  const skills = page.locator('.about-page__skills')
+  const layout = page.locator('.about-page__layout')
 
   await expect(identity).toBeVisible()
   await expect(portrait).toBeVisible()
@@ -121,7 +121,6 @@ test('About keeps Profile at its desktop anchor after deep links and flows in on
     )
     .toBe('50%')
 
-  const layout = page.locator('.about-page__layout')
   expect(
     await layout.evaluate(
       (element) =>
@@ -129,28 +128,24 @@ test('About keeps Profile at its desktop anchor after deep links and flows in on
     ),
   ).toBe(2)
 
-  await expect
-    .poll(() =>
-      identity.evaluate(
-        (element) => getComputedStyle(element.parentElement!).position,
-      ),
-    )
-    .toBe('fixed')
-  const profileInitialPosition = await identity.evaluate((element) => {
-    const shell = element.parentElement!
-    const bounds = shell.getBoundingClientRect()
-    return {
-      position: getComputedStyle(shell).position,
-      top: bounds.top,
-      left: bounds.left,
-    }
-  })
-  expect(profileInitialPosition.position).toBe('fixed')
-  const profileDocumentTop = await identity.evaluate((element) => {
-    const slot = element.parentElement!.parentElement!
-    return slot.getBoundingClientRect().top + window.scrollY
-  })
-  expect(profileInitialPosition.top).toBeCloseTo(profileDocumentTop, 0)
+  const readDocumentPosition = (locator: typeof identity) =>
+    locator.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return {
+        position: getComputedStyle(element).position,
+        viewportTop: bounds.top,
+        documentTop: bounds.top + window.scrollY,
+        documentBottom: bounds.bottom + window.scrollY,
+      }
+    })
+
+  const profileAtStart = await readDocumentPosition(identity)
+  const skillsAtStart = await readDocumentPosition(skills)
+  expect(profileAtStart.position).toBe('static')
+  expect(skillsAtStart.position).toBe('static')
+  expect(skillsAtStart.documentTop).toBeGreaterThan(
+    profileAtStart.documentBottom,
+  )
 
   const longSkills = page.locator('.about-page__skill-groups')
   await longSkills.evaluate((element) => {
@@ -189,17 +184,26 @@ test('About keeps Profile at its desktop anchor after deep links and flows in on
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(0)
-  const fixedDuringScroll = await identity.evaluate((element) => {
-    const shell = element.parentElement!
-    const bounds = shell.getBoundingClientRect()
-    return {
-      position: getComputedStyle(shell).position,
-      top: bounds.top,
-      left: bounds.left,
-    }
-  })
-  expect(fixedDuringScroll).toEqual(profileInitialPosition)
-  const scrollBeforePageEnd = await page.evaluate(() => window.scrollY)
+
+  const scrollAfterWheel = await page.evaluate(() => window.scrollY)
+  const profileAfterWheel = await readDocumentPosition(identity)
+  const skillsAfterWheel = await readDocumentPosition(skills)
+  expect(profileAfterWheel.position).toBe('static')
+  expect(profileAfterWheel.documentTop).toBeCloseTo(
+    profileAtStart.documentTop,
+    0,
+  )
+  expect(skillsAfterWheel.documentTop).toBeCloseTo(skillsAtStart.documentTop, 0)
+  expect(profileAfterWheel.viewportTop).toBeCloseTo(
+    profileAtStart.viewportTop - scrollAfterWheel,
+    0,
+  )
+  expect(skillsAfterWheel.viewportTop).toBeCloseTo(
+    skillsAtStart.viewportTop - scrollAfterWheel,
+    0,
+  )
+
+  const scrollBeforePageEnd = scrollAfterWheel
   await page.mouse.wheel(0, 10_000)
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
@@ -207,30 +211,39 @@ test('About keeps Profile at its desktop anchor after deep links and flows in on
   await expect
     .poll(() =>
       page.evaluate(
-        () => window.scrollY + window.innerHeight >= document.documentElement.scrollHeight,
+        () =>
+          window.scrollY + window.innerHeight >=
+          document.documentElement.scrollHeight,
       ),
     )
     .toBe(true)
   await expect(page.getByText('滚动技能 18-5', { exact: true })).toBeVisible()
-  const fixedAtPageEnd = await identity.evaluate((element) => {
-    const shell = element.parentElement!
-    const shellBounds = shell.getBoundingClientRect()
-    return {
-      position: getComputedStyle(shell).position,
-      top: shellBounds.top,
-      left: shellBounds.left,
-    }
-  })
-  expect(fixedAtPageEnd).toEqual(profileInitialPosition)
+
+  const profileAtPageEnd = await readDocumentPosition(identity)
+  const skillsAtPageEnd = await readDocumentPosition(skills)
+  const scrollAtPageEnd = await page.evaluate(() => window.scrollY)
+  expect(profileAtPageEnd.position).toBe('static')
+  expect(profileAtPageEnd.documentTop).toBeCloseTo(
+    profileAtStart.documentTop,
+    0,
+  )
+  expect(skillsAtPageEnd.documentTop).toBeCloseTo(skillsAtStart.documentTop, 0)
+  expect(profileAtPageEnd.viewportTop).toBeCloseTo(
+    profileAtStart.documentTop - scrollAtPageEnd,
+    0,
+  )
+  expect(skillsAtPageEnd.documentTop).toBeGreaterThan(
+    profileAtPageEnd.documentBottom,
+  )
+
+  await page.goto('/about#about-contact-title', { waitUntil: 'networkidle' })
+  await expect(page.locator('#about-contact-title')).toBeVisible()
+  expect((await readDocumentPosition(identity)).position).toBe('static')
 
   await page.setViewportSize({ width: 430, height: 932 })
   await page.goto('/about?variant=a', { waitUntil: 'networkidle' })
   await expect(page.locator('[data-about-page]')).toBeVisible()
-  await expect
-    .poll(() =>
-      identity.evaluate((element) => getComputedStyle(element).position),
-    )
-    .toBe('static')
+  await expect(identity).toHaveCSS('position', 'static')
   expect(
     await layout.evaluate(
       (element) =>
