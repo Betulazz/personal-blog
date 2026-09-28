@@ -63,6 +63,7 @@ const updateIdentityPosition = () => {
   const cardHeight = shell.getBoundingClientRect().height
 
   setStyleIfChanged(identitySlotStyle, { minHeight: `${cardHeight}px` })
+  // Keep Profile at its initial screen coordinates for the full document scroll.
   setStyleIfChanged(identityStyle, {
     position: 'fixed',
     zIndex: '3',

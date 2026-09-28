@@ -183,9 +183,12 @@ test('About keeps Profile at its desktop anchor after deep links and flows in on
 
   await page.evaluate(() => {
     document.documentElement.style.scrollBehavior = 'auto'
-    window.scrollTo(0, 500)
   })
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(500)
+  await page.mouse.move(1000, 500)
+  await page.mouse.wheel(0, 500)
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0)
   const fixedDuringScroll = await identity.evaluate((element) => {
     const shell = element.parentElement!
     const bounds = shell.getBoundingClientRect()
@@ -196,12 +199,18 @@ test('About keeps Profile at its desktop anchor after deep links and flows in on
     }
   })
   expect(fixedDuringScroll).toEqual(profileInitialPosition)
-  await page.evaluate(() => {
-    window.scrollTo(0, document.documentElement.scrollHeight)
-  })
+  const scrollBeforePageEnd = await page.evaluate(() => window.scrollY)
+  await page.mouse.wheel(0, 10_000)
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
-    .toBeGreaterThan(500)
+    .toBeGreaterThan(scrollBeforePageEnd)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => window.scrollY + window.innerHeight >= document.documentElement.scrollHeight,
+      ),
+    )
+    .toBe(true)
   await expect(page.getByText('滚动技能 18-5', { exact: true })).toBeVisible()
   const fixedAtPageEnd = await identity.evaluate((element) => {
     const shell = element.parentElement!
