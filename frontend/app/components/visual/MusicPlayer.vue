@@ -21,6 +21,7 @@ const {
 const { settings } = await usePublicSiteSettings()
 
 const musicVisible = computed(() => settings.value.homepageVisibility.music)
+const isAboutPage = computed(() => route.path === '/about')
 const isExcludedRoute = computed(
   () => route.path === '/' || route.path === '/music',
 )
@@ -131,6 +132,12 @@ const shouldShowPlayer = computed(
 )
 
 function updateFooterAvoidance() {
+  if (isAboutPage.value) {
+    footerClearance.value = 0
+    footerBlocksPlayer.value = false
+    return
+  }
+
   const footer = document.querySelector('.site-footer')
   const playerElement = document.querySelector('.music-player')
   if (playerElement) {
@@ -207,6 +214,7 @@ onBeforeUnmount(() => {
   <section
     v-if="shouldShowPlayer"
     class="music-player"
+    :class="{ 'music-player--page-flow': isAboutPage }"
     :style="{ '--player-footer-clearance': `${footerClearance}px` }"
     data-testid="music-player"
     data-compact-player="true"
@@ -329,6 +337,16 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-panel), var(--glass-highlight), var(--shadow-glow);
   backdrop-filter: blur(var(--glass-blur-panel))
     saturate(var(--glass-saturation));
+}
+
+.music-player--page-flow {
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  align-self: flex-end;
+  margin: var(--space-4) var(--space-4) 0;
 }
 
 .music-player__record {
@@ -494,6 +512,12 @@ onBeforeUnmount(() => {
 @keyframes compact-record-rotate {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (width <= 48rem) {
+  .music-player--page-flow {
+    align-self: center;
   }
 }
 

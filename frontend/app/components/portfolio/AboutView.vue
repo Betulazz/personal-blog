@@ -32,16 +32,7 @@ const markAvatarUnavailable = () => {
 
 <template>
   <div class="about-page" data-about-page>
-    <UiPageContainer as="section" class="about-page__intro" width="wide">
-      <UiSectionHeader
-        :description="profile?.profile ?? '关于这个公开记录空间。'"
-        eyebrow="A LITTLE CONTEXT"
-        :title="profile?.tagline ?? '关于这个公开记录空间'"
-        :heading-level="1"
-      />
-    </UiPageContainer>
-
-    <UiPageContainer as="section" class="about-page__content" width="wide">
+    <UiPageContainer as="section" class="about-page__container" width="wide">
       <PublicPageState
         label="关于页面"
         recovery-href="/"
@@ -49,41 +40,48 @@ const markAvatarUnavailable = () => {
         @retry="emit('retry')"
       >
         <template v-if="profile" #default>
+          <header class="about-page__cover">
+            <div class="about-page__cover-copy">
+              <p class="about-page__eyebrow">ABOUT / A LITTLE CONTEXT</p>
+              <h1>关于我</h1>
+              <p>{{ profile.tagline }}</p>
+            </div>
+            <span class="about-page__cover-orbit" aria-hidden="true"></span>
+            <span
+              class="about-page__cover-orbit about-page__cover-orbit--small"
+              aria-hidden="true"
+            ></span>
+            <div
+              class="about-page__portrait"
+              role="img"
+              :aria-label="`${profile.name}${avatarUnavailable ? '：头像暂不可用' : '头像'}`"
+            >
+              <img
+                v-if="profile.avatar && !avatarUnavailable"
+                :src="profile.avatar.src"
+                alt=""
+                :width="profile.avatar.width"
+                :height="profile.avatar.height"
+                loading="lazy"
+                decoding="async"
+                @error="markAvatarUnavailable"
+              />
+              <span v-else aria-hidden="true">{{
+                profile.name.slice(0, 1)
+              }}</span>
+            </div>
+          </header>
+
           <div class="about-page__layout">
-            <aside class="about-page__aside">
+            <aside class="about-page__rail" aria-label="个人资料与技能">
               <UiGlassPanel
-                class="about-page__profile-panel"
+                class="about-page__identity"
                 tone="panel"
                 padding="spacious"
               >
-                <div
-                  class="about-page__avatar"
-                  role="img"
-                  :aria-label="`${profile.name}${avatarUnavailable ? '：头像暂不可用' : '头像'}`"
-                >
-                  <img
-                    v-if="profile.avatar && !avatarUnavailable"
-                    :src="profile.avatar.src"
-                    :alt="profile.avatar.alt"
-                    :width="profile.avatar.width"
-                    :height="profile.avatar.height"
-                    loading="lazy"
-                    decoding="async"
-                    @error="markAvatarUnavailable"
-                  />
-                  <span v-else aria-hidden="true">{{
-                    profile.name.slice(0, 1)
-                  }}</span>
-                  <span
-                    v-if="avatarUnavailable"
-                    class="about-page__avatar-label"
-                  >
-                    媒体暂不可用
-                  </span>
-                </div>
                 <p class="about-page__eyebrow">PROFILE</p>
                 <h2 id="about-profile-title">{{ profile.name }}</h2>
-                <p>{{ profile.profile }}</p>
+                <p class="about-page__bio">{{ profile.profile }}</p>
                 <a
                   class="about-page__contact-link"
                   :href="`mailto:${profile.contact.email}`"
@@ -94,11 +92,12 @@ const markAvatarUnavailable = () => {
               </UiGlassPanel>
 
               <UiGlassPanel
-                class="about-page__skills-panel"
+                class="about-page__skills"
                 tone="subtle"
                 padding="default"
+                aria-labelledby="about-skills-title"
               >
-                <h2>技能</h2>
+                <h2 id="about-skills-title">技能</h2>
                 <div class="about-page__skill-groups">
                   <div v-for="group in profile.skills" :key="group.name">
                     <h3>{{ group.name }}</h3>
@@ -114,12 +113,11 @@ const markAvatarUnavailable = () => {
 
             <div class="about-page__main">
               <section aria-labelledby="about-story-title">
-                <UiSectionHeader
-                  description="这不是完成时的简历，而是一份仍在生长中的公开记录。"
-                  eyebrow="THE STORY"
-                  title="我为什么写这里"
-                  title-id="about-story-title"
-                />
+                <p class="about-page__section-label">01 / THE STORY</p>
+                <h2 id="about-story-title">我为什么写这里</h2>
+                <p class="about-page__section-intro">
+                  这不是完成时的简历，而是一份仍在生长中的公开记录。
+                </p>
                 <div class="about-page__story">
                   <p v-for="paragraph in profile.story" :key="paragraph">
                     {{ paragraph }}
@@ -128,14 +126,16 @@ const markAvatarUnavailable = () => {
               </section>
 
               <section aria-labelledby="about-timeline-title">
-                <UiSectionHeader
-                  description="几个让我继续走下去的节点。"
-                  eyebrow="A SMALL TIMELINE"
-                  title="时间线"
-                  title-id="about-timeline-title"
-                />
+                <p class="about-page__section-label">02 / A SMALL TIMELINE</p>
+                <h2 id="about-timeline-title">时间线</h2>
+                <p class="about-page__section-intro">
+                  几个让我继续走下去的节点。
+                </p>
                 <ol class="about-page__timeline">
-                  <li v-for="item in profile.timeline" :key="item.period">
+                  <li
+                    v-for="item in profile.timeline"
+                    :key="item.period + item.title"
+                  >
                     <time>{{ item.period }}</time>
                     <div>
                       <h3>{{ item.title }}</h3>
@@ -146,12 +146,11 @@ const markAvatarUnavailable = () => {
               </section>
 
               <section aria-labelledby="about-interests-title">
-                <UiSectionHeader
-                  description="让工作之外的生活也保留一点好奇心。"
-                  eyebrow="OFF THE SCREEN"
-                  title="兴趣"
-                  title-id="about-interests-title"
-                />
+                <p class="about-page__section-label">03 / OFF THE SCREEN</p>
+                <h2 id="about-interests-title">兴趣</h2>
+                <p class="about-page__section-intro">
+                  让工作之外的生活也保留一点好奇心。
+                </p>
                 <ul class="about-page__interests">
                   <li v-for="interest in profile.interests" :key="interest">
                     {{ interest }}
@@ -167,7 +166,7 @@ const markAvatarUnavailable = () => {
                 aria-labelledby="about-contact-title"
               >
                 <div>
-                  <p class="about-page__eyebrow">KEEP IN TOUCH</p>
+                  <p class="about-page__section-label">KEEP IN TOUCH</p>
                   <h2 id="about-contact-title">保持联系</h2>
                   <p>{{ profile.contact.note }}</p>
                 </div>
@@ -190,7 +189,7 @@ const markAvatarUnavailable = () => {
                       aria-hidden="true"
                     />
                     {{ social.label }}
-                    <ArrowUpRight :size="15" aria-hidden="true" />
+                    <ArrowUpRight :size="14" aria-hidden="true" />
                   </a>
                 </div>
               </UiGlassPanel>
@@ -203,47 +202,112 @@ const markAvatarUnavailable = () => {
 </template>
 
 <style scoped>
-.about-page,
-.about-page__content {
+.about-page {
   min-height: 100%;
-}
-
-.about-page__intro {
   padding-top: var(--public-heading-offset);
-  padding-bottom: var(--space-12);
-}
-
-.about-page__content {
   padding-bottom: var(--space-section);
 }
 
-.about-page__layout {
-  display: grid;
-  grid-template-columns: minmax(16rem, 0.72fr) minmax(0, 1.28fr);
-  align-items: start;
-  gap: clamp(var(--space-8), 6vw, var(--space-16));
-}
-
-.about-page__aside,
-.about-page__main {
-  display: grid;
-  gap: var(--space-10);
-  min-width: 0;
-}
-
-.about-page__profile-panel {
-  position: sticky;
-  top: 6rem;
-}
-
-.about-page__avatar {
+.about-page__cover {
   position: relative;
+  display: flex;
+  min-height: 18rem;
+  align-items: center;
+  overflow: visible;
+  padding: clamp(2rem, 6vw, 5rem);
+  border: 1px solid rgb(185 198 255 / 24%);
+  border-radius: var(--radius-panel);
+  background:
+    radial-gradient(
+      ellipse at 76% 26%,
+      rgb(151 163 255 / 40%),
+      transparent 22rem
+    ),
+    radial-gradient(
+      ellipse at 88% 100%,
+      rgb(77 196 200 / 17%),
+      transparent 28rem
+    ),
+    linear-gradient(
+      118deg,
+      rgb(14 28 64 / 95%),
+      rgb(27 37 83 / 89%) 54%,
+      rgb(17 37 57 / 94%)
+    );
+  box-shadow:
+    var(--shadow-panel),
+    inset 0 1px rgb(255 255 255 / 10%);
+}
+
+.about-page__cover::after {
+  position: absolute;
+  inset: 1rem;
+  border: 1px solid rgb(219 226 255 / 10%);
+  border-radius: calc(var(--radius-panel) - 0.65rem);
+  content: '';
+  pointer-events: none;
+}
+
+.about-page__cover-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 38rem;
+  padding-bottom: 1rem;
+}
+
+.about-page__eyebrow,
+.about-page__section-label {
+  margin: 0;
+  color: var(--color-accent-soft);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
+}
+
+.about-page__cover h1 {
+  margin: 1rem 0 0;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.about-page__cover-copy > p:last-child {
+  max-width: 38rem;
+  margin: 1rem 0 0;
+  color: rgb(237 240 255 / 82%);
+  font-size: var(--text-body-large);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.about-page__cover-orbit {
+  position: absolute;
+  top: 2rem;
+  right: clamp(4rem, 12vw, 12rem);
+  width: clamp(10rem, 25vw, 20rem);
+  aspect-ratio: 1;
+  border: 1px solid rgb(221 229 255 / 22%);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 4rem rgb(171 189 255 / 10%),
+    0 0 4rem rgb(116 132 255 / 12%);
+}
+
+.about-page__portrait {
+  position: absolute;
+  z-index: 2;
+  bottom: -4.25rem;
+  left: clamp(1.5rem, 4vw, 3.5rem);
   display: grid;
-  width: 5.5rem;
-  height: 5.5rem;
+  width: 8rem;
+  height: 8rem;
   place-items: center;
-  border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-large);
+  overflow: hidden;
+  border: 0.25rem solid var(--color-canvas-raised);
+  border-radius: 50%;
   background: linear-gradient(
     135deg,
     var(--color-accent),
@@ -252,48 +316,73 @@ const markAvatarUnavailable = () => {
   box-shadow: var(--shadow-glow);
   color: var(--color-text);
   font-family: var(--font-display);
-  font-size: 2.25rem;
+  font-size: 3.5rem;
   font-weight: var(--font-weight-bold);
 }
 
-.about-page__avatar img {
+.about-page__portrait img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.about-page__avatar-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+.about-page__cover-orbit--small {
+  top: auto;
+  right: 20%;
+  bottom: 1.25rem;
+  width: 4rem;
+  background: rgb(111 212 224 / 18%);
+  box-shadow: 0 0 2rem rgb(111 212 224 / 24%);
 }
 
-.about-page__eyebrow {
-  margin: var(--space-6) 0 0;
-  color: var(--color-accent-soft);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-eyebrow);
+.about-page__layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.7fr) minmax(0, 1.3fr);
+  align-items: stretch;
+  gap: clamp(var(--space-8), 5vw, var(--space-16));
+  margin-top: 5.5rem;
 }
 
-.about-page h2 {
+.about-page__rail {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--space-5);
+}
+
+.about-page__identity,
+.about-page__skills,
+.about-page__contact {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  background: var(--glass-panel-bg);
+  box-shadow: var(--glass-shadow), var(--glass-highlight);
+  backdrop-filter: blur(var(--glass-blur-panel))
+    saturate(var(--glass-saturation));
+}
+
+.about-page__identity {
+  position: sticky;
+  z-index: 2;
+  top: 7rem;
+  align-self: start;
+}
+
+.about-page__identity h2,
+.about-page__skills h2,
+.about-page__main h2,
+.about-page__contact h2 {
+  margin: 0.65rem 0 0;
   color: var(--color-text);
   font-family: var(--font-display);
+  font-size: var(--text-h3);
   line-height: var(--leading-display);
 }
 
-.about-page__profile-panel h2 {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-h2);
-}
-
-.about-page__profile-panel p:not(.about-page__eyebrow),
-.about-page__contact p {
-  margin: var(--space-4) 0 0;
+.about-page__bio,
+.about-page__contact p:not(.about-page__section-label) {
+  margin: 0.8rem 0 0;
   color: var(--color-text-muted);
   line-height: var(--leading-body);
   overflow-wrap: anywhere;
@@ -304,13 +393,14 @@ const markAvatarUnavailable = () => {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
-  gap: var(--space-2);
+  gap: 0.5rem;
   color: var(--color-accent-soft);
   font-size: var(--text-small);
+  overflow-wrap: anywhere;
 }
 
 .about-page__contact-link {
-  margin-top: var(--space-6);
+  margin-top: var(--space-5);
 }
 
 .about-page__contact-link:hover,
@@ -318,15 +408,10 @@ const markAvatarUnavailable = () => {
   color: var(--color-text);
 }
 
-.about-page__skills-panel h2 {
-  margin: 0;
-  font-size: var(--text-h3);
-}
-
 .about-page__skill-groups {
   display: grid;
   gap: var(--space-5);
-  margin-top: var(--space-6);
+  margin-top: var(--space-5);
 }
 
 .about-page__skill-groups h3 {
@@ -339,28 +424,47 @@ const markAvatarUnavailable = () => {
 .about-page__interests {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: var(--space-3) 0 0;
+  gap: 0.5rem;
+  margin: 0.65rem 0 0;
   padding: 0;
   list-style: none;
 }
 
 .about-page__skill-groups li,
 .about-page__interests li {
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-hairline) solid var(--glass-border);
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-round);
   color: var(--color-text-muted);
   font-size: var(--text-small);
 }
 
-.about-page__main > section {
+.about-page__main {
   display: grid;
-  gap: var(--space-6);
+  min-width: 0;
+  align-content: start;
+  gap: clamp(var(--space-12), 8vw, var(--space-20));
+  padding-top: 0.5rem;
+}
+
+.about-page__main > section {
+  min-width: 0;
+  scroll-margin-top: 7rem;
+}
+
+.about-page__main h2 {
+  margin-top: 0.65rem;
+}
+
+.about-page__section-intro {
+  margin: 0.7rem 0 0;
+  color: var(--color-text-muted);
+  line-height: var(--leading-body);
 }
 
 .about-page__story {
   max-width: 68ch;
+  margin-top: var(--space-6);
   color: var(--color-text-muted);
   font-size: var(--text-body-large);
   line-height: var(--leading-body);
@@ -372,23 +476,23 @@ const markAvatarUnavailable = () => {
 }
 
 .about-page__story p + p {
-  margin-top: var(--space-6);
+  margin-top: var(--space-5);
 }
 
 .about-page__timeline {
   display: grid;
   gap: var(--space-6);
-  margin: 0;
+  margin: var(--space-8) 0 0;
   padding: 0;
   list-style: none;
 }
 
 .about-page__timeline li {
   display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  gap: var(--space-5);
-  padding-left: var(--space-5);
-  border-left: 0.125rem solid var(--color-accent);
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: 0.1rem 0 0.25rem 1.2rem;
+  border-left: 2px solid var(--color-accent);
 }
 
 .about-page__timeline time {
@@ -404,7 +508,7 @@ const markAvatarUnavailable = () => {
 }
 
 .about-page__timeline p {
-  margin: var(--space-2) 0 0;
+  margin: 0.45rem 0 0;
   color: var(--color-text-muted);
   line-height: 1.65;
   overflow-wrap: anywhere;
@@ -414,54 +518,80 @@ const markAvatarUnavailable = () => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: var(--space-8);
+  gap: var(--space-6);
 }
 
 .about-page__contact h2 {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-h3);
+  margin-top: 0.65rem;
 }
 
 .about-page__socials {
   display: grid;
   justify-items: start;
-  gap: var(--space-2);
+  gap: 0.15rem;
 }
 
 @media (width <= 64rem) {
   .about-page__layout {
-    grid-template-columns: 1fr;
-  }
-
-  .about-page__profile-panel {
-    position: static;
-  }
-
-  .about-page__aside {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
+  }
+
+  .about-page__rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .about-page__identity {
+    position: static;
   }
 }
 
 @media (width <= 48rem) {
-  .about-page__intro {
-    padding-bottom: var(--space-10);
+  .about-page__cover {
+    min-height: 16rem;
+    padding: 1.5rem;
   }
 
-  .about-page__aside,
-  .about-page__contact {
-    grid-template-columns: 1fr;
+  .about-page__cover h1 {
+    max-width: 11ch;
+    font-size: clamp(2.25rem, 11vw, 3.5rem);
   }
 
+  .about-page__cover-orbit {
+    top: 1rem;
+    right: 1rem;
+    width: 8rem;
+  }
+
+  .about-page__cover-orbit--small {
+    top: auto;
+    right: 20%;
+    bottom: 0.65rem;
+    width: 2.75rem;
+  }
+
+  .about-page__portrait {
+    bottom: -3.25rem;
+    left: 1.5rem;
+    width: 6.5rem;
+    height: 6.5rem;
+    font-size: 2.5rem;
+  }
+
+  .about-page__layout {
+    margin-top: 4.5rem;
+  }
+
+  .about-page__rail,
   .about-page__contact {
-    padding: var(--space-6);
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (width <= 30rem) {
   .about-page__timeline li {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
   }
 }
 </style>

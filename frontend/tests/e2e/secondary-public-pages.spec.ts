@@ -66,9 +66,13 @@ test('Friend Links remain curated, honest, and actionable', async ({
 test('About presents profile context, long-form story, timeline, contact, and socials', async ({
   page,
 }) => {
-  await page.goto('/about')
+  await page.goto('/about?variant=c')
 
-  await expect(page).toHaveTitle(/关于 · 夜航手记/)
+  await expect(page).toHaveTitle(/关于 · .+/)
+  await expect(page.locator('[data-about-page]')).toBeVisible()
+  await expect(page.locator('[data-about-prototype]')).toHaveCount(0)
+  await expect(page.locator('[data-about-prototype-switcher]')).toHaveCount(0)
+  await expect(page.locator('main h1')).toHaveCount(1)
   await expect(
     page.getByRole('heading', { name: '技能', exact: true }),
   ).toBeVisible()
@@ -83,16 +87,165 @@ test('About presents profile context, long-form story, timeline, contact, and so
   ).toBeVisible()
   await expect(page.locator('#about-contact-title')).toBeVisible()
   await expect(
-    page
-      .getByRole('complementary')
-      .getByText('一个喜欢把复杂问题拆小、把长期工作做得可持续的人。'),
+    page.getByRole('complementary').locator('.about-page__bio'),
   ).toBeVisible()
+  await expect(page.locator('.about-page__story p').first()).toBeVisible()
+
+  const externalSocial = page.locator('.about-page__socials a[target="_blank"]')
+  if (await externalSocial.count()) {
+    await expect(externalSocial.first()).toHaveAttribute(
+      'rel',
+      /noopener.*noreferrer/,
+    )
+  }
+})
+
+test('About keeps Profile visible with long skills and flows in one mobile column', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/about?variant=b', { waitUntil: 'networkidle' })
+
+  const identity = page.locator('.about-page__identity')
+  const portrait = page.locator('.about-page__portrait')
+  const avatar = portrait.locator('img')
+
+  await expect(identity).toBeVisible()
+  await expect(portrait).toBeVisible()
+  await expect(avatar).toHaveCSS('object-fit', 'cover')
+  await expect
+    .poll(() =>
+      portrait.evaluate((element) => getComputedStyle(element).borderRadius),
+    )
+    .toBe('50%')
+
+  const layout = page.locator('.about-page__layout')
+  expect(
+    await layout.evaluate(
+      (element) =>
+        getComputedStyle(element).gridTemplateColumns.split(' ').length,
+    ),
+  ).toBe(2)
+
+  const longSkills = page.locator('.about-page__skill-groups')
+  await longSkills.evaluate((element) => {
+    for (let index = 1; index <= 18; index += 1) {
+      const group = document.createElement('div')
+      const heading = document.createElement('h3')
+      const list = document.createElement('ul')
+      heading.textContent = `长技能组 ${index}`
+      for (let item = 1; item <= 5; item += 1) {
+        const entry = document.createElement('li')
+        entry.textContent = `滚动技能 ${index}-${item}`
+        list.append(entry)
+      }
+      group.append(heading, list)
+      element.append(group)
+    }
+  })
+
+  const noNestedScroll = await page
+    .locator(
+      '.about-page__rail, .about-page__skills, .about-page__skill-groups',
+    )
+    .evaluateAll((elements) =>
+      elements.every((element) => {
+        const overflowY = getComputedStyle(element).overflowY
+        return overflowY !== 'auto' && overflowY !== 'scroll'
+      }),
+    )
+  expect(noNestedScroll).toBe(true)
+
+  await page.evaluate(() => {
+    document.documentElement.style.scrollBehavior = 'auto'
+    window.scrollTo(0, 500)
+  })
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(500)
+  await expect
+    .poll(() =>
+      identity.evaluate((element) => element.getBoundingClientRect().top),
+    )
+    .toBeCloseTo(112, 0)
+  await page.evaluate(() => {
+    window.scrollTo(0, document.documentElement.scrollHeight)
+  })
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(500)
+  await expect(page.getByText('滚动技能 18-5', { exact: true })).toBeVisible()
+  const stickyEnd = await identity.evaluate((element) => {
+    const profileBounds = element.getBoundingClientRect()
+    const railBounds = element.parentElement!.getBoundingClientRect()
+    return {
+      top: profileBounds.top,
+      staysInsideRail: profileBounds.bottom <= railBounds.bottom + 1,
+    }
+  })
+  expect(stickyEnd.top).toBeLessThan(112)
+  expect(stickyEnd.staysInsideRail).toBe(true)
+
+  await page.setViewportSize({ width: 430, height: 932 })
+  await page.goto('/about?variant=a', { waitUntil: 'networkidle' })
+  await expect(page.locator('[data-about-page]')).toBeVisible()
+  await expect
+    .poll(() =>
+      identity.evaluate((element) => getComputedStyle(element).position),
+    )
+    .toBe('static')
+  expect(
+    await layout.evaluate(
+      (element) =>
+        getComputedStyle(element).gridTemplateColumns.split(' ').length,
+    ),
+  ).toBe(1)
+
+  const dimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }))
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
+  await page.locator('#about-contact-title').scrollIntoViewIfNeeded()
+  await expect(page.locator('#about-contact-title')).toBeVisible()
+
+  const musicPlayer = page.locator('[data-testid="music-player"]')
+  if (await musicPlayer.count()) {
+    await expect(musicPlayer).toHaveCSS('position', 'relative')
+    const aboutBounds = await page.locator('[data-about-page]').boundingBox()
+    const playerBounds = await musicPlayer.boundingBox()
+    expect(aboutBounds).not.toBeNull()
+    expect(playerBounds).not.toBeNull()
+    expect(playerBounds!.y).toBeGreaterThanOrEqual(
+      aboutBounds!.y + aboutBounds!.height,
+    )
+  }
+})
+
+test('About falls back to a legible monogram when its avatar fails', async ({
+  page,
+}) => {
+  await page.goto('/about', { waitUntil: 'networkidle' })
+
+  const siteName = (
+    await page.locator('.about-page__identity h2').innerText()
+  ).trim()
+  const failureUrl = `${new URL(page.url()).origin}/__about-avatar-failure.png`
+  await page.route(failureUrl, (route) => route.abort())
+  const imageFailure = page.waitForEvent(
+    'requestfailed',
+    (request) => request.url() === failureUrl,
+  )
+  await page.locator('.about-page__portrait img').evaluate((image, url) => {
+    ;(image as HTMLImageElement).src = url as string
+  }, failureUrl)
+  await imageFailure
+
   await expect(
-    page.getByText('这段内容来自可配置的 About Site Identity。'),
+    page.getByRole('img', { name: `${siteName}：头像暂不可用` }),
   ).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: 'GitHub' }).last(),
-  ).toHaveAttribute('target', '_blank')
+  await expect(page.locator('.about-page__portrait img')).toHaveCount(0)
+  await expect(page.locator('.about-page__portrait')).toContainText(
+    siteName[0]!,
+  )
 })
 
 test('custom recovery pages handle not-found and unexpected errors', async ({
