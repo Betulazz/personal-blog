@@ -24,13 +24,11 @@ const status = computed(() => {
 
 const socialIcons = { code: Github, social: Globe2 } as const
 const avatarUnavailable = ref(false)
-const identityLayout = ref<HTMLElement | null>(null)
-const identityRail = ref<HTMLElement | null>(null)
 const identitySlot = ref<HTMLElement | null>(null)
 const identityShell = ref<HTMLElement | null>(null)
 const identitySlotStyle = ref<Record<string, string>>({})
 const identityStyle = ref<Record<string, string>>({})
-let identityDocumentTop: number | null = null
+let identityViewportTop: number | null = null
 
 const setStyleIfChanged = (
   target: { value: Record<string, string> },
@@ -50,81 +48,43 @@ const setStyleIfChanged = (
 const updateIdentityPosition = () => {
   const slot = identitySlot.value
   const shell = identityShell.value
-  const layout = identityLayout.value
-  const rail = identityRail.value
-  if (!slot || !shell || !layout || !rail) return
+  if (!slot || !shell) return
 
   const slotBounds = slot.getBoundingClientRect()
-  const topOffset =
-    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 7
 
   if (window.matchMedia('(width <= 64rem)').matches) {
     setStyleIfChanged(identitySlotStyle, {})
     setStyleIfChanged(identityStyle, {})
-    identityDocumentTop = slotBounds.top + window.scrollY
     return
   }
 
-  identityDocumentTop ??= slotBounds.top + window.scrollY
-  const shouldFix = window.scrollY >= identityDocumentTop - topOffset
+  identityViewportTop ??= slotBounds.top
   const cardHeight = shell.getBoundingClientRect().height
 
-  setStyleIfChanged(
-    identitySlotStyle,
-    shouldFix ? { minHeight: `${cardHeight}px` } : {},
-  )
-
-  if (!shouldFix) {
-    setStyleIfChanged(identityStyle, {})
-    return
-  }
-
-  const layoutBounds = layout.getBoundingClientRect()
-  const reachesLayoutEnd =
-    window.scrollY + topOffset + cardHeight >
-    layoutBounds.bottom + window.scrollY
-
-  setStyleIfChanged(
-    identityStyle,
-    reachesLayoutEnd
-      ? {
-          position: 'absolute',
-          zIndex: '3',
-          top: `${Math.max(0, layout.offsetHeight - cardHeight)}px`,
-          left: '0',
-          width: `${rail.getBoundingClientRect().width}px`,
-        }
-      : {
-          position: 'fixed',
-          zIndex: '3',
-          top: '7rem',
-          left: `${slotBounds.left}px`,
-          width: `${slotBounds.width}px`,
-        },
-  )
-}
-
-const resetIdentityPosition = () => {
-  identityDocumentTop = null
-  updateIdentityPosition()
+  setStyleIfChanged(identitySlotStyle, { minHeight: `${cardHeight}px` })
+  setStyleIfChanged(identityStyle, {
+    position: 'fixed',
+    zIndex: '3',
+    top: `${identityViewportTop}px`,
+    left: `${slotBounds.left}px`,
+    width: `${slotBounds.width}px`,
+  })
 }
 
 onMounted(() => {
-  window.addEventListener('scroll', updateIdentityPosition, { passive: true })
-  window.addEventListener('resize', resetIdentityPosition)
+  window.addEventListener('resize', updateIdentityPosition)
   void nextTick(updateIdentityPosition)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('scroll', updateIdentityPosition)
-  window.removeEventListener('resize', resetIdentityPosition)
+  window.removeEventListener('resize', updateIdentityPosition)
 })
 
 watch(
   () => props.profile,
   async () => {
     await nextTick()
-    resetIdentityPosition()
+    updateIdentityPosition()
   },
 )
 
@@ -175,12 +135,8 @@ const markAvatarUnavailable = () => {
             </div>
           </header>
 
-          <div ref="identityLayout" class="about-page__layout">
-            <aside
-              ref="identityRail"
-              class="about-page__rail"
-              aria-label="个人资料与技能"
-            >
+          <div class="about-page__layout">
+            <aside class="about-page__rail" aria-label="个人资料与技能">
               <div
                 ref="identitySlot"
                 class="about-page__identity-slot"
@@ -456,7 +412,6 @@ const markAvatarUnavailable = () => {
 }
 
 .about-page__layout {
-  position: relative;
   display: grid;
   grid-template-columns: minmax(16rem, 0.7fr) minmax(0, 1.3fr);
   align-items: stretch;

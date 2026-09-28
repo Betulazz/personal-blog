@@ -100,7 +100,7 @@ test('About presents profile context, long-form story, timeline, contact, and so
   }
 })
 
-test('About keeps Profile visible with long skills and flows in one mobile column', async ({
+test('About keeps Profile fixed through long-skill scrolling and flows in one mobile column', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -126,6 +126,24 @@ test('About keeps Profile visible with long skills and flows in one mobile colum
         getComputedStyle(element).gridTemplateColumns.split(' ').length,
     ),
   ).toBe(2)
+
+  await expect
+    .poll(() =>
+      identity.evaluate(
+        (element) => getComputedStyle(element.parentElement!).position,
+      ),
+    )
+    .toBe('fixed')
+  const profileInitialPosition = await identity.evaluate((element) => {
+    const shell = element.parentElement!
+    const bounds = shell.getBoundingClientRect()
+    return {
+      position: getComputedStyle(shell).position,
+      top: bounds.top,
+      left: bounds.left,
+    }
+  })
+  expect(profileInitialPosition.position).toBe('fixed')
 
   const longSkills = page.locator('.about-page__skill-groups')
   await longSkills.evaluate((element) => {
@@ -161,17 +179,16 @@ test('About keeps Profile visible with long skills and flows in one mobile colum
     window.scrollTo(0, 500)
   })
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(500)
-  await expect
-    .poll(() =>
-      identity.evaluate((element) => {
-        const shell = element.parentElement!
-        return {
-          position: getComputedStyle(shell).position,
-          top: shell.getBoundingClientRect().top,
-        }
-      }),
-    )
-    .toEqual({ position: 'fixed', top: 112 })
+  const fixedDuringScroll = await identity.evaluate((element) => {
+    const shell = element.parentElement!
+    const bounds = shell.getBoundingClientRect()
+    return {
+      position: getComputedStyle(shell).position,
+      top: bounds.top,
+      left: bounds.left,
+    }
+  })
+  expect(fixedDuringScroll).toEqual(profileInitialPosition)
   await page.evaluate(() => {
     window.scrollTo(0, document.documentElement.scrollHeight)
   })
@@ -179,21 +196,16 @@ test('About keeps Profile visible with long skills and flows in one mobile colum
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(500)
   await expect(page.getByText('滚动技能 18-5', { exact: true })).toBeVisible()
-  const releasedAtAboutEnd = await identity.evaluate((element) => {
+  const fixedAtPageEnd = await identity.evaluate((element) => {
     const shell = element.parentElement!
-    const layoutBounds = document
-      .querySelector('.about-page__layout')!
-      .getBoundingClientRect()
     const shellBounds = shell.getBoundingClientRect()
     return {
       position: getComputedStyle(shell).position,
       top: shellBounds.top,
-      staysInsideAbout: shellBounds.bottom <= layoutBounds.bottom + 1,
+      left: shellBounds.left,
     }
   })
-  expect(releasedAtAboutEnd.position).toBe('absolute')
-  expect(releasedAtAboutEnd.top).toBeLessThan(112)
-  expect(releasedAtAboutEnd.staysInsideAbout).toBe(true)
+  expect(fixedAtPageEnd).toEqual(profileInitialPosition)
 
   await page.setViewportSize({ width: 430, height: 932 })
   await page.goto('/about?variant=a', { waitUntil: 'networkidle' })
