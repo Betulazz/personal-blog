@@ -163,9 +163,15 @@ test('About keeps Profile visible with long skills and flows in one mobile colum
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(500)
   await expect
     .poll(() =>
-      identity.evaluate((element) => element.getBoundingClientRect().top),
+      identity.evaluate((element) => {
+        const shell = element.parentElement!
+        return {
+          position: getComputedStyle(shell).position,
+          top: shell.getBoundingClientRect().top,
+        }
+      }),
     )
-    .toBeCloseTo(112, 0)
+    .toEqual({ position: 'fixed', top: 112 })
   await page.evaluate(() => {
     window.scrollTo(0, document.documentElement.scrollHeight)
   })
@@ -173,16 +179,21 @@ test('About keeps Profile visible with long skills and flows in one mobile colum
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(500)
   await expect(page.getByText('滚动技能 18-5', { exact: true })).toBeVisible()
-  const stickyEnd = await identity.evaluate((element) => {
-    const profileBounds = element.getBoundingClientRect()
-    const railBounds = element.parentElement!.getBoundingClientRect()
+  const releasedAtAboutEnd = await identity.evaluate((element) => {
+    const shell = element.parentElement!
+    const layoutBounds = document
+      .querySelector('.about-page__layout')!
+      .getBoundingClientRect()
+    const shellBounds = shell.getBoundingClientRect()
     return {
-      top: profileBounds.top,
-      staysInsideRail: profileBounds.bottom <= railBounds.bottom + 1,
+      position: getComputedStyle(shell).position,
+      top: shellBounds.top,
+      staysInsideAbout: shellBounds.bottom <= layoutBounds.bottom + 1,
     }
   })
-  expect(stickyEnd.top).toBeLessThan(112)
-  expect(stickyEnd.staysInsideRail).toBe(true)
+  expect(releasedAtAboutEnd.position).toBe('absolute')
+  expect(releasedAtAboutEnd.top).toBeLessThan(112)
+  expect(releasedAtAboutEnd.staysInsideAbout).toBe(true)
 
   await page.setViewportSize({ width: 430, height: 932 })
   await page.goto('/about?variant=a', { waitUntil: 'networkidle' })

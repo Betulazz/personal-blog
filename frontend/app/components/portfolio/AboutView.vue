@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowUpRight, Github, Globe2, Mail } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import type { AboutProfile } from '~/types/portfolio'
 import { getSafeExternalUrl } from '~/utils/external-links'
@@ -24,6 +24,109 @@ const status = computed(() => {
 
 const socialIcons = { code: Github, social: Globe2 } as const
 const avatarUnavailable = ref(false)
+const identityLayout = ref<HTMLElement | null>(null)
+const identityRail = ref<HTMLElement | null>(null)
+const identitySlot = ref<HTMLElement | null>(null)
+const identityShell = ref<HTMLElement | null>(null)
+const identitySlotStyle = ref<Record<string, string>>({})
+const identityStyle = ref<Record<string, string>>({})
+let identityDocumentTop: number | null = null
+
+const setStyleIfChanged = (
+  target: { value: Record<string, string> },
+  next: Record<string, string>,
+) => {
+  const current = target.value
+  const keys = Object.keys(next)
+  if (
+    keys.length === Object.keys(current).length &&
+    keys.every((key) => current[key] === next[key])
+  ) {
+    return
+  }
+  target.value = next
+}
+
+const updateIdentityPosition = () => {
+  const slot = identitySlot.value
+  const shell = identityShell.value
+  const layout = identityLayout.value
+  const rail = identityRail.value
+  if (!slot || !shell || !layout || !rail) return
+
+  const slotBounds = slot.getBoundingClientRect()
+  const topOffset =
+    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) * 7
+
+  if (window.matchMedia('(width <= 64rem)').matches) {
+    setStyleIfChanged(identitySlotStyle, {})
+    setStyleIfChanged(identityStyle, {})
+    identityDocumentTop = slotBounds.top + window.scrollY
+    return
+  }
+
+  identityDocumentTop ??= slotBounds.top + window.scrollY
+  const shouldFix = window.scrollY >= identityDocumentTop - topOffset
+  const cardHeight = shell.getBoundingClientRect().height
+
+  setStyleIfChanged(
+    identitySlotStyle,
+    shouldFix ? { minHeight: `${cardHeight}px` } : {},
+  )
+
+  if (!shouldFix) {
+    setStyleIfChanged(identityStyle, {})
+    return
+  }
+
+  const layoutBounds = layout.getBoundingClientRect()
+  const reachesLayoutEnd =
+    window.scrollY + topOffset + cardHeight >
+    layoutBounds.bottom + window.scrollY
+
+  setStyleIfChanged(
+    identityStyle,
+    reachesLayoutEnd
+      ? {
+          position: 'absolute',
+          zIndex: '3',
+          top: `${Math.max(0, layout.offsetHeight - cardHeight)}px`,
+          left: '0',
+          width: `${rail.getBoundingClientRect().width}px`,
+        }
+      : {
+          position: 'fixed',
+          zIndex: '3',
+          top: '7rem',
+          left: `${slotBounds.left}px`,
+          width: `${slotBounds.width}px`,
+        },
+  )
+}
+
+const resetIdentityPosition = () => {
+  identityDocumentTop = null
+  updateIdentityPosition()
+}
+
+onMounted(() => {
+  window.addEventListener('scroll', updateIdentityPosition, { passive: true })
+  window.addEventListener('resize', resetIdentityPosition)
+  void nextTick(updateIdentityPosition)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', updateIdentityPosition)
+  window.removeEventListener('resize', resetIdentityPosition)
+})
+
+watch(
+  () => props.profile,
+  async () => {
+    await nextTick()
+    resetIdentityPosition()
+  },
+)
 
 const markAvatarUnavailable = () => {
   avatarUnavailable.value = true
@@ -72,24 +175,40 @@ const markAvatarUnavailable = () => {
             </div>
           </header>
 
-          <div class="about-page__layout">
-            <aside class="about-page__rail" aria-label="个人资料与技能">
-              <UiGlassPanel
-                class="about-page__identity"
-                tone="panel"
-                padding="spacious"
+          <div ref="identityLayout" class="about-page__layout">
+            <aside
+              ref="identityRail"
+              class="about-page__rail"
+              aria-label="个人资料与技能"
+            >
+              <div
+                ref="identitySlot"
+                class="about-page__identity-slot"
+                :style="identitySlotStyle"
               >
-                <p class="about-page__eyebrow">PROFILE</p>
-                <h2 id="about-profile-title">{{ profile.name }}</h2>
-                <p class="about-page__bio">{{ profile.profile }}</p>
-                <a
-                  class="about-page__contact-link"
-                  :href="`mailto:${profile.contact.email}`"
+                <div
+                  ref="identityShell"
+                  class="about-page__identity-shell"
+                  :style="identityStyle"
                 >
-                  <Mail :size="16" aria-hidden="true" />
-                  联系我
-                </a>
-              </UiGlassPanel>
+                  <UiGlassPanel
+                    class="about-page__identity"
+                    tone="panel"
+                    padding="spacious"
+                  >
+                    <p class="about-page__eyebrow">PROFILE</p>
+                    <h2 id="about-profile-title">{{ profile.name }}</h2>
+                    <p class="about-page__bio">{{ profile.profile }}</p>
+                    <a
+                      class="about-page__contact-link"
+                      :href="`mailto:${profile.contact.email}`"
+                    >
+                      <Mail :size="16" aria-hidden="true" />
+                      联系我
+                    </a>
+                  </UiGlassPanel>
+                </div>
+              </div>
 
               <UiGlassPanel
                 class="about-page__skills"
@@ -337,6 +456,7 @@ const markAvatarUnavailable = () => {
 }
 
 .about-page__layout {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(16rem, 0.7fr) minmax(0, 1.3fr);
   align-items: stretch;
@@ -363,10 +483,7 @@ const markAvatarUnavailable = () => {
 }
 
 .about-page__identity {
-  position: sticky;
-  z-index: 2;
-  top: 7rem;
-  align-self: start;
+  width: 100%;
 }
 
 .about-page__identity h2,
@@ -539,10 +656,6 @@ const markAvatarUnavailable = () => {
 
   .about-page__rail {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .about-page__identity {
-    position: static;
   }
 }
 
