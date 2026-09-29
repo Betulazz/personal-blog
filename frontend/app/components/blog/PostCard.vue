@@ -3,9 +3,26 @@ import { ArrowUpRight, Pin } from 'lucide-vue-next'
 
 import type { PostSummary } from '~/types/posts'
 
-defineProps<{
+const props = defineProps<{
   post: PostSummary
 }>()
+const coverFailed = ref(false)
+const coverImage = ref<HTMLImageElement | null>(null)
+
+const checkCoverImage = () => {
+  if (coverImage.value?.complete && coverImage.value.naturalWidth === 0) {
+    coverFailed.value = true
+  }
+}
+
+onMounted(() => void nextTick(checkCoverImage))
+watch(
+  () => props.post.cover?.src,
+  () => {
+    coverFailed.value = false
+    void nextTick(checkCoverImage)
+  },
+)
 
 const formatPostDate = (value: string) =>
   new Intl.DateTimeFormat('zh-CN', {
@@ -25,6 +42,8 @@ const formatPostDate = (value: string) =>
   >
     <template v-if="post.cover" #media>
       <img
+        v-if="!coverFailed"
+        ref="coverImage"
         class="post-card__cover"
         :src="post.cover.src"
         :alt="post.cover.alt"
@@ -32,7 +51,16 @@ const formatPostDate = (value: string) =>
         :height="post.cover.height"
         loading="lazy"
         decoding="async"
+        @error="coverFailed = true"
       />
+      <div
+        v-else
+        class="post-card__cover-fallback"
+        role="img"
+        :aria-label="`${post.title} 封面暂不可用`"
+      >
+        <span>FIELD NOTES / IMAGE UNAVAILABLE</span>
+      </div>
     </template>
     <div class="post-card__body">
       <div class="post-card__meta">
@@ -88,11 +116,12 @@ const formatPostDate = (value: string) =>
 .post-card {
   min-width: 0;
   height: 100%;
+  border-radius: 0;
 }
 
 .post-card__body {
   display: flex;
-  min-height: 18rem;
+  min-height: 15rem;
   height: 100%;
   flex-direction: column;
   padding: var(--space-6);
@@ -101,10 +130,37 @@ const formatPostDate = (value: string) =>
 .post-card__cover {
   display: block;
   width: 100%;
-  aspect-ratio: 2.25;
+  aspect-ratio: 1.8;
   object-fit: cover;
-  opacity: 0.7;
-  filter: saturate(0.78) brightness(0.68);
+}
+
+.post-card :deep(.glass-card__media) {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 18px,
+      rgb(255 253 246 / 7%) 18px 19px
+    ),
+    var(--color-secondary);
+}
+
+.post-card__cover-fallback {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1.8;
+  place-items: end start;
+  padding: var(--space-6);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 18px,
+      rgb(255 253 246 / 7%) 18px 19px
+    ),
+    var(--color-secondary);
+  color: var(--color-canvas-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-label);
 }
 
 .post-card__meta,
@@ -120,6 +176,7 @@ const formatPostDate = (value: string) =>
   gap: var(--space-3);
   color: var(--color-text-subtle);
   font-size: var(--text-caption);
+  font-family: var(--font-mono);
 }
 
 .post-card__category {
@@ -173,7 +230,7 @@ const formatPostDate = (value: string) =>
 .post-card__tag {
   padding: var(--space-1) var(--space-2);
   border: var(--border-hairline) solid var(--glass-border);
-  border-radius: var(--radius-round);
+  border-radius: 0;
   color: var(--color-text-subtle);
   font-size: var(--text-caption);
   transition:

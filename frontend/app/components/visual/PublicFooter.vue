@@ -59,7 +59,7 @@ const monogram = computed(() => identity.value.name.slice(0, 1))
         <span>
           {{ settings.footer.copyright || `© 2026 ${identity.name}` }}
         </span>
-        <span>Built with care · Dark by design</span>
+        <span>记录仍在继续 · Birchtula</span>
       </div>
     </UiPageContainer>
   </footer>
@@ -68,12 +68,8 @@ const monogram = computed(() => identity.value.name.slice(0, 1))
 <style scoped>
 .site-footer {
   position: relative;
-  border-top: var(--border-hairline) solid rgb(191 205 255 / 14%);
-  background: linear-gradient(
-    180deg,
-    rgb(6 10 23 / 36%),
-    rgb(5 9 22 / 88%) 36%
-  );
+  border-top: 2px solid var(--color-text);
+  background: var(--color-canvas-raised);
 }
 
 .site-footer__container {
@@ -116,13 +112,8 @@ const monogram = computed(() => identity.value.name.slice(0, 1))
   place-items: center;
   border: var(--border-hairline) solid var(--glass-border-hover);
   border-radius: var(--radius-small);
-  background: linear-gradient(
-    135deg,
-    var(--color-accent),
-    var(--color-secondary)
-  );
-  box-shadow: var(--shadow-glow);
-  color: var(--color-text);
+  background: var(--color-accent);
+  color: var(--color-canvas-raised);
   font-family: var(--font-ui);
   font-size: var(--text-small);
   letter-spacing: 0;
@@ -189,7 +180,7 @@ const monogram = computed(() => identity.value.name.slice(0, 1))
   justify-content: space-between;
   gap: var(--space-3) var(--space-8);
   padding-top: var(--space-5);
-  border-top: var(--border-hairline) solid rgb(191 205 255 / 11%);
+  border-top: var(--border-hairline) solid var(--color-border);
   color: var(--color-text-subtle);
   font-family: var(--font-mono);
   font-size: var(--text-caption);

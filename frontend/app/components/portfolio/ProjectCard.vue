@@ -206,13 +206,9 @@ const markLogoUnavailable = () => {
   overflow: hidden;
   border: var(--border-hairline) solid var(--glass-border-hover);
   border-radius: var(--radius-medium);
-  background: linear-gradient(
-    135deg,
-    var(--color-accent),
-    var(--color-secondary)
-  );
-  box-shadow: var(--shadow-glow);
-  color: var(--color-text);
+  background: var(--color-secondary);
+  box-shadow: none;
+  color: var(--color-canvas-raised);
   object-fit: cover;
 }
 

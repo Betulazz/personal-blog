@@ -25,7 +25,7 @@ const statusLabels = {
     aria-labelledby="home-projects-title"
   >
     <HomeSectionHeader
-      eyebrow="SELECTED WORK"
+      eyebrow="03 / SELECTED WORK"
       title="精选项目"
       description="正在做、曾经做过，以及仍然值得回看的东西。"
       link-label="查看项目集"
@@ -150,12 +150,8 @@ const statusLabels = {
   place-items: center;
   border: var(--border-hairline) solid var(--glass-border-hover);
   border-radius: var(--radius-medium);
-  background: linear-gradient(
-    135deg,
-    var(--color-accent),
-    var(--color-secondary)
-  );
-  color: var(--color-text);
+  background: var(--color-secondary);
+  color: var(--color-canvas-raised);
   font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: var(--font-weight-bold);

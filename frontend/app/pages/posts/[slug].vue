@@ -70,10 +70,26 @@ const structuredData = computed(() => {
 const bodyHtml = computed(() => renderedDocument.value?.html ?? '')
 const toc = computed(() => renderedDocument.value?.toc ?? [])
 const tocOpen = ref(false)
+const coverFailed = ref(false)
+const coverImage = ref<HTMLImageElement | null>(null)
 const readingProgress = ref(0)
 const showBackToTop = ref(false)
 const articleBody = ref<HTMLElement | null>(null)
 const mediaCleanup = ref<Array<() => void>>([])
+
+const checkCoverImage = () => {
+  if (coverImage.value?.complete && coverImage.value.naturalWidth === 0) {
+    coverFailed.value = true
+  }
+}
+
+watch(
+  () => post.value?.cover?.src,
+  () => {
+    coverFailed.value = false
+    void nextTick(checkCoverImage)
+  },
+)
 
 const updateReadingState = () => {
   const scrollableHeight =
@@ -140,6 +156,7 @@ const closeToc = () => {
 }
 
 onMounted(() => {
+  void nextTick(checkCoverImage)
   updateReadingState()
   window.addEventListener('scroll', updateReadingState, { passive: true })
   window.addEventListener('resize', updateReadingState)
@@ -215,7 +232,7 @@ useHead({
     </div>
 
     <UiPageContainer width="wide">
-      <NuxtLink class="post-detail-page__back" to="/posts">
+      <NuxtLink v-if="!post" class="post-detail-page__back" to="/posts">
         ← 返回文章发现
       </NuxtLink>
 
@@ -239,103 +256,119 @@ useHead({
           返回文章发现
         </NuxtLink>
       </div>
-      <div v-else class="post-detail-page__layout">
-        <aside
-          v-if="toc.length"
-          class="post-detail-page__toc post-detail-page__toc--desktop"
-          aria-label="文章目录"
-        >
-          <nav aria-label="文章目录">
-            <p class="post-detail-page__toc-label">ON THIS PAGE</p>
-            <ol>
-              <li v-for="item in toc" :key="item.id" :data-level="item.level">
-                <a :href="`#${item.id}`">{{ item.text }}</a>
-              </li>
-            </ol>
-          </nav>
-        </aside>
-
-        <article class="post-detail-page__article">
-          <header class="post-detail-page__header">
-            <div class="post-detail-page__eyebrow">
-              <span v-if="post.pinned">置顶文章</span>
-            </div>
-            <h1>{{ post.title }}</h1>
-            <p class="post-detail-page__summary">{{ post.summary }}</p>
-            <div class="post-detail-page__meta">
-              <time :datetime="post.publishedAt">
-                {{ new Date(post.publishedAt).toLocaleDateString('zh-CN') }}
-              </time>
-              <span>{{ post.readingTimeMinutes }} 分钟阅读</span>
-              <span>{{ post.readingCount }} 次阅读</span>
-              <time v-if="post.updatedAt" :datetime="post.updatedAt">
-                更新于
-                {{ new Date(post.updatedAt).toLocaleDateString('zh-CN') }}
-              </time>
-            </div>
-            <figure v-if="post.cover" class="post-detail-page__cover">
-              <img
-                :src="post.cover.src"
-                :alt="post.cover.alt"
-                :width="post.cover.width"
-                :height="post.cover.height"
-                loading="eager"
-              />
-            </figure>
-            <UiButton
-              v-if="toc.length"
-              class="post-detail-page__toc-trigger"
-              size="small"
-              variant="secondary"
-              aria-haspopup="dialog"
-              @click="tocOpen = true"
-            >
-              <List :size="16" aria-hidden="true" />
-              打开文章目录
-            </UiButton>
-          </header>
-
-          <div ref="articleBody" class="post-detail-page__body">
-            <!-- The renderer disables raw HTML and unsafe links before v-html. -->
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div v-html="bodyHtml" />
+      <div v-else class="post-detail-page__ready">
+        <figure v-if="post.cover" class="post-detail-page__cover">
+          <img
+            v-if="!coverFailed"
+            ref="coverImage"
+            :src="post.cover.src"
+            :alt="post.cover.alt"
+            :width="post.cover.width"
+            :height="post.cover.height"
+            loading="eager"
+            @error="coverFailed = true"
+          />
+          <div
+            v-else
+            class="post-detail-page__cover-fallback"
+            role="img"
+            :aria-label="`${post.title} 封面暂不可用`"
+          >
+            <span>FIELD NOTES / IMAGE UNAVAILABLE</span>
           </div>
-
-          <footer class="post-detail-page__footer">
-            <div class="post-detail-page__tags" aria-label="文章标签">
-              <NuxtLink
-                v-for="tag in post.tags"
-                :key="tag.slug"
-                class="post-detail-page__tag"
-                :to="{ path: '/posts', query: { tag: tag.slug } }"
-              >
-                #{{ tag.name }}
-              </NuxtLink>
-            </div>
-            <nav
-              v-if="neighbors?.previous || neighbors?.next"
-              class="post-detail-page__neighbors"
-              aria-label="相邻文章"
-            >
-              <NuxtLink
-                v-if="neighbors?.previous"
-                class="post-detail-page__neighbor"
-                :to="`/posts/${neighbors.previous.slug}`"
-              >
-                <span>上一篇</span>
-                <strong>{{ neighbors.previous.title }}</strong>
-              </NuxtLink>
-              <NuxtLink
-                v-if="neighbors?.next"
-                class="post-detail-page__neighbor post-detail-page__neighbor--next"
-                :to="`/posts/${neighbors.next.slug}`"
-              >
-                <span>下一篇</span>
-                <strong>{{ neighbors.next.title }}</strong>
-              </NuxtLink>
+        </figure>
+        <NuxtLink class="post-detail-page__back" to="/posts">
+          ← 返回文章发现
+        </NuxtLink>
+        <div class="post-detail-page__layout">
+          <aside
+            v-if="toc.length"
+            class="post-detail-page__toc post-detail-page__toc--desktop"
+            aria-label="文章目录"
+          >
+            <nav aria-label="文章目录">
+              <p class="post-detail-page__toc-label">ON THIS PAGE</p>
+              <ol>
+                <li v-for="item in toc" :key="item.id" :data-level="item.level">
+                  <a :href="`#${item.id}`">{{ item.text }}</a>
+                </li>
+              </ol>
             </nav>
-          </footer>
-        </article>
+          </aside>
+
+          <article class="post-detail-page__article">
+            <header class="post-detail-page__header">
+              <div class="post-detail-page__eyebrow">
+                <span v-if="post.pinned">置顶文章</span>
+              </div>
+              <h1>{{ post.title }}</h1>
+              <p class="post-detail-page__summary">{{ post.summary }}</p>
+              <div class="post-detail-page__meta">
+                <time :datetime="post.publishedAt">
+                  {{ new Date(post.publishedAt).toLocaleDateString('zh-CN') }}
+                </time>
+                <span>{{ post.readingTimeMinutes }} 分钟阅读</span>
+                <span>{{ post.readingCount }} 次阅读</span>
+                <time v-if="post.updatedAt" :datetime="post.updatedAt">
+                  更新于
+                  {{ new Date(post.updatedAt).toLocaleDateString('zh-CN') }}
+                </time>
+              </div>
+              <UiButton
+                v-if="toc.length"
+                class="post-detail-page__toc-trigger"
+                size="small"
+                variant="secondary"
+                aria-haspopup="dialog"
+                @click="tocOpen = true"
+              >
+                <List :size="16" aria-hidden="true" />
+                打开文章目录
+              </UiButton>
+            </header>
+
+            <div ref="articleBody" class="post-detail-page__body">
+              <!-- The renderer disables raw HTML and unsafe links before v-html. -->
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <div v-html="bodyHtml" />
+            </div>
+
+            <footer class="post-detail-page__footer">
+              <div class="post-detail-page__tags" aria-label="文章标签">
+                <NuxtLink
+                  v-for="tag in post.tags"
+                  :key="tag.slug"
+                  class="post-detail-page__tag"
+                  :to="{ path: '/posts', query: { tag: tag.slug } }"
+                >
+                  #{{ tag.name }}
+                </NuxtLink>
+              </div>
+              <nav
+                v-if="neighbors?.previous || neighbors?.next"
+                class="post-detail-page__neighbors"
+                aria-label="相邻文章"
+              >
+                <NuxtLink
+                  v-if="neighbors?.previous"
+                  class="post-detail-page__neighbor"
+                  :to="`/posts/${neighbors.previous.slug}`"
+                >
+                  <span>上一篇</span>
+                  <strong>{{ neighbors.previous.title }}</strong>
+                </NuxtLink>
+                <NuxtLink
+                  v-if="neighbors?.next"
+                  class="post-detail-page__neighbor post-detail-page__neighbor--next"
+                  :to="`/posts/${neighbors.next.slug}`"
+                >
+                  <span>下一篇</span>
+                  <strong>{{ neighbors.next.title }}</strong>
+                </NuxtLink>
+              </nav>
+            </footer>
+          </article>
+        </div>
       </div>
     </UiPageContainer>
 
@@ -372,8 +405,9 @@ useHead({
 
 .post-detail-page {
   min-height: 100%;
-  padding-top: clamp(9rem, 15vw, 13rem);
+  padding-top: var(--public-heading-offset);
   padding-bottom: var(--space-section);
+  background: var(--color-canvas);
 }
 
 .post-detail-page__progress {
@@ -390,12 +424,7 @@ useHead({
 .post-detail-page__progress span {
   display: block;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--color-accent),
-    var(--color-secondary)
-  );
-  box-shadow: var(--shadow-glow);
+  background: var(--color-accent);
   transform: scaleX(var(--reading-progress, 0));
   transform-origin: left center;
   transition: transform var(--motion-duration-fast) linear;
@@ -405,6 +434,7 @@ useHead({
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
+  margin-block: var(--space-5) var(--space-10);
   color: var(--color-text-muted);
   font-size: var(--text-small);
 }
@@ -423,12 +453,12 @@ useHead({
   display: grid;
   gap: var(--space-10);
   min-width: 0;
-  margin-top: var(--space-12);
+  margin-top: 0;
 }
 
 .post-detail-page__toc {
   min-width: 0;
-  margin-top: var(--space-12);
+  margin-top: 0;
 }
 
 .post-detail-page__toc nav {
@@ -558,17 +588,37 @@ useHead({
 
 .post-detail-page__cover {
   overflow: hidden;
-  margin: var(--space-4) 0 0;
-  border: var(--border-hairline) solid var(--glass-border);
-  border-radius: var(--radius-large);
-  background: var(--glass-card-bg);
-  box-shadow: var(--shadow-card), var(--glass-highlight);
+  margin: 0;
+  border: 1px solid var(--color-text);
+  border-radius: 0;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 18px,
+      rgb(255 253 246 / 7%) 18px 19px
+    ),
+    var(--color-secondary);
+}
+
+.post-detail-page__cover-fallback {
+  display: grid;
+  width: 100%;
+  max-height: 32rem;
+  aspect-ratio: 2.3;
+  place-items: end start;
+  padding: var(--space-8);
+  color: var(--color-canvas-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-label);
 }
 
 .post-detail-page__cover img {
   display: block;
   width: 100%;
-  height: auto;
+  max-height: 32rem;
+  aspect-ratio: 2.3;
+  object-fit: cover;
 }
 
 .post-detail-page__toc-trigger {
@@ -627,7 +677,7 @@ useHead({
 .post-detail-page__body :deep(a) {
   color: var(--color-accent-soft);
   text-decoration: underline;
-  text-decoration-color: rgb(163 168 255 / 44%);
+  text-decoration-color: rgb(165 42 33 / 45%);
   text-underline-offset: 0.2em;
 }
 
@@ -657,8 +707,8 @@ useHead({
 .post-detail-page__body :deep(code) {
   padding: 0.12em 0.35em;
   border-radius: var(--radius-small);
-  background: rgb(3 8 22 / 62%);
-  color: var(--color-accent-soft);
+  background: rgb(86 109 85 / 12%);
+  color: var(--color-text);
   font-family: var(--font-mono);
   font-size: 0.88em;
 }
@@ -668,7 +718,8 @@ useHead({
   margin: var(--space-8) 0;
   border: var(--border-hairline) solid var(--glass-border);
   border-radius: var(--radius-medium);
-  background: rgb(3 8 22 / 82%);
+  background: #242924;
+  color: #f8f5e9;
   box-shadow: var(--shadow-card);
   font-size: 0.85em;
   line-height: 1.65;

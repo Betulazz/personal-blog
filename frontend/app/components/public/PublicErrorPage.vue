@@ -14,7 +14,7 @@ const props = withDefaults(
 
 const isNotFound = computed(() => props.statusCode === 404)
 const title = computed(() =>
-  isNotFound.value ? '这片夜空还没有页面' : '页面暂时离开了',
+  isNotFound.value ? '这一页，还在路上。' : '页面暂时离开了',
 )
 const description = computed(() =>
   isNotFound.value
@@ -84,16 +84,14 @@ const retry = () => {
   width: 6rem;
   height: 6rem;
   place-items: center;
-  border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-large);
-  background:
-    radial-gradient(circle at 30% 25%, var(--color-accent), transparent 68%),
-    linear-gradient(135deg, var(--color-canvas-raised), var(--glass-card-bg));
-  box-shadow: var(--shadow-glow);
+  border: 2px solid var(--color-text);
+  border-radius: 0;
+  background: var(--color-accent);
+  box-shadow: 0.4rem 0.4rem 0 var(--color-text);
 }
 
 .error-page__signal span {
-  color: var(--color-text);
+  color: var(--color-canvas-raised);
   font-family: var(--font-mono);
   font-size: var(--text-h2);
   font-weight: var(--font-weight-bold);
@@ -148,13 +146,10 @@ const retry = () => {
 }
 
 .error-page__action--primary {
-  border: var(--border-hairline) solid rgb(164 175 255 / 50%);
-  background: linear-gradient(
-    135deg,
-    var(--color-action-start),
-    var(--color-action-end)
-  );
-  box-shadow: 0 0.75rem 2.5rem rgb(74 93 238 / 30%);
+  border: var(--border-hairline) solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-canvas-raised);
+  box-shadow: none;
 }
 
 .error-page__action--secondary {

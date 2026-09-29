@@ -112,11 +112,15 @@ test('renders the profile, music and lyrics at every established viewport', asyn
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: '在夜色里，写下仍然发光的事',
+      name: /这一页.*留给今天/,
     }),
   ).toBeVisible()
   await expect(page.getByRole('link', { name: '开始阅读' })).toBeVisible()
-  await expect(page.getByRole('link', { name: '了解我' })).toBeVisible()
+  await expect(
+    page
+      .getByRole('navigation', { name: '主导航' })
+      .getByRole('link', { name: '关于' }),
+  ).toBeVisible()
 
   const profile = page.locator('[data-homepage-profile]')
   const musicCard = page.getByTestId('home-music-card')
@@ -178,11 +182,13 @@ test('renders the profile, music and lyrics at every established viewport', asyn
     const layout = await page.evaluate(() => {
       const profileElement = document.querySelector('[data-homepage-profile]')!
       const headline = document.querySelector('#hero-title')!
-      const actions = document.querySelector('.hero__actions')!
+      const action = document.querySelector('.hero__read')!
+      const hero = document.querySelector('.hero')!
       return {
-        actionsBottom: actions.getBoundingClientRect().bottom,
+        actionBottom: action.getBoundingClientRect().bottom,
         clientWidth: document.documentElement.clientWidth,
         headlineBottom: headline.getBoundingClientRect().bottom,
+        heroBottom: hero.getBoundingClientRect().bottom,
         profileTop: profileElement.getBoundingClientRect().top,
         scrollWidth: document.documentElement.scrollWidth,
       }
@@ -194,9 +200,9 @@ test('renders the profile, music and lyrics at every established viewport', asyn
     ).toBeLessThanOrEqual(layout.clientWidth)
 
     if (viewport.width === 430) {
-      expect(layout.actionsBottom).toBeLessThanOrEqual(viewport.height)
+      expect(layout.actionBottom).toBeLessThanOrEqual(viewport.height)
       expect(layout.headlineBottom).toBeLessThanOrEqual(viewport.height)
-      expect(layout.profileTop).toBeLessThan(viewport.height)
+      expect(layout.profileTop).toBeGreaterThanOrEqual(layout.heroBottom)
     }
 
     const viewportPath = join(
@@ -292,7 +298,7 @@ test('shares playback, seeking and lyric state with the Music page', async ({
 
   const navigation = page.getByRole('navigation', { name: '主导航' })
   await navigation.getByRole('link', { name: '项目' }).click()
-  await expect(page).toHaveURL(/\/projects$/)
+  await expect(page).toHaveURL(/\/projects(?:\?.*)?$/)
   const compactPlayer = page.getByTestId('music-player')
   await expect(compactPlayer).toBeVisible()
   await expect(compactPlayer).toContainText('雨落在玻璃上')
@@ -360,7 +366,7 @@ test('falls back to the site monogram when the configured avatar fails', async (
   page,
 }) => {
   const avatarFailure = page.waitForEvent('requestfailed', (request) =>
-    request.url().includes('/media/site-avatar.webp'),
+    request.url().includes('site-avatar.webp'),
   )
   await page.route('**/*site-avatar.webp*', (route) => route.abort())
   await page.goto('/')

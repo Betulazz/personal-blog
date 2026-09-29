@@ -181,7 +181,7 @@ const status = computed(() => {
 .friends-page__application a {
   color: var(--color-accent-soft);
   text-decoration: underline;
-  text-decoration-color: rgb(163 168 255 / 44%);
+  text-decoration-color: rgb(204 57 45 / 44%);
   text-underline-offset: 0.2em;
 }
 

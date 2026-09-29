@@ -16,7 +16,7 @@ defineEmits<{
     aria-labelledby="home-chatter-title"
   >
     <HomeSectionHeader
-      eyebrow="CHATTER"
+      eyebrow="02 / CHATTER"
       title="最近杂谈"
       description="随手记下的想法与生活片段。"
       link-label="进入杂谈"

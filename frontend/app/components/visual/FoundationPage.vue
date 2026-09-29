@@ -17,7 +17,7 @@ const { content, retry } = await useHomepageContent()
       :animate="{ y: 0 }"
       :transition="motionTransitions.entry"
     >
-      <VisualFoundationHero :stats="content.stats" />
+      <VisualFoundationHero />
     </component>
     <component
       :is="motionEnabled ? motion.div : 'div'"

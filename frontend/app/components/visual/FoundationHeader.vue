@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Menu, X } from 'lucide-vue-next'
+import { Menu, Search, X } from 'lucide-vue-next'
 import { motion } from 'motion-v'
 import {
   DialogClose,
@@ -127,6 +127,14 @@ onBeforeUnmount(() => {
       </NuxtLink>
     </nav>
 
+    <NuxtLink
+      class="header-search"
+      to="/posts#post-search"
+      aria-label="搜索文章"
+    >
+      <Search :size="21" :stroke-width="1.8" aria-hidden="true" />
+    </NuxtLink>
+
     <DialogRoot v-if="isHydrated" v-model:open="isMenuOpen">
       <DialogTrigger as-child>
         <button
@@ -201,22 +209,27 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.site-header {
-  --site-header-offset-top: var(--space-5);
+.site-header.glass-panel[data-tone] {
+  --site-header-offset-top: 0px;
 
   position: fixed;
   z-index: var(--z-sticky);
-  top: var(--space-5);
-  right: var(--gutter-page);
-  left: var(--gutter-page);
+  top: 0;
+  right: 0;
+  left: 0;
   display: flex;
-  max-width: var(--container-wide);
-  min-height: 4.5rem;
+  max-width: none;
+  min-height: 5rem;
   align-items: center;
   justify-content: space-between;
   margin-inline: auto;
-  border-radius: var(--radius-medium);
-  padding-inline: var(--space-6);
+  padding: var(--space-2)
+    max(var(--gutter-page), calc((100vw - var(--container-wide)) / 2));
+  border: 0;
+  border-bottom: 1px solid var(--color-border-strong);
+  border-radius: 0;
+  background: var(--color-canvas-raised);
+  box-shadow: none;
   transition:
     transform var(--motion-duration-header) var(--motion-ease-standard),
     opacity var(--motion-duration-header) var(--motion-ease-standard);
@@ -240,23 +253,36 @@ onBeforeUnmount(() => {
 }
 
 .site-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
   font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.site-brand::before {
+  width: 0.72rem;
+  height: 0.72rem;
+  flex: none;
+  background: var(--color-accent);
+  content: '';
 }
 
 .desktop-navigation {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-4);
+  margin-left: auto;
 }
 
 .desktop-navigation a {
   position: relative;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-2);
   color: var(--color-text-muted);
-  font-size: var(--text-small);
+  font-size: 0.9375rem;
+  font-weight: 600;
   transition: color var(--motion-duration-fast) var(--motion-ease-standard);
 }
 
@@ -267,14 +293,27 @@ onBeforeUnmount(() => {
 
 .desktop-navigation a[aria-current='page']::after {
   position: absolute;
-  right: var(--space-4);
-  bottom: var(--space-1);
-  left: var(--space-4);
+  right: var(--space-2);
+  bottom: 0.2rem;
+  left: var(--space-2);
   height: 0.125rem;
-  border-radius: var(--radius-round);
-  background: var(--color-accent-soft);
-  box-shadow: var(--shadow-glow);
+  background: var(--color-accent);
   content: '';
+}
+
+.header-search {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  place-items: center;
+  margin-left: var(--space-6);
+  border-left: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.header-search:hover {
+  color: var(--color-accent-strong);
 }
 
 .menu-button,
@@ -283,12 +322,12 @@ onBeforeUnmount(() => {
 }
 
 @media (width <= 48rem) {
-  .site-header {
-    --site-header-offset-top: var(--space-6);
+  .site-header.glass-panel[data-tone] {
+    --site-header-offset-top: 0px;
 
-    top: var(--space-6);
+    top: 0;
     min-height: 4rem;
-    padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
+    padding: var(--space-2) var(--gutter-page);
   }
 
   .site-brand {
@@ -299,6 +338,11 @@ onBeforeUnmount(() => {
     display: none;
   }
 
+  .header-search {
+    margin-left: auto;
+    border-left: 0;
+  }
+
   .menu-button {
     display: grid;
     width: 2.75rem;
@@ -306,7 +350,7 @@ onBeforeUnmount(() => {
     place-items: center;
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-small);
-    background: rgb(20 31 61 / 72%);
+    background: var(--color-canvas-raised);
     color: var(--color-text);
   }
 
@@ -318,7 +362,7 @@ onBeforeUnmount(() => {
     position: fixed;
     z-index: var(--z-overlay);
     inset: 0;
-    background: rgb(3 7 18 / 68%);
+    background: rgb(34 39 32 / 48%);
     backdrop-filter: blur(var(--blur-soft));
   }
 
@@ -367,7 +411,7 @@ onBeforeUnmount(() => {
 
   .mobile-navigation a:hover,
   .mobile-navigation a[aria-current='page'] {
-    background: rgb(124 131 255 / 15%);
+    background: var(--badge-accent-bg);
     color: var(--color-text);
   }
 }

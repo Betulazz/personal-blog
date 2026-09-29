@@ -1,9 +1,34 @@
 @import 'tailwindcss';
 @import './tokens.css';
+@import './admin-legacy-theme.css';
+
+.public-shell .button.button[data-variant='primary'] {
+  color: var(--color-canvas-raised);
+  box-shadow: none;
+}
+
+.public-shell .button.button[data-variant='danger'] {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+.public-shell .glass-panel.glass-panel,
+.public-shell .glass-card.glass-card {
+  backdrop-filter: none;
+}
+
+.public-shell .glass-panel.glass-panel {
+  box-shadow: var(--shadow-card);
+}
+
+.public-shell .glass-card.glass-card {
+  box-shadow: var(--shadow-card);
+}
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
     min-width: 320px;
     background: var(--color-canvas);
     font-family: var(--font-ui);
@@ -13,9 +38,14 @@
 
   body {
     min-width: 320px;
-    min-height: 100vh;
+    min-height: 100dvh;
     margin: 0;
-    background: var(--color-canvas);
+    background-color: var(--color-canvas);
+    background-image: radial-gradient(
+      rgb(65 72 50 / 7%) 0.45px,
+      transparent 0.45px
+    );
+    background-size: 6px 6px;
     color: var(--color-text);
   }
 
@@ -42,7 +72,7 @@
   }
 
   ::selection {
-    background: rgb(124 131 255 / 34%);
+    background: rgb(204 57 45 / 22%);
     color: var(--color-text);
   }
 }

@@ -47,7 +47,7 @@ watch(
     as="section"
     class="post-discovery-controls"
     aria-label="文章筛选"
-    padding="default"
+    padding="none"
     tone="subtle"
   >
     <form
@@ -68,7 +68,7 @@ watch(
         maxlength="80"
       />
       <input v-if="query.tag" type="hidden" name="tag" :value="query.tag" />
-      <UiButton type="submit" size="large" variant="secondary"> 搜索 </UiButton>
+      <UiButton type="submit" size="small" variant="secondary">搜索</UiButton>
     </form>
 
     <label
@@ -88,16 +88,27 @@ watch(
 </template>
 
 <style scoped>
-.post-discovery-controls {
+.post-discovery-controls.glass-panel[data-tone] {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 12rem;
+  align-items: end;
   gap: var(--space-5);
+  max-width: 48rem;
+  margin-left: auto;
+  border: 0;
+  border-block: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: var(--space-2) 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .post-discovery-controls__search {
   display: grid;
+  min-width: 0;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
 .post-discovery-controls__search :deep(.field) {
@@ -106,7 +117,8 @@ watch(
 
 .post-discovery-controls__tag-filter {
   display: grid;
-  max-width: 24rem;
+  min-width: 12rem;
+  max-width: 12rem;
   gap: var(--space-2);
   color: var(--color-text-subtle);
   font-size: var(--text-caption);
@@ -119,17 +131,17 @@ watch(
 }
 
 @media (width <= 36rem) {
-  .post-discovery-controls__search {
-    grid-template-columns: 1fr;
+  .post-discovery-controls.glass-panel[data-tone] {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .post-discovery-controls__search :deep(.button) {
-    width: 100%;
+  .post-discovery-controls__search {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .post-discovery-controls__tag-filter {
     display: grid;
-    max-width: 24rem;
+    max-width: none;
     gap: var(--space-2);
     color: var(--color-text-subtle);
     font-size: var(--text-caption);

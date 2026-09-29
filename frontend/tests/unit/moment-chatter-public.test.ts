@@ -86,7 +86,9 @@ describe('Chatter inline content', () => {
     const wrapper = mount(ChatterCard, {
       global: {
         stubs: {
-          UiGlassCard: { template: '<article><slot /></article>' },
+          UiGlassCard: {
+            template: '<article><slot name="media" /><slot /></article>',
+          },
           UiBadge: { template: '<span><slot /></span>' },
           UiButton: { template: '<button><slot /></button>' },
           NuxtLink: { template: '<a><slot /></a>' },
@@ -106,6 +108,9 @@ describe('Chatter inline content', () => {
     expect(wrapper.find('h2').exists()).toBe(false)
     expect(wrapper.get('p').text()).not.toBe(body)
     expect(wrapper.get('img').attributes('alt')).toBe('照片')
+    expect(
+      wrapper.get('article').element.firstElementChild?.querySelector('img'),
+    ).not.toBeNull()
     await wrapper.get('button').trigger('click')
     expect(wrapper.get('p').text()).toBe(body)
     expect(wrapper.get('button').attributes('aria-expanded')).toBe('true')

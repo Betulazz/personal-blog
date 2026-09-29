@@ -7,6 +7,24 @@ import type { HomepageSection, HomepagePost } from '~/types/homepage'
 const props = defineProps<{
   section: HomepageSection<HomepagePost>
 }>()
+const failedCovers = ref<Record<string, boolean>>({})
+const sectionRoot = ref<HTMLElement | null>(null)
+
+const checkCovers = () => {
+  sectionRoot.value
+    ?.querySelectorAll<HTMLImageElement>('img[data-home-cover-id]')
+    .forEach((image) => {
+      if (image.complete && image.naturalWidth === 0) {
+        failedCovers.value[image.dataset.homeCoverId ?? ''] = true
+      }
+    })
+}
+
+onMounted(() => void nextTick(checkCovers))
+watch(
+  () => props.section.items,
+  () => void nextTick(checkCovers),
+)
 
 defineEmits<{
   retry: []
@@ -14,9 +32,13 @@ defineEmits<{
 </script>
 
 <template>
-  <section class="home-section home-posts" aria-labelledby="home-posts-title">
+  <section
+    ref="sectionRoot"
+    class="home-section home-posts"
+    aria-labelledby="home-posts-title"
+  >
     <HomeSectionHeader
-      eyebrow="LATEST WRITING"
+      eyebrow="01 / LATEST WRITING"
       title="最新文章"
       description="把值得慢慢读的想法，留在这里。"
       link-label="查看全部文章"
@@ -45,6 +67,8 @@ defineEmits<{
         >
           <template v-if="post.cover" #media>
             <img
+              v-if="!failedCovers[post.id]"
+              :data-home-cover-id="post.id"
               class="home-post-card__image"
               :src="post.cover.src"
               :alt="post.cover.alt"
@@ -52,7 +76,16 @@ defineEmits<{
               :height="post.cover.height"
               loading="lazy"
               decoding="async"
+              @error="failedCovers[post.id] = true"
             />
+            <div
+              v-else
+              class="home-post-card__image-fallback"
+              role="img"
+              :aria-label="`${post.title} 封面暂不可用`"
+            >
+              <span>FIELD NOTES / IMAGE UNAVAILABLE</span>
+            </div>
           </template>
           <a class="home-post-card__link" :href="`/posts/${post.slug}`">
             <div class="home-post-card__body">
@@ -88,7 +121,7 @@ defineEmits<{
 .home-posts__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .home-post-card {
@@ -105,9 +138,31 @@ defineEmits<{
   width: 100%;
   aspect-ratio: 2 / 1;
   object-fit: cover;
-  filter: saturate(0.78) brightness(0.68);
+  filter: saturate(0.72);
   transition: transform var(--motion-duration-slow)
     var(--motion-ease-emphasized);
+}
+
+.home-post-card :deep(.glass-card__media) {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 18px,
+      rgb(255 253 246 / 7%) 18px 19px
+    ),
+    var(--color-secondary);
+}
+
+.home-post-card__image-fallback {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  place-items: end start;
+  padding: var(--space-6);
+  color: var(--color-canvas-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-label);
 }
 
 .home-post-card:hover .home-post-card__image {

@@ -37,7 +37,7 @@ const search = () =>
     as="section"
     class="public-feed-controls"
     :aria-label="`${props.contentLabel}筛选`"
-    padding="default"
+    padding="none"
     tone="subtle"
   >
     <form
@@ -56,22 +56,28 @@ const search = () =>
         type="search"
         maxlength="80"
       />
-      <UiButton type="submit" size="large" variant="secondary">搜索</UiButton>
+      <UiButton type="submit" size="small" variant="secondary">搜索</UiButton>
     </form>
   </UiGlassPanel>
 </template>
 
 <style scoped>
-.public-feed-controls {
-  display: grid;
-  gap: var(--space-5);
+.public-feed-controls.glass-panel[data-tone] {
+  max-width: 48rem;
+  margin-left: auto;
+  border: 0;
+  border-block: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: var(--space-2) 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .public-feed-controls__search {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
 .public-feed-controls__search :deep(.field) {
@@ -115,11 +121,7 @@ const search = () =>
 
 @media (width <= 36rem) {
   .public-feed-controls__search {
-    grid-template-columns: 1fr;
-  }
-
-  .public-feed-controls__search :deep(.button) {
-    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
 

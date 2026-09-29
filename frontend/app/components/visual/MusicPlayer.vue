@@ -26,6 +26,7 @@ const isExcludedRoute = computed(
   () => route.path === '/' || route.path === '/music',
 )
 const isHydrated = ref(false)
+const isExpanded = ref(false)
 const footerClearance = ref(0)
 const footerBlocksPlayer = ref(false)
 const measuredPlayerHeight = ref(77)
@@ -214,7 +215,10 @@ onBeforeUnmount(() => {
   <section
     v-if="shouldShowPlayer"
     class="music-player"
-    :class="{ 'music-player--page-flow': isAboutPage }"
+    :class="{
+      'music-player--page-flow': isAboutPage,
+      'music-player--expanded': isExpanded,
+    }"
     :style="{ '--player-footer-clearance': `${footerClearance}px` }"
     data-testid="music-player"
     data-compact-player="true"
@@ -224,9 +228,13 @@ onBeforeUnmount(() => {
     aria-label="音乐播放器"
   >
     <template v-if="player.currentTrack">
-      <div
+      <button
+        type="button"
         class="music-player__record"
         :class="{ 'music-player__record--playing': player.isPlaying }"
+        :aria-label="isExpanded ? '收起音乐播放器' : '展开音乐播放器'"
+        :aria-expanded="isExpanded"
+        @click="isExpanded = !isExpanded"
       >
         <img
           v-if="
@@ -253,16 +261,20 @@ onBeforeUnmount(() => {
           <Music2 :size="19" stroke-width="1.6" aria-hidden="true" />
         </span>
         <span class="music-player__record-hole" aria-hidden="true" />
-      </div>
+      </button>
 
       <div class="music-player__copy">
         <strong class="music-player__title" :title="player.currentTrack.title">
           {{ player.currentTrack.title }}
         </strong>
-        <span class="music-player__artist" :title="player.currentTrack.artist">
+        <span
+          v-if="isExpanded"
+          class="music-player__artist"
+          :title="player.currentTrack.artist"
+        >
           {{ player.currentTrack.artist }}
         </span>
-        <span class="music-player__lyric" aria-live="off">
+        <span v-if="isExpanded" class="music-player__lyric" aria-live="off">
           {{ currentLyric || lyricStateMessage }}
         </span>
       </div>
@@ -279,6 +291,7 @@ onBeforeUnmount(() => {
           <Play v-else :size="19" aria-hidden="true" />
         </button>
         <button
+          v-if="isExpanded"
           type="button"
           class="music-player__control"
           aria-label="下一首"
@@ -326,17 +339,20 @@ onBeforeUnmount(() => {
       var(--player-footer-clearance, 0px)
   );
   display: flex;
-  width: max-content;
-  max-width: calc(100vw - 1.5rem);
+  width: 12rem;
+  max-width: calc(100vw - 2rem);
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2);
-  border: var(--border-hairline) solid var(--glass-border-hover);
+  padding: 0.375rem;
+  border: 1px solid var(--color-text);
   border-radius: var(--radius-round);
   background: var(--glass-elevated-bg);
-  box-shadow: var(--shadow-panel), var(--glass-highlight), var(--shadow-glow);
-  backdrop-filter: blur(var(--glass-blur-panel))
-    saturate(var(--glass-saturation));
+  box-shadow: var(--shadow-panel);
+  transition: width var(--motion-duration-normal) var(--motion-ease-emphasized);
+}
+
+.music-player--expanded {
+  width: 20rem;
 }
 
 .music-player--page-flow {
@@ -352,21 +368,15 @@ onBeforeUnmount(() => {
 .music-player__record {
   position: relative;
   display: grid;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 2.625rem;
+  height: 2.625rem;
   flex: 0 0 auto;
   place-items: center;
   overflow: hidden;
-  border: 1px solid rgb(211 217 255 / 24%);
+  border: 1px solid var(--color-border-strong);
   border-radius: 50%;
-  background:
-    repeating-radial-gradient(
-      circle,
-      transparent 0 4px,
-      rgb(240 242 255 / 11%) 5px 6px
-    ),
-    radial-gradient(circle at 34% 26%, #333e71, #0b1022 64%, #03050d 100%);
-  box-shadow: inset 0 0 1rem rgb(255 255 255 / 6%);
+  background: repeating-radial-gradient(circle, #30312c 0 4px, #454641 5px 6px);
+  cursor: pointer;
 }
 
 .music-player__record--playing {
@@ -387,25 +397,25 @@ onBeforeUnmount(() => {
 .music-player__artwork-fallback {
   display: grid;
   place-items: center;
-  background: radial-gradient(circle, #343b69, #171d3b 58%, #0c1024);
-  color: #e0e3ff;
+  background: var(--color-text);
+  color: var(--color-canvas-raised);
 }
 
 .music-player__record-hole {
   position: absolute;
   width: 17%;
   aspect-ratio: 1;
-  border: 1px solid rgb(225 228 255 / 78%);
+  border: 1px solid var(--color-canvas-raised);
   border-radius: 50%;
-  background: #11162c;
-  box-shadow: 0 0 0 2px rgb(10 14 32 / 22%);
+  background: var(--color-text);
+  box-shadow: 0 0 0 2px rgb(34 39 32 / 22%);
   pointer-events: none;
 }
 
 .music-player__copy {
   display: grid;
   min-width: 0;
-  width: min(13rem, calc(100vw - 12rem));
+  flex: 1;
   gap: 0.075rem;
 }
 
@@ -442,8 +452,8 @@ onBeforeUnmount(() => {
 
 .music-player__control {
   display: grid;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.5rem;
+  height: 2.5rem;
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid transparent;

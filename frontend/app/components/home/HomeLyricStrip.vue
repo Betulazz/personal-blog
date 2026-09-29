@@ -92,10 +92,8 @@ const displayedText = computed(() => currentLyric.value || lyricMessage.value)
   gap: var(--space-5);
   overflow: hidden;
   padding: var(--space-5) var(--space-8);
-  border-color: rgb(144 158 255 / 23%);
-  background:
-    radial-gradient(ellipse at 8% 50%, rgb(99 109 216 / 18%), transparent 58%),
-    var(--glass-subtle-bg);
+  border-color: var(--color-border);
+  background: var(--glass-subtle-bg);
 }
 
 .home-lyrics__icon {
@@ -134,7 +132,7 @@ const displayedText = computed(() => currentLyric.value || lyricMessage.value)
   position: absolute;
   right: var(--space-5);
   bottom: -1.8rem;
-  color: rgb(170 179 255 / 9%);
+  color: rgb(86 109 85 / 12%);
   font-family: var(--font-display);
   font-size: 8rem;
   line-height: 1;

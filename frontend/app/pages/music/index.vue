@@ -458,7 +458,9 @@ function requestTrack(index: number) {
 
 .music-page__heading {
   margin: 0 auto var(--space-10);
-  text-align: center;
+  padding-bottom: var(--space-6);
+  border-bottom: 2px solid var(--color-text);
+  text-align: left;
 }
 
 .music-page__eyebrow {
@@ -472,8 +474,8 @@ function requestTrack(index: number) {
   margin: var(--space-3) 0;
   font-family: var(--font-display);
   font-size: var(--text-h1);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: -0.05em;
 }
 
 .music-page__heading p {
@@ -491,14 +493,8 @@ function requestTrack(index: number) {
 .music-page__player,
 .music-page__library {
   min-width: 0;
-  border-radius: var(--radius-panel);
-  background:
-    radial-gradient(
-      ellipse at 50% 12%,
-      rgb(124 131 255 / 11%),
-      transparent 48%
-    ),
-    var(--glass-panel-bg);
+  border-radius: var(--radius-small);
+  background: var(--glass-panel-bg);
 }
 
 .music-page__player {
@@ -523,7 +519,7 @@ function requestTrack(index: number) {
   width: 74%;
   height: 74%;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--color-secondary);
   filter: blur(3rem);
   opacity: 0.23;
 }
@@ -535,15 +531,15 @@ function requestTrack(index: number) {
   height: 100%;
   place-items: center;
   overflow: hidden;
-  border: 1px solid rgb(211 217 255 / 22%);
+  border: 1px solid rgb(255 253 246 / 24%);
   border-radius: 50%;
   background:
     repeating-radial-gradient(
       circle,
       transparent 0 8px,
-      rgb(240 242 255 / 6%) 9px 10px
+      rgb(255 253 246 / 6%) 9px 10px
     ),
-    radial-gradient(circle at 30% 25%, #333e71, #0b1022 61%, #03050d 100%);
+    radial-gradient(circle at 30% 25%, #3b443b, #1e241f 61%, #101510 100%);
   box-shadow:
     0 1.75rem 4rem rgb(0 0 0 / 42%),
     inset 0 0 2.5rem rgb(255 255 255 / 3%);
@@ -569,17 +565,17 @@ function requestTrack(index: number) {
   place-items: center;
   border: 1px solid rgb(255 255 255 / 15%);
   border-radius: 50%;
-  background: radial-gradient(circle, #343b69, #171d3b 58%, #0c1024);
-  color: #d8dcff;
+  background: radial-gradient(circle, #556b54, #293a2b 58%, #161e17);
+  color: #fffdf6;
 }
 
 .music-page__record-hole {
   position: absolute;
   width: 17%;
   aspect-ratio: 1;
-  border: 2px solid rgb(225 228 255 / 72%);
+  border: 2px solid rgb(255 253 246 / 72%);
   border-radius: 50%;
-  background: #11162c;
+  background: #1e241f;
 }
 
 .music-page__track-info {
@@ -664,11 +660,7 @@ function requestTrack(index: number) {
   width: 4rem;
   height: 4rem;
   border-color: var(--glass-border-hover);
-  background: linear-gradient(
-    135deg,
-    var(--color-action-start),
-    var(--color-action-end)
-  );
+  background: var(--color-accent);
   box-shadow: var(--shadow-glow);
   color: white;
 }
@@ -823,7 +815,8 @@ function requestTrack(index: number) {
 
 .music-page__lyric--active .music-page__lyric {
   font-size: clamp(1.2rem, 1.8vw, 1.45rem);
-  text-shadow: 0 0 1.5rem rgb(124 131 255 / 32%);
+  text-shadow: none;
+  color: var(--color-accent-strong);
 }
 
 .music-page__lyric small {
@@ -865,7 +858,7 @@ function requestTrack(index: number) {
 
 .music-page__track-button--active {
   border-color: var(--glass-border);
-  background: rgb(124 131 255 / 9%);
+  background: var(--badge-accent-bg);
   color: var(--color-text);
 }
 

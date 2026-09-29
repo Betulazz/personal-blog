@@ -93,7 +93,7 @@ test('Post discovery stays keyboard reachable and inside fixed CSS viewports', a
       String(viewport.width) + 'x' + String(viewport.height) + ' viewport',
     ).toBeLessThanOrEqual(dimensions.clientWidth)
 
-    const searchInput = page.getByLabel('搜索文章')
+    const searchInput = page.getByRole('searchbox', { name: '搜索文章' })
     await searchInput.focus()
     await expect(searchInput).toBeFocused()
 

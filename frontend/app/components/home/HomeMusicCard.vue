@@ -225,14 +225,8 @@ function retryTracks() {
 .home-music {
   min-width: 0;
   padding: var(--space-6);
-  border-color: var(--glass-border-strong);
-  background:
-    radial-gradient(
-      ellipse at 12% 100%,
-      rgb(92 105 231 / 16%),
-      transparent 54%
-    ),
-    var(--glass-panel-bg);
+  border-color: var(--color-border-strong);
+  background: var(--glass-panel-bg);
 }
 
 .home-music__header,
@@ -296,16 +290,16 @@ function retryTracks() {
   flex: 0 0 auto;
   place-items: center;
   overflow: hidden;
-  border: 0.4rem solid rgb(13 18 36 / 88%);
+  border: 0.4rem solid #252b25;
   border-radius: var(--radius-round);
   background:
     repeating-radial-gradient(
       circle,
-      rgb(154 166 226 / 11%) 0 1px,
+      rgb(255 255 255 / 10%) 0 1px,
       transparent 1px 4px
     ),
-    #0b1021;
-  box-shadow: 0 0.5rem 1.5rem rgb(3 6 22 / 38%);
+    #252b25;
+  box-shadow: 0 0.5rem 1.5rem rgb(34 39 32 / 16%);
   animation: home-record-rotate var(--motion-duration-record) linear infinite
     paused;
 }
@@ -326,8 +320,8 @@ function retryTracks() {
 }
 
 .home-music__record-fallback {
-  background: linear-gradient(135deg, #282b64, #4d3c83 58%, #375e87);
-  color: var(--color-text);
+  background: #566d55;
+  color: #fffdf6;
 }
 
 .home-music__record-hole {
@@ -336,15 +330,15 @@ function retryTracks() {
   left: 50%;
   width: 18%;
   aspect-ratio: 1;
-  border: 1px solid rgb(239 241 255 / 65%);
+  border: 1px solid rgb(255 253 246 / 75%);
   border-radius: var(--radius-round);
   background: radial-gradient(
     circle,
-    #121528 0 36%,
-    #bbc3ed 42% 58%,
-    #24243d 64%
+    #222720 0 36%,
+    #d8d5c7 42% 58%,
+    #222720 64%
   );
-  box-shadow: 0 0 0 2px rgb(10 14 29 / 45%);
+  box-shadow: 0 0 0 2px rgb(34 39 32 / 45%);
   transform: translate(-50%, -50%);
 }
 
@@ -398,14 +392,14 @@ function retryTracks() {
   background: linear-gradient(
     to right,
     var(--color-accent-soft) var(--progress),
-    rgb(185 194 233 / 20%) var(--progress)
+    rgb(34 39 32 / 16%) var(--progress)
   );
 }
 
 .home-music__range::-moz-range-track {
   height: 0.25rem;
   border-radius: var(--radius-round);
-  background: rgb(185 194 233 / 20%);
+  background: rgb(34 39 32 / 16%);
 }
 
 .home-music__range::-moz-range-progress {
@@ -422,7 +416,7 @@ function retryTracks() {
   border: 2px solid var(--color-text);
   border-radius: var(--radius-round);
   background: var(--color-accent);
-  box-shadow: 0 0 0 3px rgb(124 131 255 / 20%);
+  box-shadow: 0 0 0 3px rgb(204 57 45 / 16%);
 }
 
 .home-music__range::-moz-range-thumb {
@@ -431,7 +425,7 @@ function retryTracks() {
   border: 2px solid var(--color-text);
   border-radius: var(--radius-round);
   background: var(--color-accent);
-  box-shadow: 0 0 0 3px rgb(124 131 255 / 20%);
+  box-shadow: 0 0 0 3px rgb(204 57 45 / 16%);
 }
 
 .home-music__range:focus-visible {
@@ -483,9 +477,9 @@ function retryTracks() {
 }
 
 .home-music__control--play {
-  border-color: rgb(172 183 255 / 52%);
-  background: linear-gradient(135deg, #6474ed, #8c70d9);
-  box-shadow: 0 0.25rem 1.25rem rgb(80 91 214 / 27%);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  box-shadow: none;
   color: white;
 }
 

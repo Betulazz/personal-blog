@@ -34,6 +34,8 @@ defineProps<{
   justify-content: space-between;
   gap: var(--space-8);
   margin-bottom: var(--space-8);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-text);
 }
 
 .home-section__link {

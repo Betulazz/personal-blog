@@ -168,15 +168,15 @@ onBeforeUnmount(() => {
   display: block;
   width: 120px;
   height: 120px;
-  border: 1.5px solid rgb(163 168 255 / 54%);
+  border: 1.5px solid rgb(204 57 45 / 48%);
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgb(124 131 255 / 30%) 0 2px,
-    rgb(124 131 255 / 13%) 2px 24px,
+    rgb(204 57 45 / 25%) 0 2px,
+    rgb(204 57 45 / 9%) 2px 24px,
     transparent 70%
   );
-  box-shadow: 0 0 1.25rem rgb(99 102 241 / 23%);
+  box-shadow: none;
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(0.08);

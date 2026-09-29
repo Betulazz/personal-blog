@@ -99,13 +99,9 @@ const markAvatarUnavailable = () => {
   overflow: hidden;
   border: var(--border-hairline) solid var(--glass-border-hover);
   border-radius: var(--radius-round);
-  background: linear-gradient(
-    135deg,
-    var(--color-secondary),
-    var(--color-accent)
-  );
-  box-shadow: var(--shadow-glow);
-  color: var(--color-text);
+  background: var(--color-secondary);
+  box-shadow: none;
+  color: var(--color-canvas-raised);
   object-fit: cover;
 }
 

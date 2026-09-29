@@ -190,7 +190,7 @@ const emit = defineEmits<{
   display: block;
   height: 0.85rem;
   border-radius: var(--radius-round);
-  background: rgb(191 205 255 / 12%);
+  background: rgb(86 109 85 / 12%);
 }
 
 .public-collection-state__skeleton span:nth-child(2) {

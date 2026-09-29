@@ -1,52 +1,45 @@
 <script setup lang="ts">
-import { ArrowDown, ArrowRight } from 'lucide-vue-next'
+import { ArrowUpRight } from 'lucide-vue-next'
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
-import type { HomepageStat } from '~/types/homepage'
 
-defineProps<{ stats: HomepageStat[] }>()
-const { identity, settings } = await usePublicSiteSettings()
+const { identity } = await usePublicSiteSettings()
 </script>
 
 <template>
   <UiPageContainer as="section" class="hero" width="wide">
-    <section class="hero__content" aria-labelledby="hero-title">
-      <div class="hero__copy">
-        <UiSectionHeader
-          class="hero__heading"
-          :title="identity.tagline"
-          :description="identity.description"
-          :heading-level="1"
-          title-id="hero-title"
+    <div class="hero__chapter" aria-hidden="true">
+      <span>PERSONAL JOURNAL</span><span>CHAPTER 001</span>
+    </div>
+
+    <div class="hero__spread">
+      <figure class="hero__art">
+        <img
+          src="/images/editorial/manga-writing.png"
+          alt="漫画风格插画：女孩在窗前写字，黑猫卧在旁边"
+          width="1672"
+          height="941"
+          fetchpriority="high"
         />
-
-        <div class="hero__actions">
-          <NuxtLink class="action action--primary" to="/posts">
-            开始阅读
-            <ArrowRight :size="20" aria-hidden="true" />
-          </NuxtLink>
-          <NuxtLink class="action action--secondary" to="/about">
-            了解我
-          </NuxtLink>
-        </div>
-
-        <UiBadge class="hero__meta">WRITING · BUILDING · LIVING</UiBadge>
+        <figcaption>图鉴 01 / 记录正在发生的日常</figcaption>
+      </figure>
+      <div class="hero__copy">
+        <span class="hero__folio">01 — 日常手记</span>
+        <h1 id="hero-title">这一页，<br /><em>留给今天。</em></h1>
+        <p class="hero__tagline">{{ identity.tagline }}</p>
+        <p class="hero__description">{{ identity.description }}</p>
+        <NuxtLink class="hero__read" to="/posts">
+          开始阅读 <ArrowUpRight :size="21" aria-hidden="true" />
+        </NuxtLink>
+        <span class="hero__scribble" aria-hidden="true"
+          >把喜欢的事情<br />写进日常里 ↗</span
+        >
       </div>
+    </div>
 
-      <div class="hero__aside">
-        <HomeProfileSection :stats="stats" />
-        <HomeMusicCard v-if="settings.homepageVisibility.music" />
-      </div>
-
-      <HomeLyricStrip
-        v-if="settings.homepageVisibility.music"
-        class="hero__lyrics"
-      />
-    </section>
-
-    <a class="scroll-cue" href="#reading" aria-label="继续浏览">
-      <span />
-      <ArrowDown :size="22" aria-hidden="true" />
-    </a>
+    <div class="hero__endline" aria-hidden="true">
+      <span>BIRCHTULA / FIELD NOTES</span><span>文字、漫画与生活</span>
+      <span>SCROLL ↓</span>
+    </div>
   </UiPageContainer>
 </template>
 
@@ -54,191 +47,196 @@ const { identity, settings } = await usePublicSiteSettings()
 .hero {
   position: relative;
   display: grid;
-  min-height: 100svh;
-  align-items: center;
-  padding-top: clamp(8rem, 9vw, 10rem);
-  padding-bottom: var(--space-20);
+  min-height: min(100svh, 58rem);
+  align-content: center;
+  gap: var(--space-6);
+  padding-top: 7.5rem;
+  padding-bottom: var(--space-8);
+  background: var(--color-canvas-raised);
 }
 
-.hero__content {
-  display: grid;
-  width: min(100%, var(--container-wide));
-  grid-template-columns: minmax(0, 1.04fr) minmax(23rem, 0.96fr);
-  align-items: center;
-  gap: clamp(2.5rem, 5vw, 6rem);
-  margin-inline: auto;
+.hero__chapter,
+.hero__endline {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.12em;
 }
 
-.hero__aside {
+.hero__chapter span:first-child::before {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: var(--space-3);
+  background: var(--color-accent);
+  content: '';
+}
+
+.hero__spread {
   display: grid;
+  grid-template-columns: minmax(0, 1.58fr) minmax(21rem, 0.9fr);
+  min-height: 35rem;
+  border-block: 2px solid var(--color-text);
+}
+
+.hero__art {
+  position: relative;
   min-width: 0;
-  gap: var(--space-5);
+  margin: 0;
+  overflow: hidden;
+  border-right: 2px solid var(--color-text);
+  background: #e8e5dc;
 }
 
-.hero__lyrics {
-  grid-column: 1 / -1;
+.hero__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 35rem;
+  object-fit: cover;
+  object-position: 40% center;
+  filter: contrast(1.04);
+}
+
+.hero__art figcaption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 0.45rem 0.7rem;
+  border-top: 1px solid var(--color-text);
+  border-left: 1px solid var(--color-text);
+  background: var(--color-canvas-raised);
+  font-size: 0.7rem;
 }
 
 .hero__copy {
-  max-width: 48rem;
-}
-
-.hero__heading :deep(h1) {
-  font-size: var(--text-display);
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  text-shadow: 0 0.125rem 1.5rem rgb(0 5 23 / 55%);
-}
-
-.hero__heading :deep(.section-header__description) {
-  margin-top: var(--space-4);
-  font-size: clamp(1rem, 1.5vw, 1.25rem);
-  line-height: var(--leading-body);
-}
-
-.hero__actions {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  margin-top: var(--space-10);
-}
-
-.action {
-  display: inline-flex;
-  min-height: 3.5rem;
-  align-items: center;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-8);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-medium);
-  font-size: var(--text-small);
-  font-weight: 650;
-  transition:
-    transform var(--motion-duration-fast) var(--motion-ease-standard),
-    border-color var(--motion-duration-fast) var(--motion-ease-standard),
-    background-color var(--motion-duration-fast) var(--motion-ease-standard),
-    box-shadow var(--motion-duration-fast) var(--motion-ease-standard);
+  padding: clamp(2rem, 4vw, 4.5rem);
 }
 
-.action:hover {
-  transform: translateY(calc(var(--motion-distance-small) * -1));
+.hero__folio {
+  color: var(--color-accent-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.14em;
 }
 
-.action--primary {
-  border-color: rgb(164 175 255 / 50%);
-  background: linear-gradient(
-    135deg,
-    var(--color-action-start),
-    var(--color-action-end)
-  );
-  box-shadow: 0 0.75rem 2.5rem rgb(74 93 238 / 30%);
+.hero h1 {
+  margin: var(--space-8) 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(3.5rem, 5.1vw, 6.4rem);
+  font-weight: 800;
+  letter-spacing: -0.085em;
+  line-height: 1.18;
+  text-wrap: balance;
 }
 
-.action--primary:hover {
-  border-color: rgb(215 221 255 / 74%);
-  box-shadow: 0 1rem 3rem rgb(74 93 238 / 42%);
+.hero h1 em {
+  color: var(--color-accent);
+  font-style: normal;
 }
 
-.action--secondary {
-  background: var(--glass-subtle-bg);
-  box-shadow: var(--glass-highlight);
-  backdrop-filter: blur(var(--glass-blur-subtle))
-    saturate(var(--glass-saturation));
-}
-
-.action--secondary:hover {
-  border-color: var(--glass-border-hover);
-  background: var(--glass-bg-hover);
-}
-
-.hero__meta {
-  margin-top: var(--space-10);
-  letter-spacing: 0.32em;
-}
-
-.scroll-cue {
-  position: absolute;
-  bottom: var(--space-6);
-  left: 50%;
-  display: grid;
-  min-width: 2.75rem;
-  min-height: 4.5rem;
-  place-items: end center;
+.hero__tagline,
+.hero__description {
+  max-width: 34ch;
+  margin: var(--space-8) 0 0;
   color: var(--color-text-muted);
-  transform: translateX(-50%);
+  font-family: var(--font-body);
+  font-size: var(--text-body-large);
+  line-height: var(--leading-body);
+  text-wrap: pretty;
 }
 
-.scroll-cue span {
+.hero__description {
+  margin-top: var(--space-3);
+  font-size: var(--text-small);
+}
+
+.hero__read {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  gap: var(--space-6);
+  margin-top: var(--space-10);
+  border-bottom: 2px solid var(--color-text);
+  font-size: var(--text-body-large);
+  font-weight: 700;
+}
+
+.hero__read:hover {
+  color: var(--color-accent-strong);
+}
+
+.hero__scribble {
   position: absolute;
-  top: 0;
-  width: 1px;
-  height: 2.5rem;
-  background: linear-gradient(transparent, var(--color-accent-soft));
+  right: 2.5rem;
+  bottom: 1.5rem;
+  color: var(--color-secondary);
+  font-family: 'Segoe Print', 'Kaiti SC', cursive;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  transform: rotate(-8deg);
+}
+
+.hero__endline {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-4);
 }
 
 @media (width <= 64rem) {
-  .hero__content {
-    grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
-    gap: var(--space-8);
+  .hero__spread {
+    grid-template-columns: minmax(0, 1.2fr) minmax(19rem, 1fr);
+  }
+  .hero__copy {
+    padding: var(--space-8);
   }
 }
 
 @media (width <= 48rem) {
   .hero {
-    align-items: start;
-    padding-top: 11rem;
-    padding-bottom: var(--space-16);
     min-height: auto;
+    gap: var(--space-4);
+    padding-top: 6rem;
   }
-
-  .hero__content {
+  .hero__spread {
     grid-template-columns: 1fr;
-    gap: var(--space-8);
   }
-
-  .hero__heading :deep(h1) {
-    font-size: clamp(2.5rem, 10.25vw, 3.15rem);
-    letter-spacing: -0.04em;
+  .hero__art {
+    height: clamp(16rem, 68vw, 24rem);
+    border-right: 0;
+    border-bottom: 2px solid var(--color-text);
   }
-
-  .hero__heading :deep(.section-header__description) {
-    font-size: 1rem;
+  .hero__art img {
+    min-height: 0;
   }
-
-  .hero__actions {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: var(--space-3);
+  .hero__copy {
+    min-height: 25rem;
+    padding: var(--space-8) var(--space-6);
+  }
+  .hero h1 {
+    margin-top: var(--space-5);
+    font-size: clamp(3.25rem, 12vw, 5rem);
+  }
+  .hero__tagline {
     margin-top: var(--space-6);
   }
-
-  .action {
-    min-height: 3.5rem;
-    padding-inline: var(--space-4);
-  }
-
-  .hero__meta {
-    overflow-wrap: anywhere;
+  .hero__read {
     margin-top: var(--space-6);
-    font-size: 0.6875rem;
-    letter-spacing: 0.22em;
   }
-
-  .scroll-cue {
+  .hero__scribble {
+    right: var(--space-4);
+    bottom: var(--space-3);
+  }
+  .hero__endline span:nth-child(2) {
     display: none;
-  }
-}
-
-@media (width < 22rem) {
-  .hero__actions {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .action:hover {
-    transform: none;
   }
 }
 </style>

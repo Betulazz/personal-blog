@@ -1,0 +1,155 @@
+/* Preserve the existing administrator palette while the public site is redesigned. */
+.admin-shell,
+.admin-login-page,
+.admin-state {
+  color-scheme: dark;
+  --color-canvas: #060a17;
+  --color-canvas-raised: #0b1226;
+  --color-surface: rgb(16 25 49 / 72%);
+  --color-surface-strong: rgb(13 21 43 / 88%);
+  --color-surface-hover: rgb(27 39 73 / 82%);
+  --color-text: #f2f5ff;
+  --color-text-muted: #b3bfd8;
+  --color-text-subtle: #8f9dbd;
+  --color-border: rgb(191 205 255 / 23%);
+  --color-border-strong: rgb(180 196 255 / 48%);
+  --color-accent: #7c83ff;
+  --color-accent-strong: #5f6df3;
+  --color-accent-soft: #a3a8ff;
+  /* Deeper gradient stops keep white action text at WCAG AA contrast. */
+  --color-action-start: #2f66d0;
+  --color-action-end: #4a54dd;
+  --color-secondary: #b58bdc;
+  --color-danger: #fb7185;
+  --color-danger-border: rgb(251 113 133 / 44%);
+  --color-danger-border-soft: rgb(251 113 133 / 36%);
+  --color-danger-surface: rgb(104 24 54 / 30%);
+  --color-divider-subtle: rgb(191 205 255 / 8%);
+  --homepage-content-background: linear-gradient(
+    180deg,
+    rgb(5 9 22 / 24%),
+    rgb(5 9 22 / 78%)
+  );
+  --color-success: #5eead4;
+  --color-focus: #c8d1ff;
+  --font-display:
+    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, serif;
+  --font-body:
+    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, serif;
+  --font-ui:
+    Inter, 'Noto Sans SC', 'Microsoft YaHei', ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --text-display: clamp(3.25rem, 5.2vw, 5rem);
+  --text-h1: clamp(2.5rem, 4.5vw, 5rem);
+  --text-h2: clamp(2rem, 3vw, 3.5rem);
+  --text-h3: clamp(1.4rem, 2vw, 2rem);
+  --text-body: 1rem;
+  --text-body-large: clamp(1.05rem, 1.4vw, 1.2rem);
+  --text-small: 0.875rem;
+  --text-caption: 0.75rem;
+  --leading-display: 1.16;
+  --leading-body: 1.8;
+  --font-weight-semibold: 650;
+  --font-weight-bold: 700;
+  --tracking-label: 0.08em;
+  --tracking-eyebrow: 0.2em;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --space-section: clamp(4rem, 9vw, 7rem);
+  --public-heading-offset: 7.5rem;
+  --gutter-page: clamp(1rem, 4vw, 3rem);
+  --container-wide: 80rem;
+  --container-reading: 48rem;
+  --measure-copy: 68ch;
+  --border-hairline: 0.0625rem;
+  --radius-small: 0.625rem;
+  --radius-medium: 1rem;
+  --radius-large: 1.5rem;
+  --radius-panel: 2rem;
+  --radius-round: 9999px;
+  --shadow-card: 0 1.5rem 4rem rgb(0 4 20 / 28%);
+  --shadow-panel: 0 2rem 6rem rgb(0 3 18 / 44%);
+  --shadow-focus: 0 0 0 0.1875rem rgb(124 131 255 / 32%);
+  --shadow-glow: 0 0 2.5rem rgb(99 102 241 / 24%);
+  --shadow-success-glow: 0 0 1rem rgb(94 234 212 / 64%);
+  --glass-subtle-bg: rgb(12 18 39 / 56%);
+  --glass-card-bg: rgb(15 22 46 / 61%);
+  --glass-panel-bg: rgb(12 19 42 / 64%);
+  --glass-elevated-bg: rgb(11 17 38 / 88%);
+  --glass-bg-hover: rgb(29 39 75 / 78%);
+  --glass-border: var(--color-border);
+  --glass-border-hover: var(--color-border-strong);
+  --glass-saturation: 135%;
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 8%);
+  --glass-blur-subtle: 0.75rem;
+  --glass-blur-card: 1.125rem;
+  --glass-blur-panel: 1.5rem;
+  --glass-shadow: var(--shadow-panel);
+  --blur-soft: 0.5rem;
+  --blur-ambient: 4rem;
+  --glow-accent: rgb(99 102 241 / 28%);
+  --glow-secondary: rgb(192 132 252 / 18%);
+  --glow-size: min(52rem, 72vw);
+  --glow-opacity-subtle: 0.24;
+  --glow-opacity-default: 0.46;
+  --glow-opacity-strong: 0.62;
+  --glow-fade-stop: 68%;
+  --glow-top-offset: -42%;
+  --glow-end-offset: -16%;
+  --glow-bottom-offset: -54%;
+  --glow-start-offset: -20%;
+  --media-fallback-height: 12rem;
+  --badge-accent-bg: rgb(124 131 255 / 18%);
+  --badge-success-bg: rgb(94 234 212 / 12%);
+  --badge-success-border: rgb(94 234 212 / 42%);
+  --background-veil:
+    linear-gradient(180deg, rgb(5 10 25 / 48%), rgb(5 9 22 / 72%)),
+    linear-gradient(
+      90deg,
+      rgb(4 8 21 / 62%),
+      rgb(7 12 28 / 28%) 55%,
+      rgb(5 9 22 / 60%) 100%
+    );
+  --background-veil-mobile: linear-gradient(
+    180deg,
+    rgb(5 10 25 / 57%),
+    rgb(5 9 22 / 78%)
+  );
+  --motion-duration-fast: 140ms;
+  --motion-duration-normal: 220ms;
+  --motion-duration-slow: 480ms;
+  --motion-duration-shimmer: 1.8s;
+  --motion-duration-background-crossfade: 1.2s;
+  --motion-duration-header: 500ms;
+  --motion-duration-ripple: 620ms;
+  --motion-duration-immediate: 0.01ms;
+  --motion-duration-record: 18s;
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-distance-small: 0.25rem;
+  --motion-delay-entry-stagger: 140ms;
+  --public-shell-safe-bottom: calc(8rem + env(safe-area-inset-bottom));
+  --breakpoint-phone: 23.4375rem;
+  --breakpoint-phone-wide: 26.875rem;
+  --breakpoint-tablet: 48rem;
+  --breakpoint-laptop: 64rem;
+  --breakpoint-desktop: 90rem;
+  --breakpoint-wide: 120rem;
+  --z-background: 0;
+  --z-base: 1;
+  --z-raised: 10;
+  --z-sticky: 30;
+  --z-overlay: 50;
+  --z-toast: 70;
+}
