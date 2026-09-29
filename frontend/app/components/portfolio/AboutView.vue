@@ -26,6 +26,9 @@ const socialIcons = { code: Github, social: Globe2 } as const
 const avatarUnavailable = ref(false)
 const bannerUnavailable = ref(false)
 const bannerImage = ref<HTMLImageElement | null>(null)
+const hasBannerImage = computed(() =>
+  Boolean(props.profile?.banner && !bannerUnavailable.value),
+)
 
 const markAvatarUnavailable = () => {
   avatarUnavailable.value = true
@@ -63,7 +66,10 @@ onMounted(detectUnavailableBanner)
         @retry="emit('retry')"
       >
         <template v-if="profile" #default>
-          <header class="about-page__cover">
+          <header
+            class="about-page__cover"
+            :class="{ 'about-page__cover--has-image': hasBannerImage }"
+          >
             <img
               v-if="profile.banner && !bannerUnavailable"
               ref="bannerImage"
@@ -291,6 +297,10 @@ onMounted(detectUnavailableBanner)
     inset 0 1px rgb(255 255 255 / 10%);
 }
 
+.about-page__cover--has-image {
+  background: none;
+}
+
 .about-page__cover-image {
   position: absolute;
   z-index: 0;
@@ -300,21 +310,6 @@ onMounted(detectUnavailableBanner)
   height: 100%;
   border-radius: inherit;
   object-fit: cover;
-}
-
-.about-page__cover::before {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgb(7 13 31 / 84%) 0%,
-    rgb(7 13 31 / 60%) 46%,
-    rgb(7 13 31 / 18%) 100%
-  );
-  content: '';
-  pointer-events: none;
 }
 
 .about-page__cover::after {
@@ -342,6 +337,10 @@ onMounted(detectUnavailableBanner)
   font-size: var(--text-caption);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-eyebrow);
+}
+
+.about-page__cover-copy {
+  text-shadow: 0 2px 0.75rem rgb(0 0 0 / 78%);
 }
 
 .about-page__cover h1 {

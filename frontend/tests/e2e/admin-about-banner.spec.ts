@@ -40,6 +40,16 @@ test('administrator manages the About banner and its Media Asset reference', asy
   await expect(page.locator('.admin-about-banner-reference')).toContainText(
     '/uploads/images/',
   )
+  for (const previewName of [
+    'about-banner-preview-desktop',
+    'about-banner-preview-mobile',
+  ]) {
+    const preview = page.getByTestId(previewName)
+    await expect(preview).toHaveCSS('background-image', 'none')
+    await expect(
+      preview.locator('.admin-about-banner-preview__overlay'),
+    ).toHaveCount(0)
+  }
 
   await page.getByRole('button', { name: '替换横幅图片' }).click()
   await page.getByLabel('选择要上传的图片').setInputFiles({
@@ -183,6 +193,12 @@ test('administrator manages the About banner and its Media Asset reference', asy
   const cover = page.locator('.about-page__cover')
   const bannerImage = cover.locator('.about-page__cover-image')
   await expect(bannerImage).toBeVisible()
+  await expect(cover).toHaveCSS('background-image', 'none')
+  expect(
+    await cover.evaluate(
+      (element) => getComputedStyle(element, '::before').backgroundImage,
+    ),
+  ).toBe('none')
   await expect(bannerImage).toHaveCSS('object-position', '32% 68%')
   await expect
     .poll(() =>

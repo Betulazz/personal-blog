@@ -91,6 +91,9 @@ const notice = ref('')
 const validation = ref<ValidationErrors>({})
 const mediaPickerOpen = ref(false)
 const bannerPreviewUnavailable = ref(false)
+const hasBannerPreviewImage = computed(() =>
+  Boolean(form.value.bannerPreviewUrl && !bannerPreviewUnavailable.value),
+)
 let loadController: AbortController | null = null
 
 const load = async () => {
@@ -488,10 +491,14 @@ function isAbortError(failure: unknown) {
             <figcaption>桌面预览</figcaption>
             <div
               class="admin-about-banner-preview__frame"
+              :class="{
+                'admin-about-banner-preview__frame--has-image':
+                  hasBannerPreviewImage,
+              }"
               data-testid="about-banner-preview-desktop"
             >
               <img
-                v-if="form.bannerPreviewUrl && !bannerPreviewUnavailable"
+                v-if="hasBannerPreviewImage"
                 class="admin-about-banner-preview__image"
                 :src="form.bannerPreviewUrl"
                 alt=""
@@ -500,7 +507,6 @@ function isAbortError(failure: unknown) {
                 }"
                 @error="markBannerPreviewUnavailable"
               />
-              <div class="admin-about-banner-preview__overlay"></div>
               <div class="admin-about-banner-preview__copy">
                 <small>ABOUT / A LITTLE CONTEXT</small>
                 <strong>关于我</strong>
@@ -514,10 +520,14 @@ function isAbortError(failure: unknown) {
             <figcaption>移动预览</figcaption>
             <div
               class="admin-about-banner-preview__frame admin-about-banner-preview__frame--mobile"
+              :class="{
+                'admin-about-banner-preview__frame--has-image':
+                  hasBannerPreviewImage,
+              }"
               data-testid="about-banner-preview-mobile"
             >
               <img
-                v-if="form.bannerPreviewUrl && !bannerPreviewUnavailable"
+                v-if="hasBannerPreviewImage"
                 class="admin-about-banner-preview__image"
                 :src="form.bannerPreviewUrl"
                 alt=""
@@ -526,7 +536,6 @@ function isAbortError(failure: unknown) {
                 }"
                 @error="markBannerPreviewUnavailable"
               />
-              <div class="admin-about-banner-preview__overlay"></div>
               <div class="admin-about-banner-preview__copy">
                 <small>ABOUT</small>
                 <strong>关于我</strong>
@@ -1095,8 +1104,11 @@ function isAbortError(failure: unknown) {
   min-height: 13rem;
 }
 
-.admin-about-banner-preview__image,
-.admin-about-banner-preview__overlay {
+.admin-about-banner-preview__frame--has-image {
+  background: none;
+}
+
+.admin-about-banner-preview__image {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1107,16 +1119,13 @@ function isAbortError(failure: unknown) {
   object-fit: cover;
 }
 
-.admin-about-banner-preview__overlay {
-  background: linear-gradient(90deg, rgb(7 13 31 / 84%), rgb(7 13 31 / 18%));
-}
-
 .admin-about-banner-preview__copy {
   position: relative;
   z-index: 1;
   display: grid;
   gap: 0.4rem;
   color: white;
+  text-shadow: 0 2px 0.75rem rgb(0 0 0 / 78%);
 }
 
 .admin-about-banner-preview__copy small {
