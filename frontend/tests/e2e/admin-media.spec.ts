@@ -1,3 +1,6 @@
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+
 import { expect, test, type Page } from '@playwright/test'
 
 const control = 'http://127.0.0.1:8787/__control'
@@ -14,10 +17,15 @@ test.beforeEach(async ({ page }) => {
 test('administrator uploads, browses, and reuses media assets', async ({
   page,
   context,
-}) => {
+}, testInfo) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await login(page)
   await page.goto('/admin/media')
+  await page.setViewportSize(
+    testInfo.project.name === 'mobile-chromium'
+      ? { width: 430, height: 932 }
+      : { width: 1440, height: 900 },
+  )
 
   await expect(page.getByRole('heading', { name: '媒体管理' })).toBeVisible()
   await expect(page.getByText('单个文件不超过 256 KB')).toBeVisible()
@@ -63,7 +71,10 @@ test('administrator uploads, browses, and reuses media assets', async ({
     'http://127.0.0.1:8787/uploads/images/2026/09/11111111111111111111111111111111.webp',
   )
 
-  await page.getByLabel('选择要上传的媒体文件').setInputFiles({
+  const fileChooserPromise = page.waitForEvent('filechooser')
+  await page.getByText('选择文件', { exact: true }).click()
+  const fileChooser = await fileChooserPromise
+  await fileChooser.setFiles({
     buffer: pngBuffer,
     mimeType: 'image/png',
     name: 'new-cover.png',
@@ -75,6 +86,14 @@ test('administrator uploads, browses, and reuses media assets', async ({
   await expect(uploadedCard).toBeVisible()
   await expect(uploadedCard.getByText('图片', { exact: true })).toBeVisible()
   await expect(page.getByText('共 18 个资源 · 第 1 / 2 页')).toBeVisible()
+
+  const evidenceDir = process.env.MEDIA_UPLOAD_EVIDENCE_DIR
+  if (evidenceDir) {
+    await mkdir(evidenceDir, { recursive: true })
+    await page.screenshot({
+      path: join(evidenceDir, `mock-media-upload-${testInfo.project.name}.png`),
+    })
+  }
 
   await page.getByRole('button', { name: '图片', exact: true }).click()
   await expect(page.getByTestId('media-asset-card')).toHaveCount(5)
