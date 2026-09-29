@@ -78,6 +78,7 @@ import type {
 import type {
   AboutSettings,
   PublicSiteSettings,
+  SiteSocialLink,
   SiteIdentityView,
 } from '~/types/site'
 import {
@@ -245,11 +246,7 @@ interface RawSiteSettings {
   }
   name: string
   profile: string
-  social_links: Array<{
-    href: string
-    kind: 'code' | 'social'
-    label: string
-  }>
+  social_links: SiteSocialLink[]
   tagline: string
 }
 
@@ -716,8 +713,36 @@ const toSiteSettings = (
   homepageVisibility: value.homepage_visibility,
   name: value.name,
   profile: value.profile,
-  socialLinks: value.social_links,
+  socialLinks: value.social_links.map((link) =>
+    toPublicSocialLink(link, resolveMediaUrl),
+  ),
   tagline: value.tagline,
+})
+
+const toPublicSocialLink = (
+  link: SiteSocialLink,
+  resolveMediaUrl: MediaUrlResolver,
+): SiteSocialLink => ({
+  ...link,
+  ...(link.icon?.type === 'media'
+    ? { icon: { type: 'media', url: resolveMediaUrl(link.icon.url) } }
+    : {}),
+})
+
+const toAdminSocialLink = (
+  link: SiteSocialLink,
+  resolveMediaUrl: MediaUrlResolver,
+): SiteSocialLink => ({
+  ...link,
+  ...(link.icon?.type === 'media'
+    ? {
+        icon: {
+          type: 'media',
+          reference: link.icon.url,
+          url: resolveMediaUrl(link.icon.url),
+        },
+      }
+    : {}),
 })
 
 const toAboutSettings = (
@@ -753,6 +778,9 @@ const toAdminSiteSettings = (
   const settings = toSiteSettings(value, resolveMediaUrl)
   return {
     ...settings,
+    socialLinks: value.social_links.map((link) =>
+      toAdminSocialLink(link, resolveMediaUrl),
+    ),
     about: {
       ...settings.about,
       ...(value.about.banner_url

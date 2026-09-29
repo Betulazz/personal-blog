@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUpRight, Github, Globe2 } from 'lucide-vue-next'
+import { ArrowUpRight } from 'lucide-vue-next'
 
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import type { HomepageStat } from '~/types/homepage'
@@ -12,8 +12,6 @@ const { identity, settings } = await usePublicSiteSettings()
 const monogram = computed(() => identity.value.name.trim().slice(0, 1) || '访')
 const avatarFailed = ref(false)
 const avatarImage = ref<HTMLImageElement | null>(null)
-const socialIcons = { code: Github, social: Globe2 } as const
-
 function checkAvatarImage() {
   const image = avatarImage.value
   if (image?.complete && image.naturalWidth === 0) {
@@ -99,11 +97,7 @@ onMounted(() => void nextTick(checkAvatarImage))
               rel="noopener noreferrer"
               referrerpolicy="no-referrer"
             >
-              <component
-                :is="socialIcons[social.kind]"
-                :size="17"
-                aria-hidden="true"
-              />
+              <SiteSocialIcon :icon="social.icon" :size="17" />
               <span>{{ social.label }}</span>
               <ArrowUpRight :size="15" aria-hidden="true" />
             </a>

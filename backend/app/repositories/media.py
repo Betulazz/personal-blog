@@ -147,6 +147,17 @@ class MediaAssetRepository:
                 references.append(
                     MediaReference("site_settings", settings.id, "about.banner_url")
                 )
+            for index, entry in enumerate(settings.social_links or []):
+                if not isinstance(entry, dict):
+                    continue
+                icon = entry.get("icon")
+                if not isinstance(icon, dict) or icon.get("type") != "media":
+                    continue
+                reference = icon.get("url")
+                if isinstance(reference, str) and _contains_media(reference, key, public_url):
+                    references.append(
+                        MediaReference("site_settings", settings.id, f"social_links[{index}].icon")
+                    )
 
         return references
 

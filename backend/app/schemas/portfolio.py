@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -39,6 +39,27 @@ def _validate_url(value: str | None, field: str, *, allow_local: bool = False) -
         raise ValueError(f"{field} must be a safe HTTP URL")
     if parsed.username or parsed.password:
         raise ValueError(f"{field} must not contain credentials")
+    return normalized
+
+
+def _validate_social_icon_reference(value: str) -> str:
+    normalized = value.strip()
+    decoded = unquote(normalized)
+    parsed = urlsplit(normalized)
+    key = unquote(parsed.path).removeprefix("/uploads/")
+    if (
+        not normalized
+        or any(character.isspace() for character in decoded)
+        or any(ord(character) < 0x20 or ord(character) == 0x7F for character in decoded)
+        or "\\" in decoded
+        or parsed.scheme
+        or parsed.netloc
+        or parsed.query
+        or parsed.fragment
+        or not parsed.path.startswith("/uploads/images/")
+        or any(part in {"", ".", ".."} for part in key.split("/"))
+    ):
+        raise ValueError("social icon must reference an image Media Asset")
     return normalized
 
 
@@ -456,10 +477,41 @@ class AdminFriendLinkCollectionResponse(BaseModel):
     pagination: PaginationMeta
 
 
+class SiteSocialPresetIcon(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["preset"]
+    preset: str = Field(min_length=1, max_length=80)
+
+    @field_validator("preset")
+    @classmethod
+    def strip_preset(cls, value: str) -> str:
+        return _required_text(value, "social icon preset")
+
+
+class SiteSocialMediaIcon(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["media"]
+    url: str = Field(max_length=2048)
+
+    @field_validator("url")
+    @classmethod
+    def validate_media_reference(cls, value: str) -> str:
+        return _validate_social_icon_reference(value)
+
+
+SiteSocialIcon = Annotated[
+    SiteSocialPresetIcon | SiteSocialMediaIcon,
+    Field(discriminator="type"),
+]
+
+
 class SiteSocialLink(BaseModel):
     label: str = Field(min_length=1, max_length=80)
     href: str = Field(min_length=1, max_length=2048)
     kind: Literal["code", "social"] = "social"
+    icon: SiteSocialIcon | None = None
 
     @field_validator("label")
     @classmethod

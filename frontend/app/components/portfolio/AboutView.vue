@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUpRight, Github, Globe2, Mail } from 'lucide-vue-next'
+import { ArrowUpRight, Mail } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import type { AboutProfile } from '~/types/portfolio'
@@ -22,7 +22,6 @@ const status = computed(() => {
   return 'ready' as const
 })
 
-const socialIcons = { code: Github, social: Globe2 } as const
 const avatarUnavailable = ref(false)
 const bannerUnavailable = ref(false)
 const bannerImage = ref<HTMLImageElement | null>(null)
@@ -240,11 +239,7 @@ onMounted(detectUnavailableBanner)
                     rel="noopener noreferrer"
                     referrerpolicy="no-referrer"
                   >
-                    <component
-                      :is="socialIcons[social.kind]"
-                      :size="16"
-                      aria-hidden="true"
-                    />
+                    <SiteSocialIcon :icon="social.icon" :size="16" />
                     {{ social.label }}
                     <ArrowUpRight :size="14" aria-hidden="true" />
                   </a>

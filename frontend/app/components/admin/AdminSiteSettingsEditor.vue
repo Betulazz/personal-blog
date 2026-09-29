@@ -5,7 +5,7 @@ import type {
   AdminSiteSettings,
   AdminSiteSettingsInput,
 } from '~/types/admin-portfolio'
-import type { SiteSocialLink } from '~/types/site'
+import type { SiteSocialIcon, SiteSocialLink } from '~/types/site'
 
 interface SettingsForm {
   avatarAlt: string
@@ -103,6 +103,21 @@ const toInput = (form: SettingsForm): AdminSiteSettingsInput => ({
   social_links: form.socialLinks
     .map((link) => ({
       href: link.href.trim(),
+      ...(link.icon?.type === 'media'
+        ? {
+            icon: {
+              type: 'media' as const,
+              url: link.icon.reference ?? link.icon.url,
+            },
+          }
+        : link.icon?.type === 'preset'
+          ? {
+              icon: {
+                type: 'preset' as const,
+                preset: link.icon.preset,
+              },
+            }
+          : {}),
       kind: link.kind,
       label: link.label.trim(),
     }))
@@ -122,6 +137,8 @@ const error = ref('')
 const notice = ref('')
 const validation = reactive<Record<string, string>>({})
 const mediaPickerOpen = ref(false)
+const socialIconPickerOpen = ref(false)
+const socialIconTargetIndex = ref<number | null>(null)
 const backgroundUrl = ref('')
 const backgroundAlt = ref('')
 let loadController: AbortController | null = null
@@ -190,6 +207,40 @@ const backgroundReferenceKey = (value: string) => {
 const isMediaUrl = (value: string) =>
   isHttpUrl(value) ||
   (/^\/uploads\/[^\s]+$/.test(value) && !value.startsWith('//'))
+const isSafeSocialIconReference = (value: string) => {
+  const hasControlCharacter = Array.from(value).some((character) => {
+    const code = character.charCodeAt(0)
+    return code < 0x20 || code === 0x7f
+  })
+  if (
+    !value.startsWith('/uploads/images/') ||
+    /[?#\s\\]/.test(value) ||
+    hasControlCharacter
+  ) {
+    return false
+  }
+  try {
+    const key = decodeURIComponent(value).slice('/uploads/'.length)
+    return (
+      key.startsWith('images/') &&
+      key.split('/').every((part) => part && part !== '.' && part !== '..')
+    )
+  } catch {
+    return false
+  }
+}
+
+const socialIconPresets = [
+  { label: '通用图标（未选择）', value: 'none' },
+  { label: 'GitHub', value: 'github' },
+  { label: 'Instagram', value: 'instagram' },
+  { label: 'LinkedIn', value: 'linkedin' },
+  { label: 'Mastodon', value: 'mastodon' },
+  { label: 'Telegram', value: 'telegram' },
+  { label: 'X', value: 'x' },
+  { label: '网站', value: 'website' },
+  { label: 'YouTube', value: 'youtube' },
+]
 
 const validate = () => {
   Object.keys(validation).forEach((key) =>
@@ -226,6 +277,13 @@ const validate = () => {
   form.value.socialLinks.forEach((link, index) => {
     if (link.label.trim() && !isHttpUrl(link.href.trim())) {
       validation[`social-${index}`] = '社交链接必须使用安全的 HTTP(S) URL。'
+    }
+    if (
+      link.icon?.type === 'media' &&
+      !isSafeSocialIconReference(link.icon.reference ?? link.icon.url)
+    ) {
+      validation[`social-icon-${index}`] =
+        '自定义图标必须来自媒体库中的图片 Media Asset。'
     }
   })
   if (
@@ -265,6 +323,32 @@ const addSocialLink = () =>
   form.value.socialLinks.push({ href: '', kind: 'social', label: '' })
 const removeSocialLink = (index: number) =>
   form.value.socialLinks.splice(index, 1)
+const socialIconPresetFor = (link: SiteSocialLink) =>
+  link.icon?.type === 'preset' ? link.icon.preset : 'none'
+const selectSocialIconPreset = (index: number, preset: string) => {
+  const link = form.value.socialLinks[index]
+  if (!link) return
+  link.icon = preset === 'none' ? null : { type: 'preset', preset }
+}
+const openSocialIconPicker = (index: number) => {
+  socialIconTargetIndex.value = index
+  socialIconPickerOpen.value = true
+}
+const selectSocialIconMedia = (asset: { reference: string; url: string }) => {
+  const index = socialIconTargetIndex.value
+  if (index === null || !form.value.socialLinks[index]) return
+  const icon: SiteSocialIcon = {
+    type: 'media',
+    reference: asset.reference,
+    url: asset.url,
+  }
+  form.value.socialLinks[index].icon = icon
+  socialIconTargetIndex.value = null
+}
+const clearSocialIcon = (index: number) => {
+  const link = form.value.socialLinks[index]
+  if (link) link.icon = null
+}
 
 const addBackground = (url: string, alt: string, previewUrl = url) => {
   if (form.value.backgroundGallery.length >= 12) {
@@ -563,6 +647,9 @@ function isAbortError(failure: unknown) {
           <div>
             <p class="admin-form-eyebrow">Public connections</p>
             <h2>社交链接</h2>
+            <p class="admin-settings-note">
+              图标会同步显示在首页、关于页面和页脚；链接名称仍会保留为可访问名称。
+            </p>
           </div>
           <UiButton
             type="button"
@@ -598,6 +685,41 @@ function isAbortError(failure: unknown) {
               { label: 'Code', value: 'code' },
             ]"
           />
+          <UiSelect
+            :model-value="socialIconPresetFor(link)"
+            :label="`社交链接图标 ${index + 1}`"
+            :options="socialIconPresets"
+            @update:model-value="selectSocialIconPreset(index, $event)"
+          />
+          <div class="admin-social-icon-picker">
+            <span class="admin-social-icon-picker__preview" aria-hidden="true">
+              <SiteSocialIcon :icon="link.icon" :size="20" />
+            </span>
+            <UiButton
+              type="button"
+              variant="secondary"
+              size="small"
+              @click="openSocialIconPicker(index)"
+            >
+              选择自定义图标 {{ index + 1 }}
+            </UiButton>
+            <UiButton
+              v-if="link.icon"
+              type="button"
+              variant="ghost"
+              size="small"
+              @click="clearSocialIcon(index)"
+            >
+              清除图标
+            </UiButton>
+          </div>
+          <p
+            v-if="validation[`social-icon-${index}`]"
+            class="admin-form-error"
+            role="alert"
+          >
+            {{ validation[`social-icon-${index}`] }}
+          </p>
           <UiButton
             type="button"
             variant="ghost"
@@ -606,6 +728,10 @@ function isAbortError(failure: unknown) {
             移除链接
           </UiButton>
         </div>
+        <AdminMediaPicker
+          v-model:open="socialIconPickerOpen"
+          @select="selectSocialIconMedia"
+        />
       </UiGlassPanel>
 
       <UiGlassPanel class="admin-settings-section" padding="spacious">
@@ -778,6 +904,24 @@ function isAbortError(failure: unknown) {
   border: var(--border-hairline) solid var(--glass-border);
   border-radius: var(--radius-medium);
   background: var(--glass-subtle-bg);
+}
+
+.admin-social-icon-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.admin-social-icon-picker__preview {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: var(--border-hairline) solid var(--glass-border);
+  border-radius: var(--radius-small);
+  background: var(--glass-subtle-bg);
+  color: var(--color-text);
 }
 
 .admin-background-gallery {

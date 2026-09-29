@@ -113,7 +113,11 @@ export function mediaReferenceLabel(reference: AdminMediaReference) {
   const resource =
     referenceResourceLabels[reference.resourceType] ?? reference.resourceType
   const field =
-    reference.field === 'about.banner_url' ? '关于页面横幅' : reference.field
+    reference.field === 'about.banner_url'
+      ? '关于页面横幅'
+      : /^social_links\[\d+\]\.icon$/.test(reference.field)
+        ? '社交链接图标'
+        : reference.field
   return `${resource} #${reference.resourceId} · ${field}`
 }
 

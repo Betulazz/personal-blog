@@ -234,6 +234,22 @@ class SiteSettingsService:
 
     async def update(self, request: SiteSettingsUpdateRequest) -> SiteSettings:
         changes = request.model_dump(exclude_unset=True, mode="json")
+        if request.social_links is not None:
+            for link in request.social_links:
+                icon = link.icon
+                if icon is None or icon.type != "media":
+                    continue
+                asset = await self._media_repository.find_by_key(icon.url.removeprefix("/uploads/"))
+                if (
+                    asset is None
+                    or asset.media_kind != "image"
+                    or not asset.content_type.startswith("image/")
+                ):
+                    raise AppError(
+                        "social_icon_media_asset_invalid",
+                        "Social icons must reference an existing image Media Asset",
+                        422,
+                    )
         about_update = changes.get("about")
         banner_url = (
             about_update.get("banner_url")

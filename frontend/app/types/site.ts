@@ -1,5 +1,10 @@
+export type SiteSocialIcon =
+  | { type: 'preset'; preset: string }
+  | { type: 'media'; url: string; reference?: string }
+
 export interface SiteSocialLink {
   href: string
+  icon?: SiteSocialIcon | null
   kind: 'code' | 'social'
   label: string
 }

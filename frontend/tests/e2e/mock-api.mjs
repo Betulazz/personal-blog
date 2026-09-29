@@ -632,6 +632,18 @@ const mediaReferencesForAsset = (asset) => {
       field: 'about.banner_url',
     })
   }
+  settings.social_links.forEach((link, index) => {
+    if (
+      link.icon?.type === 'media' &&
+      link.icon.url === `/uploads/${asset.key}`
+    ) {
+      references.push({
+        resource_type: 'site_settings',
+        resource_id: 1,
+        field: `social_links[${index}].icon`,
+      })
+    }
+  })
   return references
 }
 

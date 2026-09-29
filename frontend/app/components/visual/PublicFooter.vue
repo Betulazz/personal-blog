@@ -46,6 +46,7 @@ const monogram = computed(() => identity.value.name.slice(0, 1))
                 rel="noopener noreferrer"
                 referrerpolicy="no-referrer"
               >
+                <SiteSocialIcon :icon="social.icon" :size="15" />
                 {{ social.label }}
                 <span aria-hidden="true">↗</span>
               </a>
