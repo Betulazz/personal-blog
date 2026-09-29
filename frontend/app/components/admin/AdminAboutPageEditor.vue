@@ -15,6 +15,9 @@ import {
 } from '~/utils/about-content'
 
 interface AboutPageForm {
+  bannerFocalPoint: { x: number; y: number }
+  bannerPreviewUrl: string
+  bannerReference: string
   interestsHeading: string
   interestsIntroduction: string
   interests: string[]
@@ -32,6 +35,9 @@ interface AboutPageForm {
 type ValidationErrors = Record<string, string>
 
 const emptyForm = (): AboutPageForm => ({
+  bannerFocalPoint: { x: 50, y: 50 },
+  bannerPreviewUrl: '',
+  bannerReference: '',
   interestsHeading: DEFAULT_ABOUT_INTERESTS_HEADING,
   interestsIntroduction: DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
   interests: [],
@@ -47,6 +53,9 @@ const emptyForm = (): AboutPageForm => ({
 })
 
 const toForm = (settings: AdminSiteSettings['about']): AboutPageForm => ({
+  bannerFocalPoint: { ...settings.bannerFocalPoint },
+  bannerPreviewUrl: settings.bannerUrl ?? '',
+  bannerReference: settings.bannerReference ?? '',
   interestsHeading:
     settings.interestsHeading || DEFAULT_ABOUT_INTERESTS_HEADING,
   interestsIntroduction:
@@ -80,6 +89,8 @@ const busy = ref(false)
 const error = ref('')
 const notice = ref('')
 const validation = ref<ValidationErrors>({})
+const mediaPickerOpen = ref(false)
+const bannerPreviewUnavailable = ref(false)
 let loadController: AbortController | null = null
 
 const load = async () => {
@@ -235,6 +246,8 @@ const save = async () => {
   const submittedDraft = JSON.stringify(toRaw(form.value))
   const input = {
     about: {
+      banner_focal_point: { ...form.value.bannerFocalPoint },
+      banner_url: form.value.bannerReference.trim() || null,
       interests_heading: form.value.interestsHeading.trim(),
       interests_introduction: form.value.interestsIntroduction.trim(),
       interests: form.value.interests.map((interest) => interest.trim()),
@@ -314,6 +327,26 @@ const addInterest = () => {
 
 const removeInterest = (index: number) => form.value.interests.splice(index, 1)
 
+const selectBanner = (selection: {
+  alt: string
+  reference: string
+  url: string
+}) => {
+  form.value.bannerReference = selection.reference
+  form.value.bannerPreviewUrl = selection.url
+  bannerPreviewUnavailable.value = false
+}
+
+const clearBanner = () => {
+  form.value.bannerReference = ''
+  form.value.bannerPreviewUrl = ''
+  bannerPreviewUnavailable.value = false
+}
+
+const markBannerPreviewUnavailable = () => {
+  bannerPreviewUnavailable.value = true
+}
+
 const move = <T,>(items: T[], index: number, offset: -1 | 1) => {
   const nextIndex = index + offset
   if (nextIndex < 0 || nextIndex >= items.length) return
@@ -330,6 +363,13 @@ watch(
     if (status === 'authenticated' && !loaded.value) void load()
   },
   { immediate: true },
+)
+
+watch(
+  () => form.value.bannerPreviewUrl,
+  () => {
+    bannerPreviewUnavailable.value = false
+  },
 )
 
 onBeforeUnmount(() => loadController?.abort())
@@ -404,6 +444,128 @@ function isAbortError(failure: unknown) {
       >
         {{ notice }}
       </p>
+
+      <UiGlassPanel class="admin-about-section" padding="spacious">
+        <div class="admin-form-section-heading">
+          <div>
+            <p class="admin-form-eyebrow">ABOUT / BANNER</p>
+            <h2>页面横幅</h2>
+          </div>
+          <span class="admin-form-muted">一张媒体库图片</span>
+        </div>
+        <p class="admin-about-banner-note">
+          从媒体库上传或选择一张图片，再调整桌面与移动裁切共用的焦点位置。清除后公开页使用渐变背景。
+        </p>
+        <div class="admin-about-banner-actions">
+          <UiButton
+            type="button"
+            variant="secondary"
+            @click="mediaPickerOpen = true"
+          >
+            {{ form.bannerReference ? '替换横幅图片' : '从媒体库选择图片' }}
+          </UiButton>
+          <UiButton
+            type="button"
+            variant="ghost"
+            :disabled="!form.bannerReference"
+            @click="clearBanner"
+          >
+            清除横幅图片
+          </UiButton>
+        </div>
+        <p v-if="form.bannerReference" class="admin-about-banner-reference">
+          当前媒体引用：{{ form.bannerReference }}
+        </p>
+        <p
+          v-if="bannerPreviewUnavailable"
+          class="admin-about-field-error"
+          role="alert"
+        >
+          图片预览暂时无法加载；保存后公开页会显示渐变背景。媒体引用仍保留在草稿中。
+        </p>
+        <div class="admin-about-banner-previews">
+          <figure class="admin-about-banner-preview">
+            <figcaption>桌面预览</figcaption>
+            <div
+              class="admin-about-banner-preview__frame"
+              data-testid="about-banner-preview-desktop"
+            >
+              <img
+                v-if="form.bannerPreviewUrl && !bannerPreviewUnavailable"
+                class="admin-about-banner-preview__image"
+                :src="form.bannerPreviewUrl"
+                alt=""
+                :style="{
+                  objectPosition: `${form.bannerFocalPoint.x}% ${form.bannerFocalPoint.y}%`,
+                }"
+                @error="markBannerPreviewUnavailable"
+              />
+              <div class="admin-about-banner-preview__overlay"></div>
+              <div class="admin-about-banner-preview__copy">
+                <small>ABOUT / A LITTLE CONTEXT</small>
+                <strong>关于我</strong>
+                <span v-if="!form.bannerReference || bannerPreviewUnavailable">
+                  当前使用渐变背景
+                </span>
+              </div>
+            </div>
+          </figure>
+          <figure class="admin-about-banner-preview">
+            <figcaption>移动预览</figcaption>
+            <div
+              class="admin-about-banner-preview__frame admin-about-banner-preview__frame--mobile"
+              data-testid="about-banner-preview-mobile"
+            >
+              <img
+                v-if="form.bannerPreviewUrl && !bannerPreviewUnavailable"
+                class="admin-about-banner-preview__image"
+                :src="form.bannerPreviewUrl"
+                alt=""
+                :style="{
+                  objectPosition: `${form.bannerFocalPoint.x}% ${form.bannerFocalPoint.y}%`,
+                }"
+                @error="markBannerPreviewUnavailable"
+              />
+              <div class="admin-about-banner-preview__overlay"></div>
+              <div class="admin-about-banner-preview__copy">
+                <small>ABOUT</small>
+                <strong>关于我</strong>
+                <span v-if="!form.bannerReference || bannerPreviewUnavailable">
+                  当前使用渐变背景
+                </span>
+              </div>
+            </div>
+          </figure>
+        </div>
+        <div class="admin-about-banner-focal-point">
+          <label for="about-banner-focal-x">
+            水平焦点：{{ form.bannerFocalPoint.x }}%
+          </label>
+          <input
+            id="about-banner-focal-x"
+            v-model.number="form.bannerFocalPoint.x"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+          />
+          <label for="about-banner-focal-y">
+            垂直焦点：{{ form.bannerFocalPoint.y }}%
+          </label>
+          <input
+            id="about-banner-focal-y"
+            v-model.number="form.bannerFocalPoint.y"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+          />
+        </div>
+        <AdminMediaPicker
+          v-model:open="mediaPickerOpen"
+          @select="selectBanner"
+        />
+      </UiGlassPanel>
 
       <UiGlassPanel class="admin-about-section" padding="spacious">
         <div class="admin-form-section-heading">
@@ -866,6 +1028,126 @@ function isAbortError(failure: unknown) {
     saturate(var(--glass-saturation));
 }
 
+.admin-about-banner-note,
+.admin-about-banner-reference {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
+  overflow-wrap: anywhere;
+}
+
+.admin-about-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.admin-about-banner-previews {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(8rem, 0.65fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.admin-about-banner-preview {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.admin-about-banner-preview figcaption,
+.admin-about-banner-focal-point label {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+}
+
+.admin-about-banner-preview__frame {
+  position: relative;
+  display: flex;
+  min-height: 9rem;
+  align-items: center;
+  overflow: hidden;
+  padding: 1rem;
+  border: 1px solid rgb(185 198 255 / 24%);
+  border-radius: var(--radius-large);
+  background:
+    radial-gradient(
+      ellipse at 76% 26%,
+      rgb(151 163 255 / 40%),
+      transparent 22rem
+    ),
+    radial-gradient(
+      ellipse at 88% 100%,
+      rgb(77 196 200 / 17%),
+      transparent 28rem
+    ),
+    linear-gradient(
+      118deg,
+      rgb(14 28 64 / 95%),
+      rgb(27 37 83 / 89%) 54%,
+      rgb(17 37 57 / 94%)
+    );
+}
+
+.admin-about-banner-preview__frame--mobile {
+  min-height: 13rem;
+}
+
+.admin-about-banner-preview__image,
+.admin-about-banner-preview__overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.admin-about-banner-preview__image {
+  object-fit: cover;
+}
+
+.admin-about-banner-preview__overlay {
+  background: linear-gradient(90deg, rgb(7 13 31 / 84%), rgb(7 13 31 / 18%));
+}
+
+.admin-about-banner-preview__copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.4rem;
+  color: white;
+}
+
+.admin-about-banner-preview__copy small {
+  color: rgb(237 240 255 / 82%);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.admin-about-banner-preview__copy strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  line-height: 1.1;
+}
+
+.admin-about-banner-preview__copy span {
+  color: rgb(237 240 255 / 82%);
+  font-size: 0.7rem;
+}
+
+.admin-about-banner-focal-point {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.admin-about-banner-focal-point input {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+
 .admin-about-list {
   display: grid;
   gap: var(--space-5);
@@ -939,6 +1221,18 @@ function isAbortError(failure: unknown) {
 }
 
 @media (width <= 40rem) {
+  .admin-about-banner-previews {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-about-banner-preview__frame--mobile {
+    min-height: 11rem;
+  }
+
+  .admin-about-banner-focal-point {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .admin-about-timeline-fields {
     grid-template-columns: minmax(0, 1fr);
   }

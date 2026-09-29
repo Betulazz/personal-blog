@@ -15,7 +15,7 @@ import { formatMediaBytes, validateMediaFile } from '~/utils/admin-media'
 const props = defineProps<{ open: boolean }>()
 
 const emit = defineEmits<{
-  select: [value: { alt: string; reference: string }]
+  select: [value: { alt: string; reference: string; url: string }]
   'update:open': [value: boolean]
 }>()
 
@@ -183,6 +183,7 @@ const insert = () => {
   emit('select', {
     alt: alt.value.trim() || defaultAltFor(asset),
     reference: asset.reference,
+    url: asset.url,
   })
   emit('update:open', false)
 }

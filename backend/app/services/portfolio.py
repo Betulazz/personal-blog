@@ -233,6 +233,27 @@ class SiteSettingsService:
         return settings or _default_site_settings()
 
     async def update(self, request: SiteSettingsUpdateRequest) -> SiteSettings:
+        changes = request.model_dump(exclude_unset=True, mode="json")
+        about_update = changes.get("about")
+        banner_url = (
+            about_update.get("banner_url")
+            if isinstance(about_update, dict) and "banner_url" in about_update
+            else None
+        )
+        if banner_url is not None:
+            asset = await self._media_repository.find_by_key(
+                banner_url.removeprefix("/uploads/")
+            )
+            if (
+                asset is None
+                or asset.media_kind != "image"
+                or not asset.content_type.startswith("image/")
+            ):
+                raise AppError(
+                    "about_banner_media_asset_invalid",
+                    "About banners must reference an existing image Media Asset",
+                    422,
+                )
         if request.background_gallery is not None:
             for image in request.background_gallery:
                 if not image.url.startswith("/uploads/"):
@@ -254,7 +275,7 @@ class SiteSettingsService:
         if settings is None:
             settings = _default_site_settings()
             await self._repository.add(settings)
-        for field, value in request.model_dump(exclude_unset=True, mode="json").items():
+        for field, value in changes.items():
             if field in {"footer", "contact", "homepage_visibility", "about"}:
                 merged = dict(getattr(settings, field) or {})
                 merged.update(value)

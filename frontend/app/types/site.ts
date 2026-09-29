@@ -24,7 +24,14 @@ export interface AboutTimelineItem {
   title: string
 }
 
+export interface AboutBannerFocalPoint {
+  x: number
+  y: number
+}
+
 export interface AboutSettings {
+  bannerFocalPoint: AboutBannerFocalPoint
+  bannerUrl?: string
   interestsHeading: string
   interestsIntroduction: string
   interests: string[]

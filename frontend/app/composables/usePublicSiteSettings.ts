@@ -16,6 +16,7 @@ import {
 
 const fallbackSettings: PublicSiteSettings = {
   about: {
+    bannerFocalPoint: { x: 50, y: 50 },
     interestsHeading: DEFAULT_ABOUT_INTERESTS_HEADING,
     interestsIntroduction: DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
     interests: [],

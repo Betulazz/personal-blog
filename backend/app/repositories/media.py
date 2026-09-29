@@ -139,6 +139,14 @@ class MediaAssetRepository:
                     references.append(
                         MediaReference("site_settings", settings.id, "background_gallery")
                     )
+            about = settings.about if isinstance(settings.about, dict) else {}
+            banner_reference = about.get("banner_url")
+            if isinstance(banner_reference, str) and _contains_media(
+                banner_reference, key, public_url
+            ):
+                references.append(
+                    MediaReference("site_settings", settings.id, "about.banner_url")
+                )
 
         return references
 

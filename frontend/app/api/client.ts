@@ -213,6 +213,8 @@ interface RawAdminFriend extends RawFriend {
 
 interface RawSiteSettings {
   about: {
+    banner_focal_point?: { x: number; y: number }
+    banner_url?: string | null
     interests_heading?: string
     interests_introduction?: string
     interests: string[]
@@ -698,7 +700,7 @@ const toSiteSettings = (
   value: RawSiteSettings,
   resolveMediaUrl: MediaUrlResolver,
 ): PublicSiteSettings => ({
-  about: toAboutSettings(value.about),
+  about: toAboutSettings(value.about, resolveMediaUrl),
   backgroundGallery: value.background_gallery.map((image) => ({
     alt: image.alt,
     url: resolveMediaUrl(image.url),
@@ -718,7 +720,12 @@ const toSiteSettings = (
   tagline: value.tagline,
 })
 
-const toAboutSettings = (value: RawSiteSettings['about']): AboutSettings => ({
+const toAboutSettings = (
+  value: RawSiteSettings['about'],
+  resolveMediaUrl: MediaUrlResolver,
+): AboutSettings => ({
+  bannerFocalPoint: value.banner_focal_point ?? { x: 50, y: 50 },
+  ...(value.banner_url ? { bannerUrl: resolveMediaUrl(value.banner_url) } : {}),
   interestsHeading:
     value.interests_heading?.trim() || DEFAULT_ABOUT_INTERESTS_HEADING,
   interestsIntroduction:
@@ -742,17 +749,26 @@ const toAboutSettings = (value: RawSiteSettings['about']): AboutSettings => ({
 const toAdminSiteSettings = (
   value: RawAdminSiteSettings,
   resolveMediaUrl: MediaUrlResolver,
-): AdminSiteSettings => ({
-  ...toSiteSettings(value, resolveMediaUrl),
-  backgroundGallery: value.background_gallery.map((image) => ({
-    alt: image.alt,
-    reference: image.url,
-    url: resolveMediaUrl(image.url),
-  })),
-  createdAt: value.created_at,
-  id: String(value.id),
-  updatedAt: value.updated_at,
-})
+): AdminSiteSettings => {
+  const settings = toSiteSettings(value, resolveMediaUrl)
+  return {
+    ...settings,
+    about: {
+      ...settings.about,
+      ...(value.about.banner_url
+        ? { bannerReference: value.about.banner_url }
+        : {}),
+    },
+    backgroundGallery: value.background_gallery.map((image) => ({
+      alt: image.alt,
+      reference: image.url,
+      url: resolveMediaUrl(image.url),
+    })),
+    createdAt: value.created_at,
+    id: String(value.id),
+    updatedAt: value.updated_at,
+  }
+}
 
 const toIdentity = (value: PublicSiteSettings): SiteIdentityView => ({
   description: value.description,
@@ -766,6 +782,14 @@ const toAbout = (
   value: PublicSiteSettings,
   avatarUrl = value.avatarUrl,
 ): AboutProfile => ({
+  ...(value.about.bannerUrl
+    ? {
+        banner: {
+          focalPoint: value.about.bannerFocalPoint,
+          src: value.about.bannerUrl,
+        },
+      }
+    : {}),
   avatar: avatarUrl
     ? {
         alt: value.avatarAlt || `${value.name}头像`,

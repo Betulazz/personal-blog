@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from app.schemas.portfolio import AboutSettings, SiteSettingsUpdateRequest
 
 
@@ -20,6 +23,8 @@ def test_legacy_about_settings_receive_story_and_timeline_copy_defaults() -> Non
     assert settings.timeline_heading == "时间线"
     assert settings.timeline_introduction == "几个让我继续走下去的节点。"
     assert settings.story == ["An existing story paragraph."]
+    assert settings.banner_url is None
+    assert settings.banner_focal_point.model_dump() == {"x": 50, "y": 50}
 
 
 def test_partial_about_update_does_not_materialize_unsubmitted_sections() -> None:
@@ -52,3 +57,37 @@ def test_partial_skills_and_interests_update_does_not_materialize_other_sections
             "interests": ["徒步"],
         }
     }
+
+
+def test_about_banner_update_preserves_only_submitted_fields() -> None:
+    request = SiteSettingsUpdateRequest.model_validate(
+        {
+            "about": {
+                "banner_url": "/uploads/images/2026/09/about-banner.webp",
+                "banner_focal_point": {"x": 30, "y": 72},
+            }
+        }
+    )
+
+    assert request.model_dump(exclude_unset=True, mode="json") == {
+        "about": {
+            "banner_url": "/uploads/images/2026/09/about-banner.webp",
+            "banner_focal_point": {"x": 30, "y": 72},
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    "about",
+    [
+        {"banner_url": "https://example.test/banner.webp"},
+        {"banner_url": "/uploads/audio/banner.webp"},
+        {"banner_url": "/uploads/images/../banner.webp"},
+        {"banner_url": "/uploads/images/banner.webp?download=1"},
+        {"banner_focal_point": {"x": -1, "y": 50}},
+        {"banner_focal_point": {"x": 50, "y": 101}},
+    ],
+)
+def test_about_banner_rejects_external_or_invalid_values(about: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        SiteSettingsUpdateRequest.model_validate({"about": about})

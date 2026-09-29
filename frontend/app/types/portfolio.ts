@@ -1,5 +1,5 @@
 import type { PublicCollectionPagination } from './public-content'
-import type { SiteSocialLink } from './site'
+import type { AboutBannerFocalPoint, SiteSocialLink } from './site'
 
 export interface PortfolioMedia {
   alt: string
@@ -76,6 +76,10 @@ export interface AboutTimelineItem {
 
 export interface AboutProfile {
   avatar?: PortfolioMedia
+  banner?: {
+    focalPoint: AboutBannerFocalPoint
+    src: string
+  }
   contact: {
     email: string
     note: string

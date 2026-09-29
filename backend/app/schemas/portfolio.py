@@ -579,7 +579,16 @@ class AboutTimelineItem(BaseModel):
         return _required_text(value, "timeline field")
 
 
+class AboutBannerFocalPoint(BaseModel):
+    x: int = Field(default=50, ge=0, le=100)
+    y: int = Field(default=50, ge=0, le=100)
+
+
 class AboutSettings(BaseModel):
+    banner_url: str | None = Field(default=None, max_length=2048)
+    banner_focal_point: AboutBannerFocalPoint = Field(
+        default_factory=AboutBannerFocalPoint
+    )
     interests_heading: str = Field(default="兴趣", min_length=1, max_length=120)
     interests_introduction: str = Field(
         default="让工作之外的生活也保留一点好奇心。",
@@ -629,6 +638,28 @@ class AboutSettings(BaseModel):
     @classmethod
     def normalize_text_lists(cls, value: list[str]) -> list[str]:
         return _validate_unique_text(value, "about text")
+
+    @field_validator("banner_url")
+    @classmethod
+    def validate_banner_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        decoded = unquote(normalized)
+        path = urlsplit(normalized)
+        key = unquote(path.path.removeprefix("/uploads/"))
+        if (
+            any(character.isspace() for character in decoded)
+            or any(ord(character) < 0x20 or ord(character) == 0x7F for character in decoded)
+            or "\\" in decoded
+            or not normalized.startswith("/uploads/")
+            or path.query
+            or path.fragment
+            or not key.startswith("images/")
+            or any(part in {"", ".", ".."} for part in key.split("/"))
+        ):
+            raise ValueError("banner_url must reference an image Media Asset")
+        return normalized
 
 
 class SiteSettingsFields(BaseModel):

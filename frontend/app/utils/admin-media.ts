@@ -112,7 +112,9 @@ const referenceResourceLabels: Record<string, string> = {
 export function mediaReferenceLabel(reference: AdminMediaReference) {
   const resource =
     referenceResourceLabels[reference.resourceType] ?? reference.resourceType
-  return `${resource} #${reference.resourceId} · ${reference.field}`
+  const field =
+    reference.field === 'about.banner_url' ? '关于页面横幅' : reference.field
+  return `${resource} #${reference.resourceId} · ${field}`
 }
 
 export function isImageAsset(asset: AdminMediaAsset) {

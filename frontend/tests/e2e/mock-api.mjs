@@ -623,6 +623,18 @@ const mediaAssetResponse = (asset) => ({
   created_at: asset.createdAt,
 })
 
+const mediaReferencesForAsset = (asset) => {
+  const references = [...(asset.references ?? [])]
+  if (settings.about?.banner_url === `/uploads/${asset.key}`) {
+    references.push({
+      resource_type: 'site_settings',
+      resource_id: 1,
+      field: 'about.banner_url',
+    })
+  }
+  return references
+}
+
 const tinyWav = (() => {
   const sampleRate = 8000
   const dataSize = 800 * 2
@@ -1280,7 +1292,7 @@ const server = createServer(async (request, response) => {
       )
       return
     }
-    json(response, { data: asset.references ?? [] })
+    json(response, { data: mediaReferencesForAsset(asset) })
     return
   }
   if (path === '/admin/media' && request.method === 'GET') {
@@ -1419,14 +1431,14 @@ const server = createServer(async (request, response) => {
       return
     }
     const purge = query.purge_metadata === 'true'
-    if (asset.references?.length) {
+    if (mediaReferencesForAsset(asset).length) {
       json(
         response,
         {
           error: {
             code: 'media_asset_referenced',
             message: 'The Media Asset is still referenced by site content',
-            details: asset.references,
+            details: mediaReferencesForAsset(asset),
           },
         },
         409,
@@ -1848,6 +1860,40 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'PATCH') {
       const payload = await readJson(request)
+      if (payload.about && Object.hasOwn(payload.about, 'banner_url')) {
+        const reference = payload.about.banner_url
+        const focalPoint = payload.about.banner_focal_point
+        const malformedFocalPoint =
+          focalPoint &&
+          (!Number.isInteger(focalPoint.x) ||
+            !Number.isInteger(focalPoint.y) ||
+            focalPoint.x < 0 ||
+            focalPoint.x > 100 ||
+            focalPoint.y < 0 ||
+            focalPoint.y > 100)
+        const invalidReference =
+          reference !== null &&
+          (typeof reference !== 'string' ||
+            !reference.startsWith('/uploads/images/') ||
+            !mediaAssets.some(
+              (asset) =>
+                `/uploads/${asset.key}` === reference && asset.kind === 'image',
+            ))
+        if (invalidReference || malformedFocalPoint) {
+          json(
+            response,
+            {
+              error: {
+                code: 'about_banner_media_asset_invalid',
+                message:
+                  'About banners must reference an existing image Media Asset',
+              },
+            },
+            422,
+          )
+          return
+        }
+      }
       if (Object.hasOwn(payload, 'background_gallery')) {
         const gallery = payload.background_gallery
         const references = Array.isArray(gallery)

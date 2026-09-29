@@ -1,4 +1,5 @@
 import type {
+  AboutBannerFocalPoint,
   AboutSettings,
   AdminBackgroundGalleryImage,
   PublicSiteSettings,
@@ -121,16 +122,24 @@ export interface AdminFriendLinkCollection {
 
 export interface AdminSiteSettings extends Omit<
   PublicSiteSettings,
-  'backgroundGallery'
+  'about' | 'backgroundGallery'
 > {
+  about: AdminAboutSettings
   backgroundGallery: AdminBackgroundGalleryImage[]
   createdAt: string
   id: string
   updatedAt: string
 }
 
+export interface AdminAboutSettings extends AboutSettings {
+  bannerReference?: string
+}
+
 export interface AdminSiteSettingsInput {
-  about?: Partial<AboutSettings>
+  about?: Partial<AboutSettings> & {
+    banner_focal_point?: AboutBannerFocalPoint
+    banner_url?: string | null
+  }
   avatar_alt: string | null
   avatar_url: string | null
   background_gallery: Array<{ alt: string; url: string }>

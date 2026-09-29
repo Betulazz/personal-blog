@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowUpRight, Github, Globe2, Mail } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import type { AboutProfile } from '~/types/portfolio'
 import { getSafeExternalUrl } from '~/utils/external-links'
@@ -24,10 +24,33 @@ const status = computed(() => {
 
 const socialIcons = { code: Github, social: Globe2 } as const
 const avatarUnavailable = ref(false)
+const bannerUnavailable = ref(false)
+const bannerImage = ref<HTMLImageElement | null>(null)
 
 const markAvatarUnavailable = () => {
   avatarUnavailable.value = true
 }
+
+const markBannerUnavailable = () => {
+  bannerUnavailable.value = true
+}
+
+const detectUnavailableBanner = () => {
+  if (bannerImage.value?.complete && bannerImage.value.naturalWidth === 0) {
+    bannerUnavailable.value = true
+  }
+}
+
+watch(
+  () => props.profile?.banner?.src,
+  async () => {
+    bannerUnavailable.value = false
+    await nextTick()
+    detectUnavailableBanner()
+  },
+)
+
+onMounted(detectUnavailableBanner)
 </script>
 
 <template>
@@ -41,6 +64,17 @@ const markAvatarUnavailable = () => {
       >
         <template v-if="profile" #default>
           <header class="about-page__cover">
+            <img
+              v-if="profile.banner && !bannerUnavailable"
+              ref="bannerImage"
+              class="about-page__cover-image"
+              :src="profile.banner.src"
+              alt=""
+              :style="{
+                objectPosition: `${profile.banner.focalPoint.x}% ${profile.banner.focalPoint.y}%`,
+              }"
+              @error="markBannerUnavailable"
+            />
             <div class="about-page__cover-copy">
               <p class="about-page__eyebrow">ABOUT / A LITTLE CONTEXT</p>
               <h1>关于我</h1>
@@ -227,6 +261,7 @@ const markAvatarUnavailable = () => {
 
 .about-page__cover {
   position: relative;
+  isolation: isolate;
   display: flex;
   min-height: 18rem;
   align-items: center;
@@ -256,8 +291,35 @@ const markAvatarUnavailable = () => {
     inset 0 1px rgb(255 255 255 / 10%);
 }
 
+.about-page__cover-image {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.about-page__cover::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgb(7 13 31 / 84%) 0%,
+    rgb(7 13 31 / 60%) 46%,
+    rgb(7 13 31 / 18%) 100%
+  );
+  content: '';
+  pointer-events: none;
+}
+
 .about-page__cover::after {
   position: absolute;
+  z-index: 3;
   inset: 1rem;
   border: 1px solid rgb(219 226 255 / 10%);
   border-radius: calc(var(--radius-panel) - 0.65rem);
@@ -267,7 +329,7 @@ const markAvatarUnavailable = () => {
 
 .about-page__cover-copy {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   max-width: 38rem;
   padding-bottom: 1rem;
 }
@@ -302,6 +364,7 @@ const markAvatarUnavailable = () => {
 
 .about-page__cover-orbit {
   position: absolute;
+  z-index: 2;
   top: 2rem;
   right: clamp(4rem, 12vw, 12rem);
   width: clamp(10rem, 25vw, 20rem);
