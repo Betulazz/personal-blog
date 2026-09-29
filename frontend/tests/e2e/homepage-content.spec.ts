@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+const mockSiteAvatarUrl =
+  'http://127.0.0.1:8787/uploads/images/site-avatar.webp'
+
 const viewports = [
   { width: 375, height: 812 },
   { width: 430, height: 932 },
@@ -45,7 +48,7 @@ test('homepage aggregates distinct content domains with accessible metadata', as
   )
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
     'content',
-    'https://example.com/media/site-avatar.webp',
+    mockSiteAvatarUrl,
   )
   await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
     'content',
@@ -61,7 +64,7 @@ test('homepage aggregates distinct content domains with accessible metadata', as
   )
   await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
     'content',
-    'https://example.com/media/site-avatar.webp',
+    mockSiteAvatarUrl,
   )
   await expect(
     page.locator('meta[name="twitter:description"]'),
@@ -77,7 +80,7 @@ test('homepage aggregates distinct content domains with accessible metadata', as
   expect(ssrHtml).toContain('rel="canonical"')
   expect(ssrHtml).toContain('http://127.0.0.1:3000/')
   expect(ssrHtml).toContain(
-    'property="og:image" content="https://example.com/media/site-avatar.webp"',
+    `property="og:image" content="${mockSiteAvatarUrl}"`,
   )
   expect(ssrHtml).toContain('application/ld+json')
   const jsonLd = JSON.parse(

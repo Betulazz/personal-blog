@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
+const mockSiteAvatarUrl =
+  'http://127.0.0.1:8787/uploads/images/site-avatar.webp'
+
 const collectBrowserProblems = (page: Page) => {
   const problems: Array<{ message: string; url: string }> = []
   page.on('console', (message) => {
@@ -198,11 +201,11 @@ test.describe('Post reading experience', () => {
     await page.goto('/posts/slow-growth')
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
       'content',
-      'https://example.com/media/site-avatar.webp',
+      mockSiteAvatarUrl,
     )
     await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
       'content',
-      'https://example.com/media/site-avatar.webp',
+      mockSiteAvatarUrl,
     )
   })
 

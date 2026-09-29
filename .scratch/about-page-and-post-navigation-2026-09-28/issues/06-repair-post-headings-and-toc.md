@@ -30,3 +30,10 @@
 - Passed: `playwright-cli -s=about-banner-live goto 'http://127.0.0.1:3000/posts/testing#asdad'` and reload showed the intended `asdad` H2 with stable ID `asdad`. The hash target was visible at the top offset (desktop 95.8 CSS px; mobile 96.2 CSS px) matching its computed `scroll-margin-top: 96px`; the article had one H1 and no horizontal overflow at either viewport. `playwright-cli -s=about-banner-live console` reported 0 errors and 0 warnings.
 - Real-site screenshots, captured while the existing `#asdad` value was visible: desktop viewport/output 1440x900 at `D:\VibeCoding\evidence\post-headings-live-2026-09-29\post-headings-live-desktop-1440x900.png`; mobile viewport/output 375x812 at `D:\VibeCoding\evidence\post-headings-live-2026-09-29\post-headings-live-mobile-375x812.png`. Both files are outside the repository.
 - Real data: no backend/admin or business data was changed; no restoration was necessary. All acceptance criteria are now verified, so the ticket is resolved. Remaining risks: none identified for this ticket.
+
+### 2026-09-29 follow-up: mock avatar fallback assertion
+
+- Root cause: commit `9f9c511` changed the mock Site Identity `avatar_url` to the relative upload path `/uploads/images/site-avatar.webp`; the API client correctly resolves that path against the configured mock API origin. The old `https://example.com/media/site-avatar.webp` assertions no longer matched this fixture contract.
+- Updated the Post-reader and homepage E2E metadata assertions to expect `http://127.0.0.1:8787/uploads/images/site-avatar.webp`. No production code or real data was changed.
+- Passed: the formerly failing Post-reader fallback test (1 passed); full `post-reader.spec.ts` on Chromium (2 passed, 1 mobile-only test skipped); focused homepage metadata test (1 passed); ESLint and Prettier checks for both changed specs.
+- Separate observation: the unfiltered `homepage-content.spec.ts` run also reported a viewport-stability test failure from Nuxt runtime-config and hydration warnings. This is independent of the avatar fallback assertion and was not changed here.
