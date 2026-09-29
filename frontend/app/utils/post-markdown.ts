@@ -65,6 +65,8 @@ const collectDocumentMetadata = (tokens: Token[], env: Env) => {
     }
 
     const level = Number(token.tag.slice(1))
+    const renderLevel = Math.min(level + 1, 6)
+    const renderTag = `h${renderLevel}`
     const inline = tokens[index + 1]
     const text = inline?.type === 'inline' ? inlineText(inline.children) : ''
     const baseId = slugifyHeading(text)
@@ -73,6 +75,18 @@ const collectDocumentMetadata = (tokens: Token[], env: Env) => {
     const id = occurrence === 1 ? baseId : `${baseId}-${occurrence}`
 
     token.attrSet('id', id)
+    token.tag = renderTag
+    for (
+      let closeIndex = index + 1;
+      closeIndex < tokens.length;
+      closeIndex += 1
+    ) {
+      const closingToken = tokens[closeIndex]!
+      if (closingToken.type === 'heading_close') {
+        closingToken.tag = renderTag
+        break
+      }
+    }
     toc.push({ id, level, text })
   }
 

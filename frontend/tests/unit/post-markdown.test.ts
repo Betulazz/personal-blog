@@ -4,27 +4,52 @@ import { renderPostMarkdownDocument } from '../../app/utils/post-markdown'
 
 describe('post markdown rendering', () => {
   it('renders supported Markdown safely and builds stable heading anchors', async () => {
-    const document = await renderPostMarkdownDocument(
-      [
-        '# 中文标题',
-        '',
-        '## 重复标题',
-        '',
-        '## 重复标题',
-        '',
-        '[安全链接](https://example.com)',
-        '',
-        '<script>alert(1)</script>',
-      ].join('\n'),
-    )
+    const source = [
+      '# 中文标题',
+      '',
+      '## 重复标题',
+      '',
+      '## 重复标题',
+      '',
+      '### 第三级标题',
+      '',
+      '#### 第四级标题',
+      '',
+      '##### 第五级标题',
+      '',
+      '###### 第六级标题',
+      '',
+      '## asdad',
+      '',
+      '## asdad',
+      '',
+      '[安全链接](https://example.com)',
+      '',
+      '<script>alert(1)</script>',
+    ].join('\n')
+    const document = await renderPostMarkdownDocument(source)
 
     expect(document.toc).toEqual([
       { id: '中文标题', level: 1, text: '中文标题' },
       { id: '重复标题', level: 2, text: '重复标题' },
       { id: '重复标题-2', level: 2, text: '重复标题' },
+      { id: '第三级标题', level: 3, text: '第三级标题' },
+      { id: '第四级标题', level: 4, text: '第四级标题' },
+      { id: '第五级标题', level: 5, text: '第五级标题' },
+      { id: '第六级标题', level: 6, text: '第六级标题' },
+      { id: 'asdad', level: 2, text: 'asdad' },
+      { id: 'asdad-2', level: 2, text: 'asdad' },
     ])
-    expect(document.html).toContain('<h1 id="中文标题">中文标题</h1>')
-    expect(document.html).toContain('<h2 id="重复标题-2">重复标题</h2>')
+    expect(document.html).toContain('<h2 id="中文标题">中文标题</h2>')
+    expect(document.html).toContain('<h3 id="重复标题-2">重复标题</h3>')
+    expect(document.html).toContain('<h4 id="第三级标题">第三级标题</h4>')
+    expect(document.html).toContain('<h5 id="第四级标题">第四级标题</h5>')
+    expect(document.html).toContain('<h6 id="第五级标题">第五级标题</h6>')
+    expect(document.html).toContain('<h6 id="第六级标题">第六级标题</h6>')
+    expect(document.html).toContain('<h3 id="asdad">asdad</h3>')
+    expect(document.html).toContain('<h3 id="asdad-2">asdad</h3>')
+    expect(document.html).not.toContain('<h1')
+    expect(source).toContain('# 中文标题')
     expect(document.html).toContain('target="_blank"')
     expect(document.html).toContain('rel="noopener noreferrer"')
     expect(document.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')

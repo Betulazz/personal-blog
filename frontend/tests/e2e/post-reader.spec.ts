@@ -23,6 +23,19 @@ const unexpectedBrowserProblems = (
     ({ url }) => !url.includes('/media/missing-markdown-image.webp'),
   )
 
+const expectAsdadFragmentAtReadableOffset = async (page: Page) => {
+  const heading = page.locator('#asdad')
+  await expect(heading).toBeInViewport()
+  await expect
+    .poll(async () => {
+      const top = await heading.evaluate(
+        (element) => element.getBoundingClientRect().top,
+      )
+      return top >= 64 && top < 200
+    })
+    .toBe(true)
+}
+
 test.describe('Post reading experience', () => {
   test('renders the technical Markdown reading surface on desktop', async ({
     page,
@@ -82,6 +95,35 @@ test.describe('Post reading experience', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'Markdown 是一条可迁移的路',
     )
+    await expect(page.locator('h1')).toHaveCount(1)
+    await expect(page.locator('.post-detail-page__body h1')).toHaveCount(0)
+    await expect(page.locator('.post-detail-page__body h2')).toContainText(
+      'Markdown 一级标题',
+    )
+    await expect(page.locator('.post-detail-page__body h3')).toContainText([
+      '一种更长寿的写作格式',
+      'asdad',
+      '重复目录',
+      '重复目录',
+    ])
+    await expect(
+      page.getByRole('heading', { level: 4, name: '第三级目录' }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 5, name: '第四级目录' }),
+    ).toBeVisible()
+    await expect(page.locator('.post-detail-page__body h6')).toContainText([
+      '第五级目录',
+      '第六级目录',
+    ])
+    await expect(
+      page.locator('.post-detail-page__toc--desktop li[data-level="1"]'),
+    ).toContainText('Markdown 一级标题')
+    await expect(
+      page
+        .locator('.post-detail-page__toc--desktop li[data-level="2"]')
+        .filter({ hasText: '一种更长寿的写作格式' }),
+    ).toHaveCount(1)
     await expect(
       page.getByRole('heading', { name: '一种更长寿的写作格式' }),
     ).toBeVisible()
@@ -102,8 +144,23 @@ test.describe('Post reading experience', () => {
     const tocLink = page
       .getByRole('complementary', { name: '文章目录' })
       .getByRole('link', { name: '一种更长寿的写作格式' })
-    await tocLink.click()
+    await tocLink.focus()
+    await expect(tocLink).toBeFocused()
+    await page.keyboard.press('Enter')
     expect(page.url()).toContain(encodeURIComponent('一种更长寿的写作格式'))
+
+    await page.goto('/posts/markdown-first#asdad')
+    await expectAsdadFragmentAtReadableOffset(page)
+    await expect(page).toHaveURL(/#asdad$/)
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true)
+    await page.screenshot({
+      path: testInfo.outputPath('post-headings-desktop.png'),
+      fullPage: true,
+    })
 
     await page.evaluate(() => {
       document.documentElement.style.scrollBehavior = 'auto'
@@ -177,12 +234,29 @@ test.describe('Post reading experience', () => {
     await page.getByRole('button', { name: '打开文章目录' }).click()
     const sheet = page.getByRole('dialog', { name: '文章目录' })
     await expect(sheet).toBeVisible()
+    await expect(sheet.locator('li[data-level="6"] a').last()).toHaveText(
+      '第六级目录',
+    )
     await expect(
       sheet.getByRole('link', { name: '一种更长寿的写作格式' }),
     ).toBeVisible()
+    await sheet.locator('li[data-level="6"]').last().scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: testInfo.outputPath('post-headings-mobile-toc.png'),
+    })
     await sheet.getByRole('link', { name: '一种更长寿的写作格式' }).click()
     await expect(sheet).toBeHidden()
     expect(page.url()).toContain(encodeURIComponent('一种更长寿的写作格式'))
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true)
+    await page.goto('/posts/markdown-first#asdad')
+    await expectAsdadFragmentAtReadableOffset(page)
+    await page.screenshot({
+      path: testInfo.outputPath('post-headings-mobile-fragment.png'),
+    })
 
     expect(unexpectedBrowserProblems(problems)).toEqual([])
   })
