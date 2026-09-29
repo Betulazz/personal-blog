@@ -116,6 +116,15 @@ test('renders the profile, music and lyrics at every established viewport', asyn
     }),
   ).toBeVisible()
   await expect(page.getByRole('link', { name: '开始阅读' })).toBeVisible()
+  const hero = page.locator('.hero')
+  const featuredArticle = hero.locator('.hero__feature')
+  await expect(hero.locator('img')).toHaveCount(0)
+  await expect(
+    featuredArticle.getByRole('link', { name: '阅读这篇' }),
+  ).toHaveAttribute('href', /^\/posts\//)
+  expect(await page.locator('.home-post-card h3').allTextContents()).toContain(
+    await featuredArticle.getByRole('heading', { level: 2 }).innerText(),
+  )
   await expect(
     page
       .getByRole('navigation', { name: '主导航' })
