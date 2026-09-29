@@ -37,3 +37,11 @@
 - Updated the Post-reader and homepage E2E metadata assertions to expect `http://127.0.0.1:8787/uploads/images/site-avatar.webp`. No production code or real data was changed.
 - Passed: the formerly failing Post-reader fallback test (1 passed); full `post-reader.spec.ts` on Chromium (2 passed, 1 mobile-only test skipped); focused homepage metadata test (1 passed); ESLint and Prettier checks for both changed specs.
 - Separate observation: the unfiltered `homepage-content.spec.ts` run also reported a viewport-stability test failure from Nuxt runtime-config and hydration warnings. This is independent of the avatar fallback assertion and was not changed here.
+
+### 2026-09-29 follow-up: screenshot-time hydration warnings
+
+- Root cause: Playwright's default screenshot caret hiding injected `caret-color: transparent !important` into the homepage music progress input while Nuxt hydration was still pending. A later viewport iteration then observed a style mismatch and emitted a Vue hydration warning together with `NUXT_E1003`.
+- Set `caret: 'initial'` on both screenshots in the viewport-stability loop so screenshots do not mutate the live page while hydration is pending. No application code or real data changed.
+- Passed: full `homepage-content.spec.ts` on desktop Chromium (2 passed) and mobile Chromium (2 passed); each includes the six-viewport stability check, whose page console/pageerror assertion is empty. ESLint and Prettier checks for the changed spec passed. Two mobile startup attempts initially timed out at the configured mock WebServer, but the subsequent full mobile run started and passed.
+- The Playwright/Node process still prints `NO_COLOR`/`FORCE_COLOR` environment precedence notices; these are runner-level output and are not browser console warnings or application warnings.
+- Environment/data: checks use the mock site and mock API configured at ports 3103 and 8787. This is a test-only change; no real site/API or business data was accessed or modified in this follow-up.

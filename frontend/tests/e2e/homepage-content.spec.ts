@@ -157,11 +157,13 @@ test('homepage remains stable and inside every required CSS viewport', async ({
       path: `test-results/homepage/${testInfo.project.name}-viewport-${viewport.width}.png`,
       fullPage: false,
       scale: 'css',
+      caret: 'initial',
     })
     await page.screenshot({
       path: `test-results/homepage/${testInfo.project.name}-full-page-${viewport.width}.png`,
       fullPage: true,
       scale: 'css',
+      caret: 'initial',
     })
   }
 
