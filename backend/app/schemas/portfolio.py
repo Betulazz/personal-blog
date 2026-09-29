@@ -580,7 +580,17 @@ class AboutTimelineItem(BaseModel):
 
 
 class AboutSettings(BaseModel):
+    interests_heading: str = Field(default="兴趣", min_length=1, max_length=120)
+    interests_introduction: str = Field(
+        default="让工作之外的生活也保留一点好奇心。",
+        max_length=2000,
+    )
     interests: list[str] = Field(default_factory=list, max_length=30)
+    skills_heading: str = Field(default="技能", min_length=1, max_length=120)
+    skills_introduction: str = Field(
+        default="在实践中持续打磨的工具与方法。",
+        max_length=2000,
+    )
     skills: list[AboutSkillGroup] = Field(default_factory=list, max_length=20)
     story_heading: str = Field(default="我为什么写这里", min_length=1, max_length=120)
     story_introduction: str = Field(
@@ -595,12 +605,22 @@ class AboutSettings(BaseModel):
     )
     timeline: list[AboutTimelineItem] = Field(default_factory=list, max_length=20)
 
-    @field_validator("story_heading", "timeline_heading")
+    @field_validator(
+        "interests_heading",
+        "skills_heading",
+        "story_heading",
+        "timeline_heading",
+    )
     @classmethod
     def normalize_section_heading(cls, value: str) -> str:
         return _required_text(value, "About section heading")
 
-    @field_validator("story_introduction", "timeline_introduction")
+    @field_validator(
+        "interests_introduction",
+        "skills_introduction",
+        "story_introduction",
+        "timeline_introduction",
+    )
     @classmethod
     def normalize_section_introduction(cls, value: str) -> str:
         return value.strip()

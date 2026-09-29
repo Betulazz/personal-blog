@@ -81,6 +81,10 @@ import type {
   SiteIdentityView,
 } from '~/types/site'
 import {
+  DEFAULT_ABOUT_INTERESTS_HEADING,
+  DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
+  DEFAULT_ABOUT_SKILLS_HEADING,
+  DEFAULT_ABOUT_SKILLS_INTRODUCTION,
   DEFAULT_ABOUT_STORY_HEADING,
   DEFAULT_ABOUT_STORY_INTRODUCTION,
   DEFAULT_ABOUT_TIMELINE_HEADING,
@@ -209,7 +213,11 @@ interface RawAdminFriend extends RawFriend {
 
 interface RawSiteSettings {
   about: {
+    interests_heading?: string
+    interests_introduction?: string
     interests: string[]
+    skills_heading?: string
+    skills_introduction?: string
     skills: AboutSkillGroup[]
     story_heading?: string
     story_introduction?: string
@@ -711,7 +719,14 @@ const toSiteSettings = (
 })
 
 const toAboutSettings = (value: RawSiteSettings['about']): AboutSettings => ({
+  interestsHeading:
+    value.interests_heading?.trim() || DEFAULT_ABOUT_INTERESTS_HEADING,
+  interestsIntroduction:
+    value.interests_introduction ?? DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
   interests: value.interests ?? [],
+  skillsHeading: value.skills_heading?.trim() || DEFAULT_ABOUT_SKILLS_HEADING,
+  skillsIntroduction:
+    value.skills_introduction ?? DEFAULT_ABOUT_SKILLS_INTRODUCTION,
   skills: value.skills ?? [],
   storyHeading: value.story_heading?.trim() || DEFAULT_ABOUT_STORY_HEADING,
   storyIntroduction:
@@ -760,9 +775,13 @@ const toAbout = (
       }
     : undefined,
   contact: value.contact,
+  interestsHeading: value.about.interestsHeading,
+  interestsIntroduction: value.about.interestsIntroduction,
   interests: value.about.interests,
   name: value.name,
   profile: value.profile || value.description,
+  skillsHeading: value.about.skillsHeading,
+  skillsIntroduction: value.about.skillsIntroduction,
   skills: value.about.skills,
   socialLinks: value.socialLinks,
   storyHeading: value.about.storyHeading,

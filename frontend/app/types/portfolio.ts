@@ -80,9 +80,13 @@ export interface AboutProfile {
     email: string
     note: string
   }
+  interestsHeading: string
+  interestsIntroduction: string
   interests: string[]
   name: string
   profile: string
+  skillsHeading: string
+  skillsIntroduction: string
   skills: AboutSkillGroup[]
   socialLinks: SiteSocialLink[]
   storyHeading: string

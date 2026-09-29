@@ -2,8 +2,12 @@
 import { BlogApiError, useApiClient } from '~/api/client'
 import { useAdminSession } from '~/stores/adminSession'
 import type { AdminSiteSettings } from '~/types/admin-portfolio'
-import type { AboutTimelineItem } from '~/types/site'
+import type { AboutSkillGroup, AboutTimelineItem } from '~/types/site'
 import {
+  DEFAULT_ABOUT_INTERESTS_HEADING,
+  DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
+  DEFAULT_ABOUT_SKILLS_HEADING,
+  DEFAULT_ABOUT_SKILLS_INTRODUCTION,
   DEFAULT_ABOUT_STORY_HEADING,
   DEFAULT_ABOUT_STORY_INTRODUCTION,
   DEFAULT_ABOUT_TIMELINE_HEADING,
@@ -11,6 +15,12 @@ import {
 } from '~/utils/about-content'
 
 interface AboutPageForm {
+  interestsHeading: string
+  interestsIntroduction: string
+  interests: string[]
+  skillsHeading: string
+  skillsIntroduction: string
+  skills: AboutSkillGroup[]
   storyHeading: string
   storyIntroduction: string
   storyParagraphs: string[]
@@ -22,6 +32,12 @@ interface AboutPageForm {
 type ValidationErrors = Record<string, string>
 
 const emptyForm = (): AboutPageForm => ({
+  interestsHeading: DEFAULT_ABOUT_INTERESTS_HEADING,
+  interestsIntroduction: DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
+  interests: [],
+  skillsHeading: DEFAULT_ABOUT_SKILLS_HEADING,
+  skillsIntroduction: DEFAULT_ABOUT_SKILLS_INTRODUCTION,
+  skills: [],
   storyHeading: DEFAULT_ABOUT_STORY_HEADING,
   storyIntroduction: DEFAULT_ABOUT_STORY_INTRODUCTION,
   storyParagraphs: [],
@@ -31,6 +47,18 @@ const emptyForm = (): AboutPageForm => ({
 })
 
 const toForm = (settings: AdminSiteSettings['about']): AboutPageForm => ({
+  interestsHeading:
+    settings.interestsHeading || DEFAULT_ABOUT_INTERESTS_HEADING,
+  interestsIntroduction:
+    settings.interestsIntroduction ?? DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
+  interests: [...settings.interests],
+  skillsHeading: settings.skillsHeading || DEFAULT_ABOUT_SKILLS_HEADING,
+  skillsIntroduction:
+    settings.skillsIntroduction ?? DEFAULT_ABOUT_SKILLS_INTRODUCTION,
+  skills: settings.skills.map((group) => ({
+    items: [...group.items],
+    name: group.name,
+  })),
   storyHeading: settings.storyHeading || DEFAULT_ABOUT_STORY_HEADING,
   storyIntroduction:
     settings.storyIntroduction ?? DEFAULT_ABOUT_STORY_INTRODUCTION,
@@ -126,6 +154,70 @@ const validate = () => {
       next[`timeline-${index}-description`] = '请填写节点说明。'
     }
   })
+  if (!form.value.skillsHeading.trim()) {
+    next.skillsHeading = '请填写技能板块标题。'
+  }
+  if (form.value.skillsHeading.length > 120) {
+    next.skillsHeading = '标题不能超过 120 个字符。'
+  }
+  if (form.value.skillsIntroduction.length > 2000) {
+    next.skillsIntroduction = '导语不能超过 2000 个字符。'
+  }
+  if (form.value.skills.length > 20) {
+    next.skills = '技能组最多可添加 20 组。'
+  }
+  const skillGroupNames = new Set<string>()
+  form.value.skills.forEach((group, groupIndex) => {
+    const normalizedName = group.name.trim()
+    if (!normalizedName) {
+      next['skill-' + groupIndex + '-name'] = '请填写技能组名称。'
+    }
+    if (normalizedName.length > 120) {
+      next['skill-' + groupIndex + '-name'] = '技能组名称不能超过 120 个字符。'
+    }
+    if (normalizedName && skillGroupNames.has(normalizedName)) {
+      next.skills = '技能组名称不能重复。'
+    }
+    if (normalizedName) skillGroupNames.add(normalizedName)
+    if (group.items.length > 30) {
+      next['skill-' + groupIndex + '-items'] = '每个技能组最多可添加 30 项。'
+    }
+    const skillItems = new Set<string>()
+    group.items.forEach((item, itemIndex) => {
+      const normalizedItem = item.trim()
+      if (!normalizedItem) {
+        next['skill-' + groupIndex + '-item-' + itemIndex] =
+          '请填写技能，或移除空项。'
+      }
+      if (normalizedItem && skillItems.has(normalizedItem)) {
+        next['skill-' + groupIndex + '-items'] = '同一技能组内的技能不能重复。'
+      }
+      if (normalizedItem) skillItems.add(normalizedItem)
+    })
+  })
+  if (!form.value.interestsHeading.trim()) {
+    next.interestsHeading = '请填写兴趣板块标题。'
+  }
+  if (form.value.interestsHeading.length > 120) {
+    next.interestsHeading = '标题不能超过 120 个字符。'
+  }
+  if (form.value.interestsIntroduction.length > 2000) {
+    next.interestsIntroduction = '导语不能超过 2000 个字符。'
+  }
+  if (form.value.interests.length > 30) {
+    next.interests = '兴趣最多可添加 30 项。'
+  }
+  const interests = new Set<string>()
+  form.value.interests.forEach((interest, index) => {
+    const normalizedInterest = interest.trim()
+    if (!normalizedInterest) {
+      next['interest-' + index] = '请填写兴趣，或移除空项。'
+    }
+    if (normalizedInterest && interests.has(normalizedInterest)) {
+      next.interests = '兴趣条目不能重复。'
+    }
+    if (normalizedInterest) interests.add(normalizedInterest)
+  })
   validation.value = next
   return Object.keys(next).length === 0
 }
@@ -143,6 +235,15 @@ const save = async () => {
   const submittedDraft = JSON.stringify(toRaw(form.value))
   const input = {
     about: {
+      interests_heading: form.value.interestsHeading.trim(),
+      interests_introduction: form.value.interestsIntroduction.trim(),
+      interests: form.value.interests.map((interest) => interest.trim()),
+      skills_heading: form.value.skillsHeading.trim(),
+      skills_introduction: form.value.skillsIntroduction.trim(),
+      skills: form.value.skills.map((group) => ({
+        name: group.name.trim(),
+        items: group.items.map((item) => item.trim()),
+      })),
       story_heading: form.value.storyHeading.trim(),
       story_introduction: form.value.storyIntroduction.trim(),
       story: form.value.storyParagraphs.map((paragraph) => paragraph.trim()),
@@ -188,6 +289,30 @@ const addTimelineItem = () => {
 
 const removeTimelineItem = (index: number) =>
   form.value.timeline.splice(index, 1)
+
+const addSkillGroup = () => {
+  if (form.value.skills.length >= 20) return
+  form.value.skills.push({ items: [], name: '' })
+}
+
+const removeSkillGroup = (index: number) => form.value.skills.splice(index, 1)
+
+const addSkillItem = (groupIndex: number) => {
+  const group = form.value.skills[groupIndex]
+  if (!group || group.items.length >= 30) return
+  group.items.push('')
+}
+
+const removeSkillItem = (groupIndex: number, itemIndex: number) => {
+  form.value.skills[groupIndex]?.items.splice(itemIndex, 1)
+}
+
+const addInterest = () => {
+  if (form.value.interests.length >= 30) return
+  form.value.interests.push('')
+}
+
+const removeInterest = (index: number) => form.value.interests.splice(index, 1)
 
 const move = <T,>(items: T[], index: number, offset: -1 | 1) => {
   const nextIndex = index + offset
@@ -245,7 +370,9 @@ function isAbortError(failure: unknown) {
       <div>
         <p class="admin-resource-heading__eyebrow">About Page Content</p>
         <h1>关于页面</h1>
-        <p>维护公开 About 页面中的故事与时间线。内容按纯文本展示。</p>
+        <p>
+          维护公开 About 页面中的故事、时间线、技能与兴趣。内容按纯文本展示。
+        </p>
       </div>
     </header>
 
@@ -462,6 +589,247 @@ function isAbortError(failure: unknown) {
         </UiButton>
       </UiGlassPanel>
 
+      <UiGlassPanel class="admin-about-section" padding="spacious">
+        <div class="admin-form-section-heading">
+          <div>
+            <p class="admin-form-eyebrow">03 / OFF THE SCREEN</p>
+            <h2>兴趣</h2>
+          </div>
+          <span class="admin-form-muted"
+            >{{ form.interests.length }} / 30 项</span
+          >
+        </div>
+        <UiInput
+          v-model="form.interestsHeading"
+          label="兴趣板块标题"
+          maxlength="120"
+          required
+          :error="validation.interestsHeading"
+        />
+        <UiTextarea
+          v-model="form.interestsIntroduction"
+          label="兴趣板块导语"
+          :rows="3"
+          maxlength="2000"
+          :error="validation.interestsIntroduction"
+        />
+        <p
+          v-if="validation.interests"
+          class="admin-about-field-error"
+          role="alert"
+        >
+          {{ validation.interests }}
+        </p>
+        <ol class="admin-about-list" aria-label="兴趣顺序">
+          <li v-for="(interest, index) in form.interests" :key="index">
+            <UiInput
+              v-model="form.interests[index]!"
+              :label="'兴趣 ' + (index + 1)"
+              :error="validation['interest-' + index]"
+            />
+            <div class="admin-about-item-actions">
+              <UiButton
+                type="button"
+                size="small"
+                variant="secondary"
+                :disabled="index === 0"
+                :aria-label="'兴趣 ' + (index + 1) + ' 上移'"
+                @click="move(form.interests, index, -1)"
+              >
+                上移
+              </UiButton>
+              <UiButton
+                type="button"
+                size="small"
+                variant="secondary"
+                :disabled="index === form.interests.length - 1"
+                :aria-label="'兴趣 ' + (index + 1) + ' 下移'"
+                @click="move(form.interests, index, 1)"
+              >
+                下移
+              </UiButton>
+              <UiButton
+                type="button"
+                size="small"
+                variant="ghost"
+                :aria-label="'移除兴趣 ' + (index + 1)"
+                @click="removeInterest(index)"
+              >
+                移除
+              </UiButton>
+            </div>
+          </li>
+        </ol>
+        <UiButton
+          type="button"
+          variant="secondary"
+          :disabled="form.interests.length >= 30"
+          @click="addInterest"
+        >
+          添加兴趣
+        </UiButton>
+      </UiGlassPanel>
+
+      <UiGlassPanel class="admin-about-section" padding="spacious">
+        <div class="admin-form-section-heading">
+          <div>
+            <p class="admin-form-eyebrow">04 / PRACTICE & TOOLS</p>
+            <h2>技能</h2>
+          </div>
+          <span class="admin-form-muted">{{ form.skills.length }} / 20 组</span>
+        </div>
+        <UiInput
+          v-model="form.skillsHeading"
+          label="技能板块标题"
+          maxlength="120"
+          required
+          :error="validation.skillsHeading"
+        />
+        <UiTextarea
+          v-model="form.skillsIntroduction"
+          label="技能板块导语"
+          :rows="3"
+          maxlength="2000"
+          :error="validation.skillsIntroduction"
+        />
+        <p
+          v-if="validation.skills"
+          class="admin-about-field-error"
+          role="alert"
+        >
+          {{ validation.skills }}
+        </p>
+        <ol class="admin-about-list" aria-label="技能组顺序">
+          <li v-for="(group, groupIndex) in form.skills" :key="groupIndex">
+            <UiInput
+              v-model="group.name"
+              :label="'技能组 ' + (groupIndex + 1) + ' 的名称'"
+              maxlength="120"
+              required
+              :error="validation['skill-' + groupIndex + '-name']"
+            />
+            <p
+              v-if="validation['skill-' + groupIndex + '-items']"
+              class="admin-about-field-error"
+              role="alert"
+            >
+              {{ validation['skill-' + groupIndex + '-items'] }}
+            </p>
+            <ol
+              class="admin-about-skill-items"
+              :aria-label="'技能组 ' + (groupIndex + 1) + ' 的技能顺序'"
+            >
+              <li v-for="(item, itemIndex) in group.items" :key="itemIndex">
+                <UiInput
+                  v-model="group.items[itemIndex]!"
+                  :label="
+                    '技能组 ' + (groupIndex + 1) + ' 的技能 ' + (itemIndex + 1)
+                  "
+                  :error="
+                    validation['skill-' + groupIndex + '-item-' + itemIndex]
+                  "
+                />
+                <div class="admin-about-item-actions">
+                  <UiButton
+                    type="button"
+                    size="small"
+                    variant="secondary"
+                    :disabled="itemIndex === 0"
+                    :aria-label="
+                      '技能组 ' +
+                      (groupIndex + 1) +
+                      ' 的技能 ' +
+                      (itemIndex + 1) +
+                      ' 上移'
+                    "
+                    @click="move(group.items, itemIndex, -1)"
+                  >
+                    上移
+                  </UiButton>
+                  <UiButton
+                    type="button"
+                    size="small"
+                    variant="secondary"
+                    :disabled="itemIndex === group.items.length - 1"
+                    :aria-label="
+                      '技能组 ' +
+                      (groupIndex + 1) +
+                      ' 的技能 ' +
+                      (itemIndex + 1) +
+                      ' 下移'
+                    "
+                    @click="move(group.items, itemIndex, 1)"
+                  >
+                    下移
+                  </UiButton>
+                  <UiButton
+                    type="button"
+                    size="small"
+                    variant="ghost"
+                    :aria-label="
+                      '移除技能组 ' +
+                      (groupIndex + 1) +
+                      ' 的技能 ' +
+                      (itemIndex + 1)
+                    "
+                    @click="removeSkillItem(groupIndex, itemIndex)"
+                  >
+                    移除
+                  </UiButton>
+                </div>
+              </li>
+            </ol>
+            <UiButton
+              type="button"
+              variant="secondary"
+              :disabled="group.items.length >= 30"
+              @click="addSkillItem(groupIndex)"
+            >
+              添加技能
+            </UiButton>
+            <div class="admin-about-item-actions">
+              <UiButton
+                type="button"
+                size="small"
+                variant="secondary"
+                :disabled="groupIndex === 0"
+                :aria-label="'技能组 ' + (groupIndex + 1) + ' 上移'"
+                @click="move(form.skills, groupIndex, -1)"
+              >
+                上移
+              </UiButton>
+              <UiButton
+                type="button"
+                size="small"
+                variant="secondary"
+                :disabled="groupIndex === form.skills.length - 1"
+                :aria-label="'技能组 ' + (groupIndex + 1) + ' 下移'"
+                @click="move(form.skills, groupIndex, 1)"
+              >
+                下移
+              </UiButton>
+              <UiButton
+                type="button"
+                size="small"
+                variant="ghost"
+                :aria-label="'移除技能组 ' + (groupIndex + 1)"
+                @click="removeSkillGroup(groupIndex)"
+              >
+                移除技能组
+              </UiButton>
+            </div>
+          </li>
+        </ol>
+        <UiButton
+          type="button"
+          variant="secondary"
+          :disabled="form.skills.length >= 20"
+          @click="addSkillGroup"
+        >
+          添加技能组
+        </UiButton>
+      </UiGlassPanel>
+
       <div class="admin-about-submit">
         <p>
           姓名、头像、联系方式和社交链接继续在
@@ -520,6 +888,14 @@ function isAbortError(failure: unknown) {
   display: grid;
   grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
   gap: var(--space-4);
+}
+
+.admin-about-skill-items {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .admin-about-item-actions {

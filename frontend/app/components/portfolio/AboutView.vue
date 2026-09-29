@@ -97,7 +97,13 @@ const markAvatarUnavailable = () => {
                 padding="default"
                 aria-labelledby="about-skills-title"
               >
-                <h2 id="about-skills-title">技能</h2>
+                <h2 id="about-skills-title">{{ profile.skillsHeading }}</h2>
+                <p
+                  v-if="profile.skillsIntroduction"
+                  class="about-page__skills-intro"
+                >
+                  {{ profile.skillsIntroduction }}
+                </p>
                 <div class="about-page__skill-groups">
                   <div v-for="group in profile.skills" :key="group.name">
                     <h3>{{ group.name }}</h3>
@@ -153,9 +159,14 @@ const markAvatarUnavailable = () => {
 
               <section aria-labelledby="about-interests-title">
                 <p class="about-page__section-label">03 / OFF THE SCREEN</p>
-                <h2 id="about-interests-title">兴趣</h2>
-                <p class="about-page__section-intro">
-                  让工作之外的生活也保留一点好奇心。
+                <h2 id="about-interests-title">
+                  {{ profile.interestsHeading }}
+                </h2>
+                <p
+                  v-if="profile.interestsIntroduction"
+                  class="about-page__section-intro"
+                >
+                  {{ profile.interestsIntroduction }}
                 </p>
                 <ul class="about-page__interests">
                   <li v-for="interest in profile.interests" :key="interest">
@@ -415,6 +426,13 @@ const markAvatarUnavailable = () => {
   display: grid;
   gap: var(--space-5);
   margin-top: var(--space-5);
+}
+
+.about-page__skills-intro {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  line-height: var(--leading-body);
 }
 
 .about-page__skill-groups h3 {

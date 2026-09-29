@@ -6,6 +6,201 @@ test.beforeEach(async ({ page }) => {
   await page.request.get(`${control}/reset`)
 })
 
+test('administrator edits and reorders About skills and interests', async ({
+  page,
+}) => {
+  await page.goto('/about')
+  await expect(page.locator('#about-skills-title')).toHaveText('技能')
+  await expect(page.locator('#about-interests-title')).toHaveText('兴趣')
+
+  await login(page)
+  await openAbout(page)
+  await expect(page.getByLabel('技能板块标题')).toHaveValue('技能')
+  await expect(page.getByLabel('技能板块导语')).toHaveValue(
+    '在实践中持续打磨的工具与方法。',
+  )
+  await expect(page.getByLabel('兴趣板块标题')).toHaveValue('兴趣')
+  await expect(page.getByLabel('兴趣板块导语')).toHaveValue(
+    '让工作之外的生活也保留一点好奇心。',
+  )
+
+  await page.getByLabel('技能板块标题').fill('实践与工具')
+  await page.getByLabel('技能板块导语').fill('在真实项目里反复打磨。')
+  await page.getByLabel('兴趣板块标题').fill('最近在意')
+  await page.getByLabel('兴趣板块导语').fill('工作之外也保持好奇。')
+
+  await page.getByLabel('技能组 1 的名称').fill('界面与体验')
+  await page.getByRole('textbox', { name: '技能组 1 的技能 1' }).fill('Vue 3')
+  await page.getByRole('button', { name: '添加技能组' }).click()
+  await page.getByLabel('技能组 3 的名称').fill('架构实践')
+  await page.getByRole('button', { name: '添加技能' }).nth(2).click()
+  await page.getByRole('textbox', { name: '技能组 3 的技能 1' }).fill('Rust')
+  await page.getByRole('button', { name: '添加技能' }).nth(2).click()
+  await page.getByRole('textbox', { name: '技能组 3 的技能 2' }).fill('Go')
+  await page.getByRole('button', { name: '技能组 3 的技能 2 上移' }).click()
+  await expect(
+    page.getByRole('textbox', { name: '技能组 3 的技能 1' }),
+  ).toHaveValue('Go')
+  await expect(
+    page.getByRole('textbox', { name: '技能组 3 的技能 2' }),
+  ).toHaveValue('Rust')
+  await page.getByRole('button', { name: '移除技能组 3 的技能 2' }).click()
+  await expect(
+    page.getByRole('textbox', { name: '技能组 3 的技能 1' }),
+  ).toHaveValue('Go')
+  await page.getByRole('button', { name: '技能组 3 上移' }).click()
+  await expect(page.getByLabel('技能组 2 的名称')).toHaveValue('架构实践')
+  await page.getByLabel('技能组 2 的名称').fill('工程实践')
+
+  await page.getByRole('textbox', { name: '兴趣 1' }).fill('软件设计')
+  await page.getByRole('button', { name: '添加兴趣' }).click()
+  await page.getByRole('textbox', { name: '兴趣 4' }).fill('徒步')
+  await page.getByRole('button', { name: '兴趣 4 上移' }).click()
+  await page.getByRole('button', { name: '移除兴趣 2' }).click()
+  await expect(page.getByRole('textbox', { name: '兴趣 1' })).toHaveValue(
+    '软件设计',
+  )
+  await expect(page.getByRole('textbox', { name: '兴趣 2' })).toHaveValue(
+    '徒步',
+  )
+  await expect(page.getByRole('textbox', { name: '兴趣 3' })).toHaveValue(
+    '环境音乐',
+  )
+
+  await page.getByRole('button', { name: '保存关于页面' }).click()
+  await expect(page.locator('.admin-about-feedback--success')).toContainText(
+    '关于页面内容已保存',
+  )
+  await page.reload()
+  await expect(page.getByLabel('技能板块标题')).toHaveValue('实践与工具')
+  await expect(page.getByLabel('技能组 1 的名称')).toHaveValue('界面与体验')
+  await expect(page.getByLabel('技能组 2 的名称')).toHaveValue('工程实践')
+  await expect(
+    page.getByRole('textbox', { name: '技能组 2 的技能 1' }),
+  ).toHaveValue('Go')
+  await expect(page.getByRole('textbox', { name: '兴趣 1' })).toHaveValue(
+    '软件设计',
+  )
+  await expect(page.getByRole('textbox', { name: '兴趣 2' })).toHaveValue(
+    '徒步',
+  )
+
+  await page.goto('/about')
+  await expect(page.locator('#about-skills-title')).toHaveText('实践与工具')
+  await expect(page.locator('.about-page__skills-intro')).toHaveText(
+    '在真实项目里反复打磨。',
+  )
+  await expect(page.locator('.about-page__skill-groups h3')).toHaveText([
+    '界面与体验',
+    '工程实践',
+    '服务与数据',
+  ])
+  await expect(page.locator('.about-page__skill-groups li')).toHaveText([
+    'Vue 3',
+    'TypeScript',
+    'Go',
+    'FastAPI',
+    'MySQL',
+  ])
+  await expect(page.locator('#about-interests-title')).toHaveText('最近在意')
+  await expect(
+    page.locator(
+      'section[aria-labelledby="about-interests-title"] .about-page__section-intro',
+    ),
+  ).toHaveText('工作之外也保持好奇。')
+  await expect(page.locator('.about-page__interests li')).toHaveText([
+    '软件设计',
+    '徒步',
+    '环境音乐',
+  ])
+  await expect(page.locator('.about-page__story p')).toHaveText([
+    '这段内容来自可配置的 About Site Identity。',
+    '它与公开站点设置一起服务，而不是来自静态前端数据。',
+  ])
+  await expect(
+    page.locator('aside.about-page__rail #about-skills-title'),
+  ).toBeVisible()
+  await expect(
+    page.locator('.about-page__main #about-interests-title'),
+  ).toBeVisible()
+
+  await page.setViewportSize({ width: 430, height: 932 })
+  await expect(page.locator('#about-skills-title')).toHaveText('实践与工具')
+  await expect(page.locator('#about-interests-title')).toHaveText('最近在意')
+  const dimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }))
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
+})
+
+test('invalid skills and interests and failed saves preserve drafts', async ({
+  page,
+}) => {
+  await login(page)
+  await openAbout(page)
+  await page.getByLabel('技能板块标题').fill('保留技能草稿')
+  await page.getByLabel('兴趣板块标题').fill('保留兴趣草稿')
+  await page.getByRole('button', { name: '添加兴趣' }).click()
+  await page.getByRole('button', { name: '保存关于页面' }).click()
+  await expect(page.locator('.admin-about-feedback--error')).toContainText(
+    '请先修正标出的内容',
+  )
+  await expect(page.getByRole('textbox', { name: '兴趣 4' })).toHaveValue('')
+  await expect(page.getByLabel('技能板块标题')).toHaveValue('保留技能草稿')
+
+  await page.getByRole('textbox', { name: '兴趣 4' }).fill('保留兴趣条目')
+  await page.getByRole('button', { name: '添加技能组' }).click()
+  await page.getByLabel('技能组 3 的名称').fill('保留技能组')
+  await page.getByRole('button', { name: '添加技能' }).nth(2).click()
+  await page.getByRole('button', { name: '保存关于页面' }).click()
+  await expect(page.locator('.admin-about-feedback--error')).toContainText(
+    '请先修正标出的内容',
+  )
+  await expect(
+    page.getByRole('textbox', { name: '技能组 3 的技能 1' }),
+  ).toHaveValue('')
+
+  await page
+    .getByRole('textbox', { name: '技能组 3 的技能 1' })
+    .fill('可访问性')
+  await page.request.get(
+    'http://127.0.0.1:8787/__control/failure?resource=admin',
+  )
+  await page.getByRole('button', { name: '保存关于页面' }).click()
+  await expect(page.locator('.admin-about-feedback--error')).toContainText(
+    '当前输入仍然保留',
+  )
+  await expect(
+    page.getByRole('textbox', { name: '技能组 3 的技能 1' }),
+  ).toHaveValue('可访问性')
+  await expect(page.getByRole('textbox', { name: '兴趣 4' })).toHaveValue(
+    '保留兴趣条目',
+  )
+  await expect(page.getByLabel('技能板块标题')).toHaveValue('保留技能草稿')
+
+  await page.request.get('http://127.0.0.1:8787/__control/clear-failures')
+  await page.getByRole('button', { name: '保存关于页面' }).click()
+  await expect(page.locator('.admin-about-feedback--success')).toContainText(
+    '关于页面内容已保存',
+  )
+  const publicSettings = await page.request.get(
+    'http://127.0.0.1:8787/api/v1/settings',
+  )
+  const about = (await publicSettings.json()).data.about
+  expect(about.skills_heading).toBe('保留技能草稿')
+  expect(about.skills[2]).toEqual({
+    name: '保留技能组',
+    items: ['可访问性'],
+  })
+  expect(about.interests[3]).toBe('保留兴趣条目')
+  expect(about.story).toEqual([
+    '这段内容来自可配置的 About Site Identity。',
+    '它与公开站点设置一起服务，而不是来自静态前端数据。',
+  ])
+  expect(about.timeline[0].title).toBe('让内容回到配置')
+})
+
 test('administrator edits and reorders About story and timeline content', async ({
   page,
 }) => {

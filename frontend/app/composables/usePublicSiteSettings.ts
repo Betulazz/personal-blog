@@ -4,6 +4,10 @@ import { toPublicSiteIdentity, useApiClient } from '~/api/client'
 import { siteIdentity } from '~/config/siteIdentity'
 import type { PublicSiteSettings, SiteIdentityView } from '~/types/site'
 import {
+  DEFAULT_ABOUT_INTERESTS_HEADING,
+  DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
+  DEFAULT_ABOUT_SKILLS_HEADING,
+  DEFAULT_ABOUT_SKILLS_INTRODUCTION,
   DEFAULT_ABOUT_STORY_HEADING,
   DEFAULT_ABOUT_STORY_INTRODUCTION,
   DEFAULT_ABOUT_TIMELINE_HEADING,
@@ -12,7 +16,11 @@ import {
 
 const fallbackSettings: PublicSiteSettings = {
   about: {
+    interestsHeading: DEFAULT_ABOUT_INTERESTS_HEADING,
+    interestsIntroduction: DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
     interests: [],
+    skillsHeading: DEFAULT_ABOUT_SKILLS_HEADING,
+    skillsIntroduction: DEFAULT_ABOUT_SKILLS_INTRODUCTION,
     skills: [],
     storyHeading: DEFAULT_ABOUT_STORY_HEADING,
     storyIntroduction: DEFAULT_ABOUT_STORY_INTRODUCTION,
