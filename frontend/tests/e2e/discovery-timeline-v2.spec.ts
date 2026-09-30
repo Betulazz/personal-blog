@@ -86,7 +86,7 @@ test('body-only Chatter, expansion and stable inline links work without tags', a
   await expect(page.locator('#chatter-101')).toBeVisible()
   await expect(page.locator('#chatter-101').getByRole('link')).toHaveAttribute(
     'href',
-    '/chatter?entry=101#chatter-101',
+    '/chatter/101',
   )
 })
 

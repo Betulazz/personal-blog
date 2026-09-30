@@ -69,13 +69,7 @@ const body = computed(() =>
         @click="expanded = !expanded"
         >{{ expanded ? '收起' : '展开全文' }}</UiButton
       >
-      <NuxtLink
-        :to="{
-          path: '/chatter',
-          query: { entry: chatter.id },
-          hash: `#chatter-${chatter.id}`,
-        }"
-        class="chatter-card__link"
+      <NuxtLink :to="`/chatter/${chatter.id}`" class="chatter-card__link"
         >查看这条记录 ↗</NuxtLink
       >
     </div>

@@ -10,6 +10,7 @@ const {
   pending: settingsPending,
   refresh: refreshSettings,
 } = await usePublicSiteSettings()
+const route = useRoute()
 const isHydrated = ref(false)
 const audioElement = ref<HTMLAudioElement | null>(null)
 const musicPlayback = useMusicPlaybackController(audioElement)
@@ -24,7 +25,7 @@ onMounted(() => {
 <template>
   <div class="public-shell">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
-    <VisualFoundationHeader />
+    <VisualFoundationHeader v-if="route.meta.hidePublicNavigation !== true" />
     <VisualClickRipple />
     <div
       v-if="isHydrated && (settingsPending || settingsError)"
