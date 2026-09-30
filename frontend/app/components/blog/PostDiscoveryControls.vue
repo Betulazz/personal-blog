@@ -12,6 +12,18 @@ const props = defineProps<{
 const allFilterValue = '__all__'
 const router = useRouter()
 const selectedTag = ref(props.query.tag ?? allFilterValue)
+const tagOptions = computed(() => [
+  { label: '全部标签', value: allFilterValue },
+  ...props.tags.map((tag) => ({
+    label: `${tag.name} · ${tag.postCount}`,
+    value: tag.slug,
+  })),
+])
+const selectedTagLabel = computed(
+  () =>
+    tagOptions.value.find((option) => option.value === selectedTag.value)
+      ?.label ?? '全部标签',
+)
 
 watch(
   () => props.query.tag,
@@ -71,19 +83,15 @@ watch(
       <UiButton type="submit" size="small" variant="secondary">搜索</UiButton>
     </form>
 
-    <label
-      v-if="showTag"
-      class="post-discovery-controls__tag-filter"
-      for="post-tag-filter"
-    >
-      <span>按标签筛选</span>
-      <select id="post-tag-filter" v-model="selectedTag" class="field__control">
-        <option :value="allFilterValue">全部标签</option>
-        <option v-for="tag in tags" :key="tag.slug" :value="tag.slug">
-          {{ tag.name }} · {{ tag.postCount }}
-        </option>
-      </select>
-    </label>
+    <div v-if="showTag" class="post-discovery-controls__tag-filter">
+      <UiSelect
+        id="post-tag-filter"
+        v-model="selectedTag"
+        label="按标签筛选"
+        :options="tagOptions"
+        :placeholder="selectedTagLabel"
+      />
+    </div>
   </UiGlassPanel>
 </template>
 
@@ -116,12 +124,14 @@ watch(
 }
 
 .post-discovery-controls__tag-filter {
-  display: grid;
   min-width: 12rem;
   max-width: 12rem;
-  gap: var(--space-2);
+}
+
+.post-discovery-controls__tag-filter :deep(.field__label) {
   color: var(--color-text-subtle);
   font-size: var(--text-caption);
+  font-weight: 400;
 }
 
 .post-discovery-controls__filters {
@@ -140,11 +150,7 @@ watch(
   }
 
   .post-discovery-controls__tag-filter {
-    display: grid;
     max-width: none;
-    gap: var(--space-2);
-    color: var(--color-text-subtle);
-    font-size: var(--text-caption);
   }
 
   .post-discovery-controls__filters {
