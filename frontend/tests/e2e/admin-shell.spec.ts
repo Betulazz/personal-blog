@@ -122,7 +122,12 @@ test('administrator workspace uses the viewport width and keeps navigation usabl
 
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.goto('/')
-  await expect(page.locator('.site-header')).toHaveCSS('max-width', '1280px')
+  const publicHeader = page.locator('.site-header')
+  await expect(publicHeader).toBeVisible()
+  const publicHeaderBox = await publicHeader.boundingBox()
+  expect(publicHeaderBox).not.toBeNull()
+  expect(publicHeaderBox!.x).toBeCloseTo(0, 0)
+  expect(publicHeaderBox!.width).toBeCloseTo(1920, 0)
 })
 
 test('expired access session refreshes and preserves the protected route', async ({
