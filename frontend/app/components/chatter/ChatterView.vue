@@ -146,10 +146,14 @@ const resultDescription = computed(() => {
 }
 
 .chatter-page__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-  gap: var(--space-5);
+  column-count: 2;
+  column-gap: var(--space-5);
+}
+
+.chatter-page__grid > :deep(.chatter-card) {
+  width: 100%;
+  margin-bottom: var(--space-5);
+  break-inside: avoid;
 }
 
 @media (width <= 48rem) {
@@ -170,7 +174,7 @@ const resultDescription = computed(() => {
 
 @media (width <= 36rem) {
   .chatter-page__grid {
-    grid-template-columns: 1fr;
+    column-count: 1;
   }
 }
 </style>
