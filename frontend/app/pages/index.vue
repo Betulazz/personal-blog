@@ -1,7 +1,15 @@
 <script setup lang="ts">
+import { useApiClient } from '~/api/client'
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 
 const { identity, settings } = await usePublicSiteSettings()
+const api = useApiClient()
+const { data: runtimeStatus, error: runtimeStatusError } = await useAsyncData(
+  'homepage-runtime-uptime',
+  (_nuxtApp, { signal }) => api.getRuntimeUptime(signal),
+)
+const runtimeUptimeSeconds = runtimeStatus.value?.uptimeSeconds ?? null
+const runtimeUptimeFailed = Boolean(runtimeStatusError.value)
 
 const runtimeConfig = useRuntimeConfig()
 const siteUrl = runtimeConfig.public.siteUrl.replace(/\/$/, '')
@@ -39,5 +47,8 @@ useHead(() => ({
 </script>
 
 <template>
-  <VisualFoundationPage />
+  <VisualFoundationPage
+    :runtime-uptime-seconds="runtimeUptimeSeconds"
+    :runtime-uptime-failed="runtimeUptimeFailed"
+  />
 </template>

@@ -6,6 +6,8 @@ import type { HomepageVisibility } from '~/types/site'
 defineProps<{
   content: HomepageContent
   retry: (section: HomepageSectionKey) => Promise<unknown>
+  runtimeUptimeSeconds: number | null
+  runtimeUptimeFailed: boolean
 }>()
 const { settings } = await usePublicSiteSettings()
 const isVisible = (section: keyof HomepageVisibility) =>
@@ -35,6 +37,11 @@ const isVisible = (section: keyof HomepageVisibility) =>
             @retry="retry('projects')"
           />
         </HomeReveal>
+        <HomeRuntimeStatus
+          :icp="settings.footer.icp"
+          :initially-failed="runtimeUptimeFailed"
+          :initial-uptime-seconds="runtimeUptimeSeconds"
+        />
       </div>
     </UiPageContainer>
   </section>

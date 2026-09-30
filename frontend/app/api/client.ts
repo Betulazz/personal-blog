@@ -81,6 +81,7 @@ import type {
   SiteSocialLink,
   SiteIdentityView,
 } from '~/types/site'
+import type { RuntimeUptimeStatus } from '~/types/runtime'
 import {
   DEFAULT_ABOUT_INTERESTS_HEADING,
   DEFAULT_ABOUT_INTERESTS_INTRODUCTION,
@@ -106,6 +107,10 @@ interface RawCollection<T> {
 
 interface RawApiResponse<T> {
   data: T
+}
+
+interface RawRuntimeUptimeStatus {
+  uptime_seconds: number
 }
 
 interface RawAdminUser {
@@ -426,6 +431,7 @@ export interface BlogApiClient {
   ) => Promise<PostDetail | null>
   getAbout: (signal?: AbortSignal) => Promise<AboutProfile>
   getSettings: (signal?: AbortSignal) => Promise<PublicSiteSettings>
+  getRuntimeUptime: (signal?: AbortSignal) => Promise<RuntimeUptimeStatus>
   login: (identifier: string, password: string) => Promise<AdminUser>
   logout: () => Promise<void>
   createAdminPost: (input: AdminPostInput) => Promise<AdminPost>
@@ -1843,6 +1849,14 @@ export function useApiClient(): BlogApiClient {
     return toSiteSettings(response.data, resolveMediaUrl)
   }
 
+  const getRuntimeUptime = async (signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawRuntimeUptimeStatus>>(
+      '/system/uptime',
+      { signal },
+    )
+    return { uptimeSeconds: response.data.uptime_seconds }
+  }
+
   const getAbout = async (signal?: AbortSignal) =>
     toAbout(await getSettings(signal))
 
@@ -1911,6 +1925,7 @@ export function useApiClient(): BlogApiClient {
     getAbout,
     getPostBySlug,
     getSettings,
+    getRuntimeUptime,
     login,
     logout,
     listAdminFriends,

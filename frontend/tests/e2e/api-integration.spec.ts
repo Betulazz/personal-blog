@@ -11,7 +11,7 @@ test.afterEach(async ({ page }) => {
   await page.request.get(`${apiStub}/__control/reset`)
 })
 
-test('SSR sends meaningful homepage content without a duplicate browser read', async ({
+test('SSR sends homepage content without repeating server-rendered reads', async ({
   page,
 }) => {
   const browserApiRequests: string[] = []
@@ -23,14 +23,19 @@ test('SSR sends meaningful homepage content without a duplicate browser read', a
 
   await page.goto('/')
   await expect(
-    page.getByRole('article').filter({ hasText: '把复杂的东西' }),
+    page.locator('.home-post-card').filter({ hasText: '把复杂的东西' }),
   ).toBeVisible()
   await expect(
-    page.getByRole('article').filter({ hasText: 'Lumen Notes' }),
+    page.locator('.home-project-card').filter({ hasText: 'Lumen Notes' }),
   ).toBeVisible()
+  await expect(page.locator('[data-home-runtime-status] time')).toHaveText(
+    /\d{2}:\d{2}:\d{2}/,
+  )
   await page.waitForTimeout(500)
 
-  expect(browserApiRequests).toEqual([])
+  expect(browserApiRequests.map((url) => new URL(url).pathname)).toEqual([
+    '/api/v1/music-tracks/1/lyrics',
+  ])
 })
 
 test('homepage keeps successful sections visible when one live API fails', async ({
@@ -40,7 +45,7 @@ test('homepage keeps successful sections visible when one live API fails', async
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '最新文章' })).toBeVisible()
   await expect(
-    page.getByRole('article').filter({ hasText: '把复杂的东西' }),
+    page.locator('.home-post-card').filter({ hasText: '把复杂的东西' }),
   ).toBeVisible()
   await expect(
     page.getByRole('alert').filter({ hasText: '精选项目' }),

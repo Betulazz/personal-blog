@@ -14,8 +14,8 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
 RUN addgroup --system blog && adduser --system --ingroup blog blog \
-    && mkdir -p /app/uploads && chown blog:blog /app/uploads
+    && mkdir -p /app/uploads /app/data \
+    && chown -R blog:blog /app/uploads /app/data
 USER blog
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
-

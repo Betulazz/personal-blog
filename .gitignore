@@ -27,6 +27,7 @@ backend/htmlcov/
 *.py[cod]
 
 # Runtime data
+backend/data/site-uptime.json
 uploads/
 mysql-data/
 backups/

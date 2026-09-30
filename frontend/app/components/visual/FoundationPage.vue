@@ -4,6 +4,10 @@ import { motionTransitions } from '~/config/motion'
 import { useHomepageContent } from '~/composables/useHomepageContent'
 import { useMotionPreference } from '~/composables/useMotionPreference'
 
+const props = defineProps<{
+  runtimeUptimeSeconds: number | null
+  runtimeUptimeFailed: boolean
+}>()
 const motionEnabled = useMotionPreference({ disableOnMobile: true })
 const { content, retry } = await useHomepageContent()
 </script>
@@ -26,7 +30,12 @@ const { content, retry } = await useHomepageContent()
       :animate="{ y: 0 }"
       :transition="motionTransitions.entryStagger"
     >
-      <HomeContent :content="content" :retry="retry" />
+      <HomeContent
+        :content="content"
+        :retry="retry"
+        :runtime-uptime-seconds="props.runtimeUptimeSeconds"
+        :runtime-uptime-failed="props.runtimeUptimeFailed"
+      />
     </component>
   </div>
 </template>

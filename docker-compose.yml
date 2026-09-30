@@ -16,6 +16,7 @@ x-backend-environment: &backend-environment
   MEDIA_ROOT: /app/uploads
   MEDIA_PUBLIC_PREFIX: /uploads
   MEDIA_STORAGE_STRATEGY: local
+  UPTIME_STATE_FILE: /app/data/site-uptime.json
 
 x-logging: &default-logging
   driver: json-file
@@ -69,6 +70,7 @@ services:
         condition: service_healthy
     volumes:
       - uploads:/app/uploads
+      - uptime-data:/app/data
     healthcheck:
       test:
         [
@@ -159,3 +161,4 @@ services:
 volumes:
   mysql-data:
   uploads:
+  uptime-data:

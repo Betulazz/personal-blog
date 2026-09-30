@@ -33,6 +33,16 @@ test('homepage aggregates distinct content domains with accessible metadata', as
   await expect(page.getByRole('heading', { name: '最近杂谈' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '精选项目' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '保持联系' })).toBeVisible()
+  const runtimeStatus = page.getByRole('region', { name: '网站运行状态' })
+  await expect(runtimeStatus).toContainText('服务运行中')
+  await expect(runtimeStatus).toContainText('累计运行 191天18小时')
+  await expect(runtimeStatus.getByText('Nuxt 4')).toBeVisible()
+  await expect(runtimeStatus.getByText('Vue 3')).toBeVisible()
+  await expect(runtimeStatus.getByText('FastAPI')).toBeVisible()
+  await expect(runtimeStatus.getByText('MySQL 8.4')).toBeVisible()
+  await expect(runtimeStatus.getByLabel('本地时间')).toHaveText(
+    /\d{2}:\d{2}:\d{2}/,
+  )
   await expect(page).toHaveTitle('夜航手记')
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     'content',
@@ -95,16 +105,18 @@ test('homepage aggregates distinct content domains with accessible metadata', as
   })
 
   await expect(
-    page.getByRole('article').filter({ hasText: '把复杂的东西' }),
+    page.locator('.home-post-card').filter({ hasText: '把复杂的东西' }),
   ).toBeVisible()
   await expect(
-    page.getByRole('article').filter({ hasText: '今天把首页' }),
+    page.locator('.home-post-card').filter({ hasText: '今天把首页' }),
   ).toHaveCount(0)
   await expect(
-    page.getByRole('article').filter({ hasText: '让界面先学会呼吸' }),
+    page.locator('.chatter-card').filter({
+      hasText: '让界面先学会呼吸',
+    }),
   ).toBeVisible()
   await expect(
-    page.getByRole('article').filter({ hasText: 'Lumen Notes' }),
+    page.locator('.home-project-card').filter({ hasText: 'Lumen Notes' }),
   ).toBeVisible()
 
   await expect(page.locator('time[datetime]').first()).toBeVisible()
@@ -152,6 +164,9 @@ test('homepage remains stable and inside every required CSS viewport', async ({
       `${viewport.width}x${viewport.height} viewport`,
     ).toBeLessThanOrEqual(dimensions.clientWidth)
     await expect(page.getByRole('heading', { name: '最新文章' })).toBeVisible()
+    await expect(page.locator('[data-home-runtime-status] time')).toHaveText(
+      /\d{2}:\d{2}:\d{2}/,
+    )
 
     await page.screenshot({
       path: `test-results/homepage/${testInfo.project.name}-viewport-${viewport.width}.png`,

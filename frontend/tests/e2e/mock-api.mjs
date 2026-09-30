@@ -1055,6 +1055,10 @@ const server = createServer(async (request, response) => {
     json(response, { status: 'ok' })
     return
   }
+  if (path === '/system/uptime') {
+    json(response, { data: { uptime_seconds: 16_567_200 } })
+    return
+  }
   if (path === '/__control/failure') {
     const resource = query.resource
     if (resource) failures.add(resource)

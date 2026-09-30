@@ -10,13 +10,22 @@ from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.db.session import dispose_engine
+from app.services.runtime_uptime import RuntimeUptime
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    yield
-    await dispose_engine()
+    uptime = RuntimeUptime(get_settings().uptime_state_file)
+    await uptime.start()
+    application.state.runtime_uptime = uptime
+    try:
+        yield
+    finally:
+        try:
+            await uptime.stop()
+        finally:
+            await dispose_engine()
 
 
 def create_app() -> FastAPI:

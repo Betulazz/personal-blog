@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.types.media import MediaStorageStrategy
 
+DEFAULT_UPTIME_STATE_FILE = Path(__file__).resolve().parents[2] / "data" / "site-uptime.json"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -35,6 +37,7 @@ class Settings(BaseSettings):
     refresh_cookie_name: str = "refresh_token"
     csrf_cookie_name: str = "csrf_token"
     csrf_header_name: str = "X-CSRF-Token"
+    uptime_state_file: Path = DEFAULT_UPTIME_STATE_FILE
     media_root: Path = Path("uploads")
     media_public_prefix: str = "/uploads"
     media_storage_strategy: MediaStorageStrategy = MediaStorageStrategy.LOCAL

@@ -39,7 +39,8 @@ affected by anything here.
   `/uploads/*` from the uploads volume, and every other path through Nuxt SSR.
 - The Nuxt server calls the API over the internal Compose network
   (`http://backend:8000/api/v1`); the browser calls same-origin `/api/v1`.
-- MySQL and uploads are named volumes. Only Nginx publishes host ports.
+- MySQL, uploads, and the backend uptime checkpoint are named volumes. Only
+  Nginx publishes host ports.
 
 ## Host requirements
 
@@ -260,6 +261,7 @@ Persistent state:
 - `personal-blog_mysql-data` holds the database.
 - `personal-blog_uploads` holds local Media Asset bytes. The `uploads` volume
   is mounted read-only into Nginx at `/var/www/uploads`.
+- `personal-blog_uptime-data` holds the cumulative FastAPI runtime checkpoint.
 
 If media returns 403 after a manual copy or migration, normalize the volume
 permissions (the application writes `0644` files and `0755` directories):
@@ -268,6 +270,17 @@ permissions (the application writes `0644` files and `0755` directories):
 docker compose exec -T backend sh -c \
   'find /app/uploads -type d -exec chmod 755 {} +; find /app/uploads -type f -exec chmod 644 {} +'
 ```
+
+## Cumulative runtime counter
+
+The public homepage reports cumulative time while the FastAPI backend process is
+running. A graceful stop saves the current total, and the next start continues
+from it. The backend also checkpoints every 15 seconds to limit lost time if a
+process exits without its shutdown hook. Docker Compose stores this state in the
+`uptime-data` named volume mounted at `/app/data`; keep that volume when updating
+the application. Removing volumes with `docker compose down -v` also removes the
+counter. For a non-Compose deployment, set `UPTIME_STATE_FILE` to a file on
+persistent storage.
 
 ## Backup and restore
 

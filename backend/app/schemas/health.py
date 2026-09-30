@@ -5,3 +5,7 @@ from pydantic import BaseModel
 
 class HealthStatus(BaseModel):
     status: Literal["ok", "ready"]
+
+
+class RuntimeUptimeStatus(BaseModel):
+    uptime_seconds: int
