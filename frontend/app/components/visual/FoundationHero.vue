@@ -64,7 +64,7 @@ const secondaryStories = computed<HeroStory[]>(() => {
       label: '随手记下 / NOTE',
       summary: note.body,
       title: note.title?.trim() || note.body,
-      to: `/chatter?entry=${encodeURIComponent(note.id)}#chatter-${encodeURIComponent(note.id)}`,
+      to: `/chatter/${encodeURIComponent(note.id)}`,
     })
   }
 
