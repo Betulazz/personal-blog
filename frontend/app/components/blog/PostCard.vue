@@ -79,7 +79,7 @@ const formatPostDate = (value: string) =>
       </div>
 
       <h2 class="post-card__title">
-        <a :href="`/posts/${post.slug}`">{{ post.title }}</a>
+        <NuxtLink :to="`/posts/${post.slug}`">{{ post.title }}</NuxtLink>
       </h2>
       <p class="post-card__summary">{{ post.summary }}</p>
 
@@ -99,14 +99,14 @@ const formatPostDate = (value: string) =>
           {{ post.readingTimeMinutes }} 分钟阅读 ·
           {{ post.readingCount.toLocaleString('zh-CN') }} 次阅读
         </span>
-        <a
+        <NuxtLink
           class="post-card__read-more"
-          :href="`/posts/${post.slug}`"
+          :to="`/posts/${post.slug}`"
           :aria-label="`阅读：${post.title}`"
         >
           阅读
           <ArrowUpRight :size="17" aria-hidden="true" />
-        </a>
+        </NuxtLink>
       </div>
     </div>
   </UiGlassCard>

@@ -119,6 +119,10 @@ test('Site Identity preserves configuration and explains its public preview', as
 
   await page.goto('/')
   await expect(page).toHaveTitle('夜航档案')
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+    'href',
+    'https://example.com/favicon.ico',
+  )
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     'content',
     '关于工程、阅读与日常维护的公开记录。',

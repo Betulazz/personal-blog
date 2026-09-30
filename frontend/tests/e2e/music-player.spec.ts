@@ -423,6 +423,37 @@ test('keeps one compact player and shared audio state across public routes', asy
   expect(consoleProblems).toEqual([])
 })
 
+test('keeps external music playing when opening a post from discovery', async ({
+  page,
+}) => {
+  test.setTimeout(90_000)
+  await page.goto('/projects')
+  const player = page.getByRole('region', { name: '音乐播放器' })
+  await expect(player).toHaveAttribute('data-player-ready', 'true')
+  await player.getByRole('button', { name: '播放', exact: true }).click()
+  await expect(player.getByRole('button', { name: '暂停' })).toBeVisible()
+
+  const audioMarker = await page.locator('audio').evaluate((audio) => {
+    const marker = crypto.randomUUID()
+    audio.dataset.testMarker = marker
+    return marker
+  })
+
+  await navigateTo(page, '/posts', '文章')
+  const firstPost = page.getByRole('article').first()
+  await firstPost
+    .getByRole('link', { name: '阅读：把复杂的东西，留在安静的地方' })
+    .click()
+
+  await expect(page).toHaveURL(/\/posts\/spatial-notes$/)
+  await expect(player).toHaveAttribute('data-player-ready', 'true')
+  await expect(player.getByRole('button', { name: '暂停' })).toBeVisible()
+  await expect(page.locator('audio')).toHaveAttribute(
+    'data-test-marker',
+    audioMarker,
+  )
+})
+
 test('keeps the mini-player lyric honest before the first line and after seek or track change', async ({
   page,
 }) => {
