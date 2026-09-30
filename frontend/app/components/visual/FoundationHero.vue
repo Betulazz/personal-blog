@@ -27,19 +27,18 @@ const featuredPost = computed(() =>
 const secondaryStories = computed<HeroStory[]>(() => {
   const stories: HeroStory[] = []
 
-  if (settings.value.homepageVisibility.posts) {
-    const nextPost = props.content.posts.items.find(
-      (post) => post.id !== featuredPost.value?.id && post.summary.trim(),
-    )
-    if (nextPost) {
-      stories.push({
-        key: `post-${nextPost.id}`,
-        label: '继续阅读 / ARTICLE',
-        summary: nextPost.summary,
-        title: nextPost.title,
-        to: `/posts/${encodeURIComponent(nextPost.slug)}`,
-      })
-    }
+  const note = settings.value.homepageVisibility.chatter
+    ? props.content.chatter.items.find((entry) => entry.body.trim())
+    : undefined
+  if (note) {
+    const title = note.title?.trim() || note.body.trim()
+    stories.push({
+      key: `note-${note.id}`,
+      label: '杂谈 / NOTE',
+      summary: note.body.trim() === title ? '' : note.body,
+      title,
+      to: `/chatter?entry=${encodeURIComponent(note.id)}#chatter-${encodeURIComponent(note.id)}`,
+    })
   }
 
   const project = settings.value.homepageVisibility.projects
@@ -52,19 +51,6 @@ const secondaryStories = computed<HeroStory[]>(() => {
       summary: project.description,
       title: project.name,
       to: '/projects#projects-results',
-    })
-  }
-
-  const note = settings.value.homepageVisibility.chatter
-    ? props.content.chatter.items.find((entry) => entry.body.trim().length > 16)
-    : undefined
-  if (note && stories.length < 2) {
-    stories.push({
-      key: `note-${note.id}`,
-      label: '随手记下 / NOTE',
-      summary: note.body,
-      title: note.title?.trim() || note.body,
-      to: `/chatter?entry=${encodeURIComponent(note.id)}#chatter-${encodeURIComponent(note.id)}`,
     })
   }
 
@@ -151,7 +137,9 @@ const featureStatus = computed(() => {
           >
             <span class="hero__index-label">{{ story.label }}</span>
             <strong>{{ story.title }}</strong>
-            <span class="hero__index-summary">{{ story.summary }}</span>
+            <span v-if="story.summary" class="hero__index-summary">{{
+              story.summary
+            }}</span>
             <ArrowUpRight
               class="hero__index-arrow"
               :size="17"
@@ -163,8 +151,7 @@ const featureStatus = computed(() => {
     </div>
 
     <div class="hero__endline" aria-hidden="true">
-      <span>BIRCHTULA / FIELD NOTES</span><span>文字、漫画与生活</span>
-      <span>SCROLL ↓</span>
+      <span>BIRCHTULA / FIELD NOTES</span><span>SCROLL ↓</span>
     </div>
   </UiPageContainer>
 </template>
@@ -452,9 +439,6 @@ const featureStatus = computed(() => {
   }
   .hero__profile :deep(.home-profile__name) {
     font-size: clamp(2.5rem, 7vw, 4.25rem);
-  }
-  .hero__endline span:nth-child(2) {
-    display: none;
   }
 }
 
