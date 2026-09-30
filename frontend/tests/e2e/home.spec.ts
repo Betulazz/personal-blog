@@ -12,9 +12,7 @@ test('renders the visual foundation as meaningful SSR content', async ({
   await page.goto('/')
 
   await expect(page.getByRole('banner')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    '在夜色里，写下仍然发光的事',
-  )
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('夜航手记')
   await expect(page.getByRole('link', { name: '开始阅读' })).toBeVisible()
   expect(consoleProblems).toEqual([])
 })

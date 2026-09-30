@@ -112,13 +112,13 @@ test('renders the profile, music and lyrics at every established viewport', asyn
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: /这一页.*留给今天/,
+      name: '夜航手记',
     }),
   ).toBeVisible()
   await expect(page.getByRole('link', { name: '开始阅读' })).toBeVisible()
   const hero = page.locator('.hero')
   const featuredArticle = hero.locator('.hero__feature')
-  await expect(hero.locator('img')).toHaveCount(0)
+  await expect(hero.locator('img[src*="manga-writing"]')).toHaveCount(0)
   await expect(
     featuredArticle.getByRole('link', { name: '阅读这篇' }),
   ).toHaveAttribute('href', /^\/posts\//)
@@ -190,7 +190,7 @@ test('renders the profile, music and lyrics at every established viewport', asyn
     await page.setViewportSize(viewport)
     const layout = await page.evaluate(() => {
       const profileElement = document.querySelector('[data-homepage-profile]')!
-      const headline = document.querySelector('#hero-title')!
+      const headline = document.querySelector('#home-profile-title')!
       const action = document.querySelector('.hero__read')!
       const hero = document.querySelector('.hero')!
       return {
@@ -198,7 +198,9 @@ test('renders the profile, music and lyrics at every established viewport', asyn
         clientWidth: document.documentElement.clientWidth,
         headlineBottom: headline.getBoundingClientRect().bottom,
         heroBottom: hero.getBoundingClientRect().bottom,
+        heroTop: hero.getBoundingClientRect().top,
         profileTop: profileElement.getBoundingClientRect().top,
+        profileBottom: profileElement.getBoundingClientRect().bottom,
         scrollWidth: document.documentElement.scrollWidth,
       }
     })
@@ -211,7 +213,8 @@ test('renders the profile, music and lyrics at every established viewport', asyn
     if (viewport.width === 430) {
       expect(layout.actionBottom).toBeLessThanOrEqual(viewport.height)
       expect(layout.headlineBottom).toBeLessThanOrEqual(viewport.height)
-      expect(layout.profileTop).toBeGreaterThanOrEqual(layout.heroBottom)
+      expect(layout.profileTop).toBeGreaterThanOrEqual(layout.heroTop)
+      expect(layout.profileBottom).toBeLessThanOrEqual(layout.heroBottom)
     }
 
     const viewportPath = join(

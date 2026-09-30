@@ -52,14 +52,16 @@ defineEmits<{
       :error-message="props.section.error?.message"
       @retry="$emit('retry')"
     >
-      <div class="home-posts__grid">
+      <div class="home-posts__grid" :data-count="props.section.items.length">
         <UiGlassCard
           v-for="post in props.section.items"
           :key="post.id"
           as="article"
           class="home-post-card"
           :class="{
-            'home-post-card--featured': post === props.section.items[0],
+            'home-post-card--featured':
+              props.section.items.length >= 3 &&
+              post === props.section.items[0],
           }"
           :media="Boolean(post.cover)"
           padding="none"
@@ -120,8 +122,17 @@ defineEmits<{
 
 .home-posts__grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: dense;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
   gap: var(--space-4);
+}
+
+.home-posts__grid[data-count='1'] {
+  grid-template-columns: 1fr;
+}
+
+.home-posts__grid[data-count='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .home-post-card {
@@ -130,7 +141,25 @@ defineEmits<{
 }
 
 .home-post-card--featured {
-  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.home-post-card:not(.home-post-card--featured) .home-post-card__image,
+.home-post-card:not(.home-post-card--featured) .home-post-card__image-fallback {
+  height: clamp(9rem, 12vw, 12rem);
+  aspect-ratio: auto;
+}
+
+.home-post-card:not(.home-post-card--featured) .home-post-card__body {
+  min-height: 11rem;
+  padding: var(--space-5);
+}
+
+.home-post-card:not(.home-post-card--featured) p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .home-post-card__image {
@@ -240,22 +269,20 @@ defineEmits<{
 }
 
 @media (width <= 64rem) {
-  .home-posts__grid {
+  .home-posts__grid[data-count='2'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .home-post-card--featured {
-    grid-column: span 2;
   }
 }
 
 @media (width <= 48rem) {
-  .home-posts__grid {
+  .home-posts__grid,
+  .home-posts__grid[data-count='1'],
+  .home-posts__grid[data-count='2'] {
     grid-template-columns: 1fr;
   }
 
   .home-post-card--featured {
-    grid-column: auto;
+    grid-row: auto;
   }
 }
 

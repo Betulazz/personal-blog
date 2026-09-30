@@ -19,16 +19,9 @@ const isVisible = (section: keyof HomepageVisibility) =>
         <HomeReveal v-if="isVisible('posts')">
           <HomePostsSection :section="content.posts" @retry="retry('posts')" />
         </HomeReveal>
-        <div
-          class="home-content__interlude"
-          :class="{ 'home-content__interlude--solo': !isVisible('music') }"
-        >
-          <HomeProfileSection :stats="content.stats" />
-          <HomeMusicCard v-if="isVisible('music')" />
-          <HomeLyricStrip
-            v-if="isVisible('music')"
-            class="home-content__lyrics"
-          />
+        <div v-if="isVisible('music')" class="home-content__interlude">
+          <HomeMusicCard />
+          <HomeLyricStrip class="home-content__lyrics" />
         </div>
         <HomeReveal v-if="isVisible('chatter')">
           <HomeChatterSection
@@ -57,7 +50,7 @@ const isVisible = (section: keyof HomepageVisibility) =>
 .home-content__container {
   display: grid;
   gap: var(--space-section);
-  padding-top: var(--space-section);
+  padding-top: var(--space-4);
   padding-bottom: var(--space-section);
 }
 
@@ -68,12 +61,8 @@ const isVisible = (section: keyof HomepageVisibility) =>
 
 .home-content__interlude {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-5);
-}
-
-.home-content__interlude--solo {
   grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
 }
 
 .home-content__lyrics {
@@ -83,7 +72,7 @@ const isVisible = (section: keyof HomepageVisibility) =>
 @media (width <= 48rem) {
   .home-content__container {
     gap: var(--space-16);
-    padding-top: var(--space-16);
+    padding-top: var(--space-8);
     padding-bottom: var(--space-16);
   }
 

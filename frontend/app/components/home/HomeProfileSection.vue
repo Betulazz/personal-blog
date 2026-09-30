@@ -4,9 +4,13 @@ import { ArrowUpRight } from 'lucide-vue-next'
 import { usePublicSiteSettings } from '~/composables/usePublicSiteSettings'
 import type { HomepageStat } from '~/types/homepage'
 
-defineProps<{
-  stats: HomepageStat[]
-}>()
+withDefaults(
+  defineProps<{
+    headingLevel?: 1 | 2
+    stats: HomepageStat[]
+  }>(),
+  { headingLevel: 2 },
+)
 
 const { identity, settings } = await usePublicSiteSettings()
 const monogram = computed(() => identity.value.name.trim().slice(0, 1) || '访')
@@ -38,7 +42,7 @@ onMounted(() => void nextTick(checkAvatarImage))
   >
     <UiGlassPanel class="home-profile__panel" tone="panel" padding="spacious">
       <div class="home-profile__topline">
-        <UiBadge tone="accent">ABOUT THIS SPACE</UiBadge>
+        <UiBadge tone="accent">个人博客 / PERSONAL JOURNAL</UiBadge>
         <span class="home-profile__signal" aria-label="站点状态：持续记录">
           <span aria-hidden="true" />持续记录
         </span>
@@ -65,8 +69,13 @@ onMounted(() => void nextTick(checkAvatarImage))
           >
         </div>
         <div>
-          <p class="home-profile__eyebrow">个人简介</p>
-          <h2 id="home-profile-title">{{ identity.name }}</h2>
+          <p class="home-profile__eyebrow">写作者</p>
+          <component
+            :is="headingLevel === 1 ? 'h1' : 'h2'"
+            id="home-profile-title"
+            class="home-profile__name"
+            >{{ identity.name }}</component
+          >
         </div>
       </div>
 
@@ -104,6 +113,10 @@ onMounted(() => void nextTick(checkAvatarImage))
           </li>
         </ul>
       </div>
+
+      <NuxtLink class="home-profile__read hero__read" to="/posts">
+        开始阅读 <ArrowUpRight :size="18" aria-hidden="true" />
+      </NuxtLink>
     </UiGlassPanel>
   </section>
 </template>
@@ -199,7 +212,7 @@ onMounted(() => void nextTick(checkAvatarImage))
   text-transform: uppercase;
 }
 
-.home-profile h2 {
+.home-profile__name {
   max-width: 18ch;
   margin: 0;
   color: var(--color-text);
@@ -304,6 +317,22 @@ onMounted(() => void nextTick(checkAvatarImage))
   transform: translateY(calc(var(--motion-distance-small) * -1));
 }
 
+.home-profile__read {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  border-bottom: 2px solid var(--color-text);
+  color: var(--color-text);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+
+.home-profile__read:hover {
+  color: var(--color-accent-strong);
+}
+
 @media (width <= 48rem) {
   .home-profile__panel {
     padding: var(--space-6);
@@ -321,7 +350,7 @@ onMounted(() => void nextTick(checkAvatarImage))
     gap: var(--space-4);
   }
 
-  .home-profile h2 {
+  .home-profile__name {
     font-size: 1.65rem;
   }
 

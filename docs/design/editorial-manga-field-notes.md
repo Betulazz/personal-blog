@@ -12,8 +12,8 @@ The public blog uses one visual language with two levels of energy. The entrance
 
 ## Page rhythm
 
-1. **Home opening:** an oversized sentence, sparse annotation and a live editorial index establish the identity. The first spread features published writing and supporting entries from the actual site content, without a generated illustration.
-2. **Home content and collections:** numbered section headers, paper cards, natural color and visible whitespace lower the contrast. Search controls sit in a compact line near the collection heading.
+1. **Home opening:** the site name, avatar, profile and publication counts identify the blog immediately. A latest-article lead and two supporting entries share the opening spread, all driven by real site content.
+2. **Home content and collections:** the article grid begins directly after the opening spread. One lead article and two supporting cards form a complete editorial grid; later sections return to wider spacing, paper cards and natural color. Search controls sit in a compact line near the collection heading.
 3. **Article detail:** the cover opens the article. Title, metadata, table of contents and prose follow in that order, with a narrow text measure.
 4. **About:** a divided illustration and introduction lead into a profile rail and a calm document flow. The rail becomes a single column on mobile.
 5. **Music and auxiliary pages:** use the same paper, ink, red action and green secondary colors without repeating the large manga hero.

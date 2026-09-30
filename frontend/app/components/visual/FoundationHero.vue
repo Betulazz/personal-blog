@@ -102,27 +102,20 @@ const featureStatus = computed(() => {
     </div>
 
     <div class="hero__spread">
-      <div class="hero__copy">
-        <span class="hero__folio">01 — 日常手记</span>
-        <h1 id="hero-title">这一页，<br /><em>留给今天。</em></h1>
-        <p class="hero__tagline">{{ identity.tagline }}</p>
-        <p class="hero__description">{{ identity.description }}</p>
-        <NuxtLink class="hero__read" to="/posts">
-          开始阅读 <ArrowUpRight :size="21" aria-hidden="true" />
-        </NuxtLink>
-        <span class="hero__scribble" aria-hidden="true"
-          >把喜欢的事情<br />写进日常里 ↗</span
-        >
-      </div>
+      <HomeProfileSection
+        class="hero__profile"
+        :stats="content.stats"
+        :heading-level="1"
+      />
 
       <div class="hero__editorial" aria-label="最近的内容">
         <div class="hero__editorial-heading" aria-hidden="true">
-          <span>新近写下</span><span>THE LATEST ENTRIES</span>
+          <span>最近更新</span><span>THE LATEST ENTRIES</span>
         </div>
 
         <article v-if="featuredPost" class="hero__feature">
           <div class="hero__feature-topline">
-            <span>文章 / 01</span>
+            <span>最新文章 / 01</span>
             <time :datetime="featuredPost.publishedAt">{{
               formatHomepageDate(featuredPost.publishedAt)
             }}</time>
@@ -180,11 +173,10 @@ const featureStatus = computed(() => {
 .hero {
   position: relative;
   display: grid;
-  min-height: min(100svh, 58rem);
-  align-content: center;
-  gap: var(--space-6);
-  padding-top: 7.5rem;
-  padding-bottom: var(--space-8);
+  align-content: start;
+  gap: var(--space-4);
+  padding-top: 5.5rem;
+  padding-bottom: var(--space-5);
   background: var(--color-canvas-raised);
 }
 
@@ -210,23 +202,72 @@ const featureStatus = computed(() => {
 
 .hero__spread {
   display: grid;
-  grid-template-columns: minmax(0, 0.91fr) minmax(0, 1.09fr);
-  min-height: 38rem;
+  grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+  min-height: 30rem;
   border-block: 2px solid var(--color-text);
 }
 
-.hero__copy {
-  position: relative;
-  display: flex;
+.hero__profile {
   min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
   border-right: 2px solid var(--color-text);
-  padding: clamp(2rem, 4vw, 4.5rem);
 }
 
-.hero__folio,
+.hero__profile :deep(.home-profile__panel) {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: clamp(1.5rem, 2.25vw, 2rem);
+  background: transparent;
+  box-shadow: none;
+}
+
+.hero__profile :deep(.home-profile__name) {
+  max-width: 100%;
+  font-size: clamp(2.5rem, 3.65vw, 4.6rem);
+  letter-spacing: -0.055em;
+  line-height: 1.18;
+}
+
+.hero__profile :deep(.home-profile__description) {
+  max-width: 43ch;
+  margin-top: var(--space-3);
+  line-height: 1.65;
+}
+
+.hero__profile :deep(.home-profile__identity) {
+  margin-top: var(--space-4);
+}
+
+.hero__profile :deep(.home-profile__avatar),
+.hero__profile :deep(.home-profile__avatar img),
+.hero__profile :deep(.home-profile__monogram) {
+  width: 4rem;
+  height: 4rem;
+}
+
+.hero__profile :deep(.home-profile__stats) {
+  margin-top: var(--space-4);
+}
+
+.hero__profile :deep(.home-profile__stat) {
+  padding-top: var(--space-2);
+}
+
+.hero__profile :deep(.home-profile__social) {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+}
+
+.hero__profile :deep(.home-profile__social a) {
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-2);
+}
+
+.hero__profile :deep(.home-profile__read) {
+  min-height: 2.25rem;
+  margin-top: var(--space-4);
+}
+
 .hero__feature-topline,
 .hero__editorial-heading,
 .hero__index-label,
@@ -236,71 +277,22 @@ const featureStatus = computed(() => {
   letter-spacing: 0.12em;
 }
 
-.hero__folio,
 .hero__empty-label {
   color: var(--color-accent-strong);
 }
 
-.hero h1 {
-  margin: var(--space-8) 0 0;
-  font-family: var(--font-display);
-  font-size: clamp(3.5rem, 5.1vw, 6.4rem);
-  font-weight: 800;
-  letter-spacing: -0.085em;
-  line-height: 1.18;
-  text-wrap: balance;
-}
-
-.hero h1 em {
-  color: var(--color-accent);
-  font-style: normal;
-}
-
-.hero__tagline,
-.hero__description {
-  max-width: 34ch;
-  margin: var(--space-8) 0 0;
-  color: var(--color-text-muted);
-  font-family: var(--font-body);
-  font-size: var(--text-body-large);
-  line-height: var(--leading-body);
-  text-wrap: pretty;
-}
-
-.hero__description {
-  margin-top: var(--space-3);
-  font-size: var(--text-small);
-}
-
-.hero__read,
 .hero__feature-link {
   display: inline-flex;
-  min-height: 3rem;
+  min-height: 2.5rem;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
   border-bottom: 2px solid var(--color-text);
-  font-size: var(--text-body-large);
+  font-size: var(--text-small);
   font-weight: 700;
 }
 
-.hero__read {
-  margin-top: var(--space-10);
-}
-
-.hero__read:hover,
 .hero__feature-link:hover {
   color: var(--color-accent-strong);
-}
-
-.hero__scribble {
-  position: absolute;
-  right: 2.5rem;
-  bottom: 1.5rem;
-  color: var(--color-secondary);
-  font-family: 'Segoe Print', 'Kaiti SC', cursive;
-  font-size: 0.8rem;
-  line-height: 1.5;
-  transform: rotate(-8deg);
 }
 
 .hero__editorial {
@@ -323,12 +315,12 @@ const featureStatus = computed(() => {
 .hero__feature {
   display: flex;
   min-width: 0;
-  min-height: 23rem;
+  min-height: 14rem;
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-5);
-  padding: clamp(1.5rem, 3vw, 3rem);
+  gap: var(--space-2);
+  padding: var(--space-6) clamp(1.5rem, 2.5vw, 2.5rem);
 }
 
 .hero__feature-topline {
@@ -355,19 +347,13 @@ const featureStatus = computed(() => {
 .hero__feature--empty p {
   display: -webkit-box;
   max-width: 42ch;
-  margin: var(--space-5) 0 0;
+  margin: var(--space-3) 0 0;
   overflow: hidden;
   color: var(--color-text-muted);
   font-family: var(--font-body);
   line-height: 1.8;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
-}
-
-.hero__feature-link {
-  min-height: 2.5rem;
-  gap: var(--space-4);
-  font-size: var(--text-small);
 }
 
 .hero__index {
@@ -381,10 +367,10 @@ const featureStatus = computed(() => {
   position: relative;
   display: flex;
   min-width: 0;
-  min-height: 10.5rem;
+  min-height: 6rem;
   flex-direction: column;
   align-items: flex-start;
-  padding: var(--space-5) clamp(1.25rem, 2vw, 2rem);
+  padding: var(--space-3) clamp(1.25rem, 2vw, 2rem);
   transition: background-color 220ms ease;
 }
 
@@ -408,7 +394,7 @@ const featureStatus = computed(() => {
 .hero__index-link strong {
   display: -webkit-box;
   max-width: calc(100% - 1.5rem);
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
   overflow: hidden;
   font-family: var(--font-display);
   font-size: clamp(1.1rem, 1.45vw, 1.5rem);
@@ -419,13 +405,13 @@ const featureStatus = computed(() => {
 
 .hero__index-summary {
   display: -webkit-box;
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
   overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--text-caption);
   line-height: 1.6;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 
 .hero__index-arrow {
@@ -440,8 +426,11 @@ const featureStatus = computed(() => {
 }
 
 @media (width <= 64rem) {
-  .hero__copy {
-    padding: var(--space-8);
+  .hero__profile :deep(.home-profile__panel) {
+    padding: var(--space-6);
+  }
+  .hero__profile :deep(.home-profile__name) {
+    font-size: clamp(2.35rem, 4vw, 3.5rem);
   }
   .hero__feature,
   .hero__editorial-heading {
@@ -452,32 +441,17 @@ const featureStatus = computed(() => {
 
 @media (width <= 56rem) {
   .hero {
-    min-height: auto;
-    gap: var(--space-4);
     padding-top: 6rem;
   }
   .hero__spread {
     grid-template-columns: 1fr;
   }
-  .hero__copy {
-    min-height: 29rem;
+  .hero__profile {
     border-right: 0;
     border-bottom: 2px solid var(--color-text);
-    padding: var(--space-8) var(--space-6) var(--space-16);
   }
-  .hero h1 {
-    margin-top: var(--space-5);
-    font-size: clamp(3.25rem, 9vw, 5rem);
-  }
-  .hero__tagline {
-    margin-top: var(--space-6);
-  }
-  .hero__read {
-    margin-top: var(--space-6);
-  }
-  .hero__scribble {
-    right: var(--space-4);
-    bottom: var(--space-3);
+  .hero__profile :deep(.home-profile__name) {
+    font-size: clamp(2.5rem, 7vw, 4.25rem);
   }
   .hero__endline span:nth-child(2) {
     display: none;

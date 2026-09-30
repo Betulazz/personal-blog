@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test'
 
 const publicRoutes = [
-  { heading: '在夜色里，写下仍然发光的事', path: '/' },
+  { heading: '夜航手记', path: '/' },
   { heading: '文章', path: '/posts' },
   {
     heading: '把复杂的东西，留在安静的地方',

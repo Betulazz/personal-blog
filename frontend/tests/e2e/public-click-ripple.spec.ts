@@ -55,7 +55,7 @@ test('public pointer ripples preserve route and control interactions', async ({
     await expect(page.locator('[data-error-page]')).toHaveCount(0)
 
     const selectableText = page
-      .getByRole('region', { name: '在夜色里，写下仍然发光的事' })
+      .getByRole('region', { name: '夜航手记' })
       .getByText('关于技术、生活与缓慢生长的个人记录。', { exact: true })
     const textBounds = await selectableText.boundingBox()
     expect(textBounds).not.toBeNull()
