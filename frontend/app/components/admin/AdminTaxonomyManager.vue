@@ -241,7 +241,7 @@ const submit = () => {
   border: var(--border-hairline) solid var(--color-danger-border);
   border-radius: var(--radius-medium);
   background: var(--color-danger-surface);
-  color: #fecdd3;
+  color: var(--color-danger);
   line-height: 1.6;
 }
 

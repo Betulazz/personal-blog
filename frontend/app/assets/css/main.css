@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 @import './tokens.css';
-@import './admin-legacy-theme.css';
+@import './admin-theme.css';
 
 .public-shell .button.button[data-variant='primary'] {
   color: var(--color-canvas-raised);

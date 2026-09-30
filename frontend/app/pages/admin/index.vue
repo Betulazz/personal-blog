@@ -44,6 +44,27 @@ const activityHref: Record<AdminActivityType, string> = {
   project: '/admin/projects',
 }
 
+const quickActions = [
+  {
+    number: '01',
+    title: '写一篇文章',
+    note: '从标题和正文开始',
+    to: '/admin/posts/new',
+  },
+  {
+    number: '02',
+    title: '记一则 Chatter',
+    note: '收下短暂的想法',
+    to: '/admin/chatter/new',
+  },
+  {
+    number: '03',
+    title: '整理媒体',
+    note: '上传并复用图片',
+    to: '/admin/media',
+  },
+]
+
 const statusLabel = (status: string | null) => {
   if (!status) return ''
 
@@ -98,9 +119,9 @@ useHead({ title: 'Dashboard · 后台空间' })
   <div class="admin-dashboard">
     <header class="admin-dashboard__heading">
       <div>
-        <p class="admin-dashboard__eyebrow">Workspace overview</p>
+        <p class="admin-dashboard__eyebrow">BIRCHTULA / EDITORIAL DESK</p>
         <h1>Dashboard</h1>
-        <p>用一眼能读懂的状态，继续今天的编辑工作。</p>
+        <p>从这里继续写作，也能快速找到站点最近的变化。</p>
       </div>
       <UiBadge v-if="session.user" tone="success">
         {{ session.user.username }} · 已连接
@@ -134,7 +155,7 @@ useHead({ title: 'Dashboard · 后台空间' })
       <section aria-labelledby="dashboard-counts-title">
         <div class="admin-dashboard__section-heading">
           <div>
-            <p class="admin-dashboard__eyebrow">Content pulse</p>
+            <p class="admin-dashboard__eyebrow">01 / CONTENT INDEX</p>
             <h2 id="dashboard-counts-title">站点状态</h2>
           </div>
           <span class="admin-dashboard__section-note">来自当前内容库</span>
@@ -154,12 +175,40 @@ useHead({ title: 'Dashboard · 后台空间' })
       </section>
 
       <section
+        class="admin-dashboard__quick-section"
+        aria-labelledby="dashboard-quick-title"
+      >
+        <div class="admin-dashboard__section-heading">
+          <div>
+            <p class="admin-dashboard__eyebrow">02 / START HERE</p>
+            <h2 id="dashboard-quick-title">开始编辑</h2>
+          </div>
+          <span class="admin-dashboard__section-note">常用入口</span>
+        </div>
+        <div class="admin-dashboard__quick-grid">
+          <NuxtLink
+            v-for="action in quickActions"
+            :key="action.to"
+            class="admin-dashboard__quick-link"
+            :to="action.to"
+          >
+            <span>{{ action.number }} / ACTION</span>
+            <strong>{{ action.title }}</strong>
+            <small>{{ action.note }}</small>
+            <span class="admin-dashboard__quick-arrow" aria-hidden="true"
+              >↗</span
+            >
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section
         class="admin-dashboard__activity-section"
         aria-labelledby="dashboard-activity-title"
       >
         <div class="admin-dashboard__section-heading">
           <div>
-            <p class="admin-dashboard__eyebrow">Keep the thread</p>
+            <p class="admin-dashboard__eyebrow">03 / RECENT NOTES</p>
             <h2 id="dashboard-activity-title">最近编辑</h2>
           </div>
           <span class="admin-dashboard__section-note">最多显示 8 条</span>
@@ -201,7 +250,7 @@ useHead({ title: 'Dashboard · 后台空间' })
 <style scoped>
 .admin-dashboard {
   display: grid;
-  gap: var(--space-12);
+  gap: clamp(2.5rem, 4vw, 4rem);
   padding-block: var(--space-6);
 }
 
@@ -222,8 +271,8 @@ useHead({ title: 'Dashboard · 后台空间' })
 
 .admin-dashboard__heading h1 {
   margin-top: var(--space-2);
-  font-size: clamp(2.25rem, 5vw, 4rem);
-  letter-spacing: -0.04em;
+  font-size: clamp(3.5rem, 5vw, 5.75rem);
+  letter-spacing: -0.07em;
 }
 
 .admin-dashboard__heading > div > p:last-child {
@@ -252,15 +301,32 @@ useHead({ title: 'Dashboard · 后台空间' })
 .admin-dashboard__counts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
+  gap: 0;
   margin-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
 }
 
 .admin-dashboard__count-card {
+  min-height: 10rem;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: var(--color-canvas-raised);
+  box-shadow: none;
+}
+
+.admin-dashboard__count-card:last-child {
+  grid-column: span 2;
+}
+
+.admin-dashboard__count-card :deep(.glass-card__body) {
   display: grid;
-  min-height: 8rem;
+  min-height: 10rem;
   align-content: space-between;
   gap: var(--space-3);
+  padding: var(--space-5);
 }
 
 .admin-dashboard__count-card p,
@@ -276,8 +342,68 @@ useHead({ title: 'Dashboard · 后台空间' })
 
 .admin-dashboard__count-card strong {
   color: var(--color-text);
-  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
   line-height: 1;
+}
+
+.admin-dashboard__quick-section {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.admin-dashboard__quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.admin-dashboard__quick-link {
+  position: relative;
+  display: grid;
+  min-height: 11rem;
+  align-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas-raised);
+  transition:
+    border-color var(--motion-duration-normal) var(--motion-ease-standard),
+    background-color var(--motion-duration-normal) var(--motion-ease-standard);
+}
+
+.admin-dashboard__quick-link:hover {
+  border-color: var(--color-border-strong);
+  background: var(--glass-bg-hover);
+}
+
+.admin-dashboard__quick-link > span:first-child {
+  color: var(--color-accent-soft);
+  font-family: var(--font-mono);
+  font-size: 0.69rem;
+  letter-spacing: 0.07em;
+}
+
+.admin-dashboard__quick-link strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.admin-dashboard__quick-link small {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.admin-dashboard__quick-arrow {
+  position: absolute;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  font-size: 1.2rem;
 }
 
 .admin-dashboard__count-card span {
@@ -321,7 +447,7 @@ useHead({ title: 'Dashboard · 后台空间' })
   height: 2.5rem;
   place-items: center;
   border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-small);
   background: var(--badge-accent-bg);
   color: var(--color-accent-soft);
   font-size: var(--text-small);
@@ -387,6 +513,16 @@ useHead({ title: 'Dashboard · 后台空间' })
   }
 }
 
+@media (width <= 48rem) {
+  .admin-dashboard__quick-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dashboard__quick-link {
+    min-height: 8rem;
+  }
+}
+
 @media (width <= 30rem) {
   .admin-dashboard {
     gap: var(--space-8);
@@ -399,7 +535,16 @@ useHead({ title: 'Dashboard · 后台空间' })
   }
 
   .admin-dashboard__counts {
-    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-dashboard__count-card {
+    min-height: 9rem;
+  }
+
+  .admin-dashboard__count-card :deep(.glass-card__body) {
+    min-height: 9rem;
+    padding: var(--space-4);
   }
 
   .admin-dashboard__activity-list a {

@@ -48,8 +48,8 @@ const stateCopy = computed(() => {
       status === 'forbidden' || status === 'unavailable' ? 'alert' : 'status'
     "
   >
-    <span class="admin-state__orb" aria-hidden="true" />
-    <p class="admin-state__eyebrow">Administrator</p>
+    <span class="admin-state__mark" aria-hidden="true" />
+    <p class="admin-state__eyebrow">BIRCHTULA / EDITORIAL</p>
     <h1>{{ stateCopy.title }}</h1>
     <p>{{ stateCopy.description }}</p>
     <UiButton
@@ -73,29 +73,17 @@ const stateCopy = computed(() => {
   justify-items: center;
   gap: var(--space-4);
   padding: var(--space-8);
-  background:
-    radial-gradient(circle at 50% 20%, var(--glow-accent), transparent 34rem),
-    var(--color-canvas);
+  background: var(--color-canvas);
   color: var(--color-text);
   text-align: center;
 }
 
-.admin-state[data-state='forbidden'] {
-  background:
-    radial-gradient(
-      circle at 50% 20%,
-      rgb(251 113 133 / 12%),
-      transparent 34rem
-    ),
-    var(--color-canvas);
-}
-
-.admin-state__orb {
-  width: 4rem;
-  height: 4rem;
-  border: 0.1875rem solid var(--color-accent-soft);
-  border-radius: var(--radius-round);
-  box-shadow: 0 0 2.5rem var(--glow-accent);
+.admin-state__mark {
+  width: 1rem;
+  height: 1rem;
+  margin-bottom: var(--space-4);
+  background: var(--color-accent);
+  transform: rotate(-8deg);
 }
 
 .admin-state__eyebrow {
@@ -104,7 +92,7 @@ const stateCopy = computed(() => {
   font-size: var(--text-caption);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
+  font-family: var(--font-mono);
 }
 
 .admin-state h1,
@@ -114,7 +102,10 @@ const stateCopy = computed(() => {
 }
 
 .admin-state h1 {
+  font-family: var(--font-display);
   font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.05em;
 }
 
 .admin-state > p:not(.admin-state__eyebrow) {

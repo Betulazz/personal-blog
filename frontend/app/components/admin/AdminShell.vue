@@ -7,16 +7,29 @@ const route = useRoute()
 const isMenuOpen = ref(false)
 
 const navigation = [
-  { label: 'Dashboard', to: '/admin' },
-  { label: '文章', to: '/admin/posts' },
-  { label: '标签', to: '/admin/tags' },
-  { label: 'Chatter', to: '/admin/chatter' },
-  { label: '项目', to: '/admin/projects' },
-  { label: '友链', to: '/admin/friends' },
-  { label: '音乐', to: '/admin/music' },
-  { label: '媒体', to: '/admin/media' },
-  { label: '关于页面', to: '/admin/about' },
-  { label: '网站设置', to: '/admin/settings' },
+  {
+    label: '概览',
+    items: [{ label: '工作台', to: '/admin', number: '00' }],
+  },
+  {
+    label: '写作与内容',
+    items: [
+      { label: '文章', to: '/admin/posts', number: '01' },
+      { label: '标签', to: '/admin/tags', number: '02' },
+      { label: 'Chatter', to: '/admin/chatter', number: '03' },
+      { label: '项目', to: '/admin/projects', number: '04' },
+    ],
+  },
+  {
+    label: '站点维护',
+    items: [
+      { label: '友链', to: '/admin/friends', number: '05' },
+      { label: '音乐', to: '/admin/music', number: '06' },
+      { label: '媒体', to: '/admin/media', number: '07' },
+      { label: '关于页面', to: '/admin/about', number: '08' },
+      { label: '网站设置', to: '/admin/settings', number: '09' },
+    ],
+  },
 ]
 
 const isCurrentRoute = (to: string) =>
@@ -53,11 +66,11 @@ watch(
           <Menu :size="22" aria-hidden="true" />
         </button>
         <NuxtLink class="admin-shell__brand" to="/admin">
-          <span class="admin-shell__brand-mark" aria-hidden="true">✦</span>
-          <span>后台空间</span>
+          <span class="admin-shell__brand-mark" aria-hidden="true" />
+          <span>Birchtula <small>/ 编辑室</small></span>
         </NuxtLink>
         <div class="admin-shell__actions">
-          <span class="admin-shell__user" aria-label="当前 Administrator">
+          <span class="admin-shell__user" aria-label="当前管理员">
             {{ session.user?.username || 'Administrator' }}
           </span>
           <a class="admin-shell__public-link" href="/">查看公开站点</a>
@@ -75,18 +88,33 @@ watch(
 
     <div class="admin-shell__body">
       <aside class="admin-shell__sidebar" aria-label="后台侧栏">
-        <p class="admin-shell__sidebar-label">Workspace</p>
+        <div class="admin-shell__sidebar-intro">
+          <p>EDITORIAL DESK / 01</p>
+          <strong>内容工作台</strong>
+          <span>写作、整理与发布</span>
+        </div>
         <nav aria-label="后台导航">
-          <NuxtLink
-            v-for="item in navigation"
-            :key="item.to"
-            :to="item.to"
-            :aria-current="isCurrentRoute(item.to) ? 'page' : undefined"
+          <div
+            v-for="group in navigation"
+            :key="group.label"
+            class="admin-shell__nav-group"
           >
-            <span aria-hidden="true" class="admin-shell__nav-dot" />
-            {{ item.label }}
-          </NuxtLink>
+            <p class="admin-shell__sidebar-label">{{ group.label }}</p>
+            <NuxtLink
+              v-for="item in group.items"
+              :key="item.to"
+              :to="item.to"
+              :aria-current="isCurrentRoute(item.to) ? 'page' : undefined"
+            >
+              <span aria-hidden="true" class="admin-shell__nav-number">{{
+                item.number
+              }}</span>
+              <span>{{ item.label }}</span>
+              <span aria-hidden="true" class="admin-shell__nav-arrow">↗</span>
+            </NuxtLink>
+          </div>
         </nav>
+        <p class="admin-shell__sidebar-foot">BIRCHTULA / FIELD NOTES</p>
       </aside>
 
       <main id="admin-main" class="admin-shell__main" tabindex="-1">
@@ -105,15 +133,25 @@ watch(
         class="admin-shell__mobile-navigation"
         aria-label="移动端后台导航"
       >
-        <NuxtLink
-          v-for="item in navigation"
-          :key="item.to"
-          :to="item.to"
-          :aria-current="isCurrentRoute(item.to) ? 'page' : undefined"
-          @click="closeMenu"
+        <div
+          v-for="group in navigation"
+          :key="group.label"
+          class="admin-shell__nav-group"
         >
-          {{ item.label }}
-        </NuxtLink>
+          <p class="admin-shell__sidebar-label">{{ group.label }}</p>
+          <NuxtLink
+            v-for="item in group.items"
+            :key="item.to"
+            :to="item.to"
+            :aria-current="isCurrentRoute(item.to) ? 'page' : undefined"
+            @click="closeMenu"
+          >
+            <span aria-hidden="true" class="admin-shell__nav-number">{{
+              item.number
+            }}</span>
+            {{ item.label }}
+          </NuxtLink>
+        </div>
       </nav>
     </UiSheet>
   </div>
@@ -126,26 +164,41 @@ watch(
   position: relative;
   z-index: var(--z-base);
   min-height: 100svh;
-  background:
-    radial-gradient(circle at 82% -10%, var(--glow-accent), transparent 28rem),
-    var(--color-canvas);
+  background: var(--color-canvas);
   color: var(--color-text);
+}
+
+.admin-shell__skip-link {
+  position: fixed;
+  z-index: var(--z-toast);
+  top: var(--space-3);
+  left: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas-raised);
+  color: var(--color-text);
+  transform: translateY(-180%);
+}
+
+.admin-shell__skip-link:focus {
+  transform: translateY(0);
 }
 
 .admin-shell__header {
   position: sticky;
   z-index: var(--z-sticky);
   top: 0;
-  border-bottom: var(--border-hairline) solid var(--glass-border);
-  background: rgb(6 10 23 / 84%);
-  backdrop-filter: blur(var(--glass-blur-panel));
+  border-bottom: var(--border-hairline) solid var(--color-border);
+  background: rgb(255 253 247 / 96%);
+  backdrop-filter: blur(0.75rem);
 }
 
 .admin-shell__header-inner {
   display: flex;
   width: 100%;
   max-width: none;
-  min-height: 4.5rem;
+  min-height: 4.25rem;
   align-items: center;
   gap: var(--space-5);
   margin-inline: auto;
@@ -156,19 +209,27 @@ watch(
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.02em;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
 }
 
 .admin-shell__brand-mark {
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
-  border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-small);
-  background: var(--badge-accent-bg);
-  color: var(--color-accent-soft);
+  display: block;
+  width: 0.7rem;
+  height: 0.7rem;
+  background: var(--color-accent);
+  transform: rotate(-8deg);
+}
+
+.admin-shell__brand small {
+  margin-left: 0.25rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .admin-shell__actions {
@@ -182,6 +243,19 @@ watch(
 .admin-shell__public-link {
   color: var(--color-text-muted);
   font-size: var(--text-small);
+}
+
+.admin-shell__user {
+  padding: 0.45rem 0.75rem;
+  border-left: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.admin-shell__public-link {
+  text-decoration: underline;
+  text-decoration-color: var(--color-border-strong);
+  text-underline-offset: 0.25em;
 }
 
 .admin-shell__public-link:hover {
@@ -203,49 +277,89 @@ watch(
   display: grid;
   width: 100%;
   max-width: none;
-  min-height: calc(100svh - 4.5rem);
-  grid-template-columns: 15rem minmax(0, 1fr);
-  gap: var(--space-10);
+  min-height: calc(100svh - 4.25rem);
+  grid-template-columns: 14.5rem minmax(0, 1fr);
+  gap: clamp(1.5rem, 3vw, 3.5rem);
   margin-inline: auto;
   padding: var(--space-8) var(--admin-shell-gutter) var(--space-16);
 }
 
 .admin-shell__sidebar {
   position: sticky;
-  top: 6.5rem;
+  top: 5.5rem;
   align-self: start;
-  padding: var(--space-3);
-  border: var(--border-hairline) solid var(--glass-border);
-  border-radius: var(--radius-large);
-  background: var(--glass-subtle-bg);
-  box-shadow: var(--glass-highlight);
+  max-height: calc(100svh - 7rem);
+  overflow-y: auto;
+  padding: 0 var(--space-3);
+  border-right: 1px solid var(--color-border);
+}
+
+.admin-shell__sidebar-intro {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-shell__sidebar-intro p,
+.admin-shell__sidebar-intro strong,
+.admin-shell__sidebar-intro span {
+  margin: 0;
+}
+
+.admin-shell__sidebar-intro p,
+.admin-shell__sidebar-foot {
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.07em;
+}
+
+.admin-shell__sidebar-intro strong {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 600;
+}
+
+.admin-shell__sidebar-intro span {
+  color: var(--color-text-muted);
+  font-size: 0.79rem;
 }
 
 .admin-shell__sidebar-label {
-  margin: var(--space-2) var(--space-3) var(--space-3);
+  margin: 0 0 var(--space-2);
   color: var(--color-text-subtle);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
+  font-size: 0.73rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 
 .admin-shell__sidebar nav,
 .admin-shell__mobile-navigation {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-5);
+}
+
+.admin-shell__sidebar nav {
+  padding-block: var(--space-5);
+}
+
+.admin-shell__nav-group {
+  display: grid;
+  gap: 0.125rem;
 }
 
 .admin-shell__sidebar a,
 .admin-shell__mobile-navigation a {
   display: flex;
-  min-height: 2.75rem;
+  min-height: 2.55rem;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-medium);
+  gap: var(--space-2);
+  padding: 0.5rem 0.7rem;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
   color: var(--color-text-muted);
-  font-size: var(--text-small);
+  font-size: 0.87rem;
   transition:
     background-color var(--motion-duration-normal) var(--motion-ease-standard),
     color var(--motion-duration-normal) var(--motion-ease-standard);
@@ -255,20 +369,38 @@ watch(
 .admin-shell__sidebar a[aria-current='page'],
 .admin-shell__mobile-navigation a:hover,
 .admin-shell__mobile-navigation a[aria-current='page'] {
-  background: var(--badge-accent-bg);
+  background: var(--glass-bg-hover);
   color: var(--color-text);
 }
 
-.admin-shell__nav-dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: var(--radius-round);
-  background: var(--color-text-subtle);
+.admin-shell__sidebar a[aria-current='page'],
+.admin-shell__mobile-navigation a[aria-current='page'] {
+  border-left-color: var(--color-accent);
+  font-weight: 650;
 }
 
-.admin-shell__sidebar a[aria-current='page'] .admin-shell__nav-dot {
-  background: var(--color-accent-soft);
-  box-shadow: 0 0 0.75rem var(--color-accent);
+.admin-shell__nav-number {
+  min-width: 1.6rem;
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-shell__nav-arrow {
+  margin-left: auto;
+  opacity: 0;
+}
+
+.admin-shell__sidebar a:hover .admin-shell__nav-arrow,
+.admin-shell__sidebar a[aria-current='page'] .admin-shell__nav-arrow {
+  opacity: 1;
+}
+
+.admin-shell__sidebar-foot {
+  margin: 0;
+  padding: var(--space-5) var(--space-3) var(--space-6);
+  border-top: 1px solid var(--color-border);
 }
 
 .admin-shell__main {
@@ -280,12 +412,13 @@ watch(
 }
 
 .admin-shell__mobile-navigation {
-  padding-block: var(--space-4);
+  padding-block: var(--space-5);
 }
 
 @media (width <= 64rem) {
   .admin-shell__body {
     grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
 
   .admin-shell__sidebar {
@@ -309,6 +442,10 @@ watch(
 
   .admin-shell__body {
     padding-top: var(--space-5);
+  }
+
+  .admin-shell__brand {
+    font-size: 1rem;
   }
 }
 </style>

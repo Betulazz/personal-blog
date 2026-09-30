@@ -203,7 +203,7 @@ defineExpose({
     >
       <div class="admin-form-section-heading">
         <div>
-          <p class="admin-form-eyebrow">Long-form publication</p>
+          <p class="admin-form-eyebrow">01 / MAIN TEXT</p>
           <h2 id="post-content-title">文章内容</h2>
         </div>
         <UiBadge
@@ -266,13 +266,15 @@ defineExpose({
       >
         <div class="admin-form-section-heading">
           <div>
-            <p class="admin-form-eyebrow">Normalized metadata</p>
+            <p class="admin-form-eyebrow">02 / CATALOGUE</p>
             <h2 id="taxonomy-title">文章标签</h2>
           </div>
         </div>
         <fieldset class="admin-tag-fieldset">
           <legend>标签</legend>
-          <p class="field__description">可选择多个可复用的 Tag。</p>
+          <p class="field__description">
+            选择文章主题，方便读者继续发现相关内容。
+          </p>
           <div v-if="tags.length" class="admin-tag-options">
             <label v-for="tag in tags" :key="tag.id" class="admin-tag-option">
               <input
@@ -292,7 +294,7 @@ defineExpose({
       <section class="admin-post-form__section" aria-labelledby="cover-title">
         <div class="admin-form-section-heading">
           <div>
-            <p class="admin-form-eyebrow">Media reference</p>
+            <p class="admin-form-eyebrow">03 / COVER</p>
             <h2 id="cover-title">封面引用</h2>
           </div>
         </div>
@@ -315,7 +317,7 @@ defineExpose({
       >
         <div class="admin-form-section-heading">
           <div>
-            <p class="admin-form-eyebrow">Publishing controls</p>
+            <p class="admin-form-eyebrow">04 / VISIBILITY</p>
             <h2 id="publishing-title">发布设置</h2>
           </div>
         </div>
@@ -352,7 +354,7 @@ defineExpose({
   display: grid;
   grid-template-columns: minmax(0, 1fr) 22.5rem;
   align-items: start;
-  gap: var(--space-6);
+  gap: clamp(1rem, 2vw, 2rem);
   padding-block: var(--space-6) var(--space-16);
 }
 
@@ -370,19 +372,32 @@ defineExpose({
 
 .admin-post-form__main,
 .admin-post-form__section {
-  padding: var(--space-6);
+  padding: clamp(1.5rem, 2.5vw, 2.75rem);
   border: var(--border-hairline) solid var(--glass-border);
   border-radius: var(--radius-panel);
   background: var(--glass-panel-bg);
-  box-shadow: var(--glass-highlight);
+  box-shadow: none;
+}
+
+.admin-post-form__main > :deep(.field) {
+  max-width: 52rem;
+}
+
+.admin-post-form__main :deep(input[name='title']) {
+  min-height: 4.25rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.1vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.admin-post-form__main :deep(input[name='slug']) {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
 }
 
 .admin-post-form__side {
-  position: sticky;
-  top: calc(4.5rem + var(--space-4));
   align-content: start;
-  max-height: calc(100svh - 6.5rem);
-  overflow-y: auto;
 }
 
 .admin-form-section-heading {
@@ -443,7 +458,7 @@ defineExpose({
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: var(--border-hairline) solid var(--glass-border);
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-small);
   color: var(--color-text-muted);
   cursor: pointer;
 }
@@ -487,7 +502,7 @@ defineExpose({
 .admin-post-form__error {
   border: var(--border-hairline) solid var(--color-danger-border);
   background: var(--color-danger-surface);
-  color: #fecdd3;
+  color: var(--color-danger);
 }
 
 .admin-post-form__loading {
@@ -521,6 +536,10 @@ defineExpose({
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas-raised);
 }
 
 .admin-post-form__dirty {
@@ -536,9 +555,11 @@ defineExpose({
   }
 
   .admin-post-form__side {
-    position: static;
-    max-height: none;
-    overflow: visible;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-post-form__side > :last-child {
+    grid-column: 1 / -1;
   }
 }
 
@@ -557,7 +578,11 @@ defineExpose({
     border: var(--border-hairline) solid var(--glass-border);
     border-radius: var(--radius-medium);
     background: var(--glass-elevated-bg);
-    backdrop-filter: blur(var(--glass-blur-panel));
+    box-shadow: 0 -0.5rem 1.5rem rgb(55 50 35 / 6%);
+  }
+
+  .admin-post-form__side {
+    grid-template-columns: 1fr;
   }
 
   .admin-post-form__actions .button {

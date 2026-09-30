@@ -419,6 +419,8 @@ watch(
   padding: var(--space-5);
   outline: none;
   color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 1.06rem;
   line-height: 1.8;
 }
 

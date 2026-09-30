@@ -105,15 +105,26 @@ const confirm = () => {
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
+  padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
+  border-bottom: 1px solid var(--color-border);
 }
 .admin-note-heading h1 {
   margin: 0;
-  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-family: var(--font-display);
+  font-size: clamp(2.65rem, 4vw, 4.5rem);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1.17;
 }
 .admin-note-eyebrow {
   color: var(--color-accent-soft);
-  font-size: var(--text-caption);
-  letter-spacing: var(--tracking-eyebrow);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+}
+.admin-note-page .admin-note-form {
+  width: min(100%, 58rem);
+  margin-inline: auto;
 }
 .admin-note-form,
 .admin-note-fields {

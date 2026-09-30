@@ -479,11 +479,7 @@ function isAbortError(error: unknown) {
   display: block;
   height: 100%;
   border-radius: var(--radius-round);
-  background: linear-gradient(
-    90deg,
-    var(--color-accent-strong),
-    var(--color-accent-soft)
-  );
+  background: var(--color-accent);
 }
 
 .media-picker__library {

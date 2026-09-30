@@ -91,6 +91,7 @@ function isAbortError(error: unknown) {
   <div class="admin-note-list-page">
     <header class="admin-note-list-heading">
       <div>
+        <p class="admin-note-list-eyebrow">SHORT NOTES / EDITORIAL</p>
         <h1>{{ label }} 管理</h1>
         <p>
           {{ '搜索想法与片段，继续整理简短而完整的表达。' }}
@@ -129,10 +130,12 @@ function isAbortError(error: unknown) {
       <p>{{ error }}</p>
       <UiButton variant="secondary" @click="load">重新加载</UiButton>
     </div>
-    <UiGlassPanel v-else-if="!entries.length"
-      ><p>没有符合筛选条件的 {{ label }}</p>
+    <UiGlassPanel v-else-if="!entries.length" class="admin-note-empty"
+      ><span>NO ENTRIES / 00</span>
+      <h2>这里还没有记录</h2>
+      <p>没有符合筛选条件的 {{ label }}。可以调整筛选，或写下新的片段。</p>
       <NuxtLink :to="`/admin/${resource}/new`"
-        >写下第一条 {{ label }}</NuxtLink
+        >写下第一条 {{ label }} ↗</NuxtLink
       ></UiGlassPanel
     >
     <section v-else :aria-label="`${label} 列表`">
@@ -196,13 +199,30 @@ function isAbortError(error: unknown) {
 .admin-note-list-heading {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: end;
   gap: var(--space-4);
   flex-wrap: wrap;
+  padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
+  border-bottom: 1px solid var(--color-border);
 }
-h1 {
-  font-size: clamp(2rem, 5vw, 3.5rem);
+.admin-note-list-eyebrow {
+  margin: 0 0 var(--space-2);
+  color: var(--color-accent-soft);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+}
+.admin-note-list-heading h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.65rem, 4vw, 4.5rem);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1.17;
   margin: 0;
+}
+.admin-note-list-heading p:last-child {
+  margin: var(--space-3) 0 0;
 }
 p,
 time {
@@ -215,8 +235,14 @@ time {
   min-height: 2.75rem;
   padding-inline: var(--space-4);
   border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-medium);
-  background: var(--badge-accent-bg);
+  border-radius: var(--radius-small);
+  background: var(--color-text);
+  color: var(--color-canvas-raised);
+  font-weight: 600;
+}
+.admin-note-list-link:hover,
+.admin-note-pagination a:hover {
+  background: #3d453c;
 }
 .admin-note-list-filters {
   display: flex;
@@ -231,24 +257,25 @@ time {
   display: grid;
   padding: 0;
   list-style: none;
-  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-canvas-raised);
 }
 .admin-note-list li {
   min-width: 0;
-  border: var(--border-hairline) solid var(--glass-border);
-  border-radius: var(--radius-panel);
-  background: var(--glass-panel-bg);
+}
+.admin-note-list li + li {
+  border-top: 1px solid var(--color-border);
 }
 .admin-note-list li a {
   display: flex;
   justify-content: space-between;
   align-items: start;
   gap: var(--space-4);
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-6);
 }
 .admin-note-list li a:hover {
   background: var(--glass-bg-hover);
-  border-radius: inherit;
 }
 .admin-note-list li a > div {
   min-width: 0;
@@ -262,8 +289,43 @@ time {
   overflow: hidden;
 }
 .admin-note-list h2 {
-  font-size: var(--text-h3);
-  line-height: 1.6;
+  margin: var(--space-2) 0;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 1.8vw, 1.7rem);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.admin-note-list time {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.admin-note-empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: clamp(2rem, 5vw, 4rem);
+}
+.admin-note-empty span {
+  color: var(--color-accent-soft);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+.admin-note-empty h2,
+.admin-note-empty p {
+  margin: 0;
+}
+.admin-note-empty h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.4vw, 2.25rem);
+  font-weight: 600;
+}
+.admin-note-empty a {
+  margin-top: var(--space-2);
+  border-bottom: 1px solid currentcolor;
+  font-weight: 600;
 }
 .admin-note-pagination {
   display: flex;
@@ -275,6 +337,7 @@ time {
 @media (width <= 30rem) {
   .admin-note-list li a {
     flex-direction: column;
+    padding: var(--space-4);
   }
 }
 </style>

@@ -902,11 +902,7 @@ function isAbortError(error: unknown) {
   display: block;
   height: 100%;
   border-radius: var(--radius-round);
-  background: linear-gradient(
-    90deg,
-    var(--color-accent-strong),
-    var(--color-accent-soft)
-  );
+  background: var(--color-accent);
   transform: scaleX(var(--upload-progress, 0));
   transform-origin: left center;
   transition: transform var(--motion-duration-normal)
@@ -1050,8 +1046,8 @@ function isAbortError(error: unknown) {
   padding: var(--space-1) var(--space-2);
   border: var(--border-hairline) solid var(--glass-border-hover);
   border-radius: var(--radius-round);
-  background: rgb(6 10 23 / 82%);
-  color: var(--color-accent-soft);
+  background: rgb(255 253 247 / 94%);
+  color: var(--color-text);
   font-size: var(--text-caption);
 }
 

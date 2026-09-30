@@ -1079,25 +1079,9 @@ function isAbortError(failure: unknown) {
   align-items: center;
   overflow: hidden;
   padding: 1rem;
-  border: 1px solid rgb(185 198 255 / 24%);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-large);
-  background:
-    radial-gradient(
-      ellipse at 76% 26%,
-      rgb(151 163 255 / 40%),
-      transparent 22rem
-    ),
-    radial-gradient(
-      ellipse at 88% 100%,
-      rgb(77 196 200 / 17%),
-      transparent 28rem
-    ),
-    linear-gradient(
-      118deg,
-      rgb(14 28 64 / 95%),
-      rgb(27 37 83 / 89%) 54%,
-      rgb(17 37 57 / 94%)
-    );
+  background: #465b4a;
 }
 
 .admin-about-banner-preview__frame--mobile {
@@ -1129,7 +1113,7 @@ function isAbortError(failure: unknown) {
 }
 
 .admin-about-banner-preview__copy small {
-  color: rgb(237 240 255 / 82%);
+  color: rgb(255 253 247 / 85%);
   font-size: 0.6rem;
   letter-spacing: 0.08em;
 }
@@ -1141,7 +1125,7 @@ function isAbortError(failure: unknown) {
 }
 
 .admin-about-banner-preview__copy span {
-  color: rgb(237 240 255 / 82%);
+  color: rgb(255 253 247 / 85%);
   font-size: 0.7rem;
 }
 

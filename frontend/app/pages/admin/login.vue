@@ -74,13 +74,24 @@ useHead({ title: '进入后台' })
     <a class="admin-login-page__skip-link" href="#admin-login-form">
       跳到登录表单
     </a>
-    <div class="admin-login-page__glow" aria-hidden="true" />
+    <aside class="admin-login-page__story" aria-label="博客编辑室">
+      <div class="admin-login-page__story-top">
+        <span class="admin-login-page__square" aria-hidden="true" />
+        <span>BIRCHTULA / FIELD NOTES</span>
+        <span>PRIVATE / 01</span>
+      </div>
+      <div class="admin-login-page__story-copy">
+        <p>EDITORIAL DESK</p>
+        <strong>每一篇记录，<br />都从这里开始。</strong>
+        <span>写作 / 整理 / 发布</span>
+      </div>
+      <p class="admin-login-page__story-foot">只为创作者保留的安静空间。</p>
+    </aside>
     <section class="admin-login-card" aria-labelledby="admin-login-title">
       <div class="admin-login-card__intro">
-        <span class="admin-login-card__mark" aria-hidden="true">✦</span>
-        <p class="admin-login-card__eyebrow">Administrator workspace</p>
+        <p class="admin-login-card__eyebrow">SIGN IN / EDITORIAL</p>
         <h1 id="admin-login-title">进入后台</h1>
-        <p>管理公开内容、站点状态与持续写作的下一步。</p>
+        <p>欢迎回来，继续整理你的文字与作品。</p>
       </div>
 
       <form
@@ -119,7 +130,7 @@ useHead({ title: '进入后台' })
         </UiButton>
       </form>
 
-      <a class="admin-login-card__public-link" href="/"> ← 返回公开站点 </a>
+      <a class="admin-login-card__public-link" href="/">← 返回公开站点</a>
     </section>
   </main>
 </template>
@@ -129,24 +140,83 @@ useHead({ title: '进入后台' })
   position: relative;
   display: grid;
   min-height: 100svh;
-  place-items: center;
+  grid-template-columns: minmax(0, 1.05fr) minmax(24rem, 0.95fr);
   overflow: hidden;
-  padding: var(--space-8) var(--gutter-page);
-  background:
-    linear-gradient(135deg, rgb(9 14 34 / 94%), rgb(6 10 23 / 100%)),
-    var(--color-canvas);
+  background: var(--color-canvas-raised);
   color: var(--color-text);
 }
 
-.admin-login-page__glow {
-  position: absolute;
-  width: min(60vw, 48rem);
-  aspect-ratio: 1;
-  border-radius: var(--radius-round);
-  background: radial-gradient(circle, var(--glow-accent), transparent 68%);
-  filter: blur(var(--blur-ambient));
-  opacity: 0.85;
-  pointer-events: none;
+.admin-login-page__story {
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1.5rem, 4vw, 4.5rem);
+  border-right: 1px solid var(--color-border);
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(
+    rgb(76 83 68 / 11%) 0.5px,
+    transparent 0.5px
+  );
+  background-size: 7px 7px;
+}
+
+.admin-login-page__story-top {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.admin-login-page__story-top span:last-child {
+  margin-left: auto;
+}
+
+.admin-login-page__square {
+  width: 0.7rem;
+  height: 0.7rem;
+  background: var(--color-accent);
+  transform: rotate(-8deg);
+}
+
+.admin-login-page__story-copy {
+  display: grid;
+  justify-items: start;
+  gap: clamp(1rem, 2vw, 2rem);
+  padding-block: 3rem;
+}
+
+.admin-login-page__story-copy p,
+.admin-login-page__story-foot {
+  margin: 0;
+  color: var(--color-accent-soft);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+}
+
+.admin-login-page__story-copy strong {
+  font-family: var(--font-display);
+  font-size: clamp(3.4rem, 5.2vw, 6.25rem);
+  font-weight: 600;
+  letter-spacing: -0.07em;
+  line-height: 1.2;
+}
+
+.admin-login-page__story-copy span {
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.16em;
+}
+
+.admin-login-page__story-foot {
+  color: var(--color-text-muted);
+  letter-spacing: 0;
 }
 
 .admin-login-page__skip-link {
@@ -167,35 +237,17 @@ useHead({ title: '进入后台' })
 }
 
 .admin-login-card {
-  position: relative;
-  z-index: var(--z-base);
-  width: min(100%, 30rem);
-  padding: clamp(var(--space-6), 7vw, var(--space-10));
-  border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-panel);
-  background: var(--glass-panel-bg);
-  box-shadow: var(--shadow-panel), var(--glass-highlight);
-  backdrop-filter: blur(var(--glass-blur-panel))
-    saturate(var(--glass-saturation));
+  width: min(100%, 31rem);
+  align-self: center;
+  justify-self: center;
+  padding: clamp(2rem, 5vw, 4rem);
 }
 
 .admin-login-card__intro {
   display: grid;
   justify-items: start;
   gap: var(--space-3);
-  margin-bottom: var(--space-8);
-}
-
-.admin-login-card__mark {
-  display: grid;
-  width: 3rem;
-  height: 3rem;
-  place-items: center;
-  border: var(--border-hairline) solid var(--glass-border-hover);
-  border-radius: var(--radius-medium);
-  background: var(--badge-accent-bg);
-  color: var(--color-accent-soft);
-  font-size: 1.35rem;
+  margin-bottom: var(--space-10);
 }
 
 .admin-login-card__eyebrow {
@@ -203,8 +255,8 @@ useHead({ title: '进入后台' })
   color: var(--color-accent-soft);
   font-size: var(--text-caption);
   font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
 }
 
 .admin-login-card h1,
@@ -213,8 +265,11 @@ useHead({ title: '进入后台' })
 }
 
 .admin-login-card h1 {
-  font-size: clamp(2rem, 7vw, 3.25rem);
-  line-height: 1.1;
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 5vw, 4.5rem);
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 1.14;
 }
 
 .admin-login-card__intro p:last-child {
@@ -233,7 +288,7 @@ useHead({ title: '进入后台' })
   border: var(--border-hairline) solid var(--color-danger-border);
   border-radius: var(--radius-medium);
   background: var(--color-danger-surface);
-  color: #fecdd3;
+  color: var(--color-danger);
   line-height: 1.6;
 }
 
@@ -255,14 +310,40 @@ useHead({ title: '进入后台' })
   color: var(--color-text);
 }
 
-@media (width <= 30rem) {
+@media (width <= 60rem) {
   .admin-login-page {
-    align-items: start;
-    padding-top: var(--space-6);
+    grid-template-columns: 1fr;
+  }
+
+  .admin-login-page__story {
+    min-height: 15rem;
+    padding: 1.5rem var(--gutter-page);
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .admin-login-page__story-copy {
+    padding-block: 1.5rem 0;
+  }
+
+  .admin-login-page__story-copy strong {
+    font-size: clamp(2rem, 5vw, 3rem);
+  }
+
+  .admin-login-page__story-copy span,
+  .admin-login-page__story-foot {
+    display: none;
   }
 
   .admin-login-card {
-    border-radius: var(--radius-large);
+    width: min(100%, 34rem);
+    padding: clamp(2rem, 7vw, 3.5rem) var(--gutter-page) 4rem;
+  }
+}
+
+@media (width <= 30rem) {
+  .admin-login-page__story-top span:last-child {
+    display: none;
   }
 }
 </style>
