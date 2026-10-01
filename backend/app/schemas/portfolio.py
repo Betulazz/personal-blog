@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.models.portfolio import ProjectStatus
 from app.schemas.common import PaginationMeta
+from app.schemas.social_icon_svg import sanitize_social_icon_svg
 
 
 def _required_text(value: str, field: str) -> str:
@@ -501,8 +502,20 @@ class SiteSocialMediaIcon(BaseModel):
         return _validate_social_icon_reference(value)
 
 
+class SiteSocialSvgIcon(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["svg"]
+    source: str = Field(min_length=1, max_length=20_000)
+
+    @field_validator("source")
+    @classmethod
+    def sanitize_source(cls, value: str) -> str:
+        return sanitize_social_icon_svg(value)
+
+
 SiteSocialIcon = Annotated[
-    SiteSocialPresetIcon | SiteSocialMediaIcon,
+    SiteSocialPresetIcon | SiteSocialMediaIcon | SiteSocialSvgIcon,
     Field(discriminator="type"),
 ]
 
@@ -638,9 +651,7 @@ class AboutBannerFocalPoint(BaseModel):
 
 class AboutSettings(BaseModel):
     banner_url: str | None = Field(default=None, max_length=2048)
-    banner_focal_point: AboutBannerFocalPoint = Field(
-        default_factory=AboutBannerFocalPoint
-    )
+    banner_focal_point: AboutBannerFocalPoint = Field(default_factory=AboutBannerFocalPoint)
     interests_heading: str = Field(default="兴趣", min_length=1, max_length=120)
     interests_introduction: str = Field(
         default="让工作之外的生活也保留一点好奇心。",

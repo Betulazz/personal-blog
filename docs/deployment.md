@@ -1,7 +1,7 @@
 # Deployment
 
 Status: v1 Docker deployment baseline; v2 native acceptance recorded (Docker not rerun)
-Last updated: 2026-09-25
+Last updated: 2026-09-30
 
 This runbook covers the containerized production topology for a single
 Docker-capable Linux host. Native Windows development is documented separately
@@ -77,6 +77,16 @@ affected by anything here.
      health checks) and `backend` (Nuxt SSR calls over the Compose network).
      Production startup rejects `*`.
    - `COOKIE_SECURE=true` and an explicit `COOKIE_SAMESITE` when HTTPS is used.
+   - To enable visitor comments, create a GitHub App and set
+     `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, and
+     `GITHUB_APP_CALLBACK_URL` in `.env`. Register the callback exactly as
+     `https://<public-host>/api/v1/comments/auth/github/callback`. Configure the
+     App webhook at `https://<public-host>/api/v1/webhooks/github/app` and set
+     its secret in `GITHUB_APP_WEBHOOK_SECRET`. GitHub delivers the
+     `github_app_authorization` revocation event by default. The App needs no
+     repository or email permission. GitHub Apps use configured permissions
+     instead of OAuth scope parameters. Without these values, comment reading
+     stays available and GitHub login reports that it is not configured.
 
 3. Provide the TLS certificate (see "HTTPS termination") in `docker/certs/`,
    or skip this and run the base HTTP Compose file for a local rehearsal.
@@ -172,7 +182,11 @@ affected by anything here.
 
 3. Apply migrations before restarting application containers. If the release
    contains schema changes, take and verify a database and uploads backup
-   first. Current v2 schema head: `0016_background_gallery`.
+   first. Current schema head: `0017_github_comments`. This migration creates
+   the About discussion and a thread for every currently published Post. A
+   downgrade drops all Commenters, sessions, Comments, replies, likes, and
+   moderation state created by the feature; restore a database backup to recover
+   that data after downgrade.
 
    ```bash
    docker compose --profile tools run --rm migrate

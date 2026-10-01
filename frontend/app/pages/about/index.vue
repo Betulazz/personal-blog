@@ -26,10 +26,13 @@ useHead({
 </script>
 
 <template>
-  <PortfolioAboutView
-    :error="error"
-    :pending="pending"
-    :profile="data ?? null"
-    @retry="refresh"
-  />
+  <div class="about-page-with-comments">
+    <PortfolioAboutView
+      :error="error"
+      :pending="pending"
+      :profile="data ?? null"
+      @retry="refresh"
+    />
+    <CommentsCommentSection resource-type="about" />
+  </div>
 </template>

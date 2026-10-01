@@ -372,6 +372,12 @@ useHead({
       </div>
     </UiPageContainer>
 
+    <CommentsCommentSection
+      v-if="post"
+      :post-id="post.id"
+      resource-type="post"
+    />
+
     <UiSheet
       v-if="toc.length"
       v-model:open="tocOpen"

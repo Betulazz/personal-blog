@@ -6,6 +6,7 @@ import type {
   AdminSiteSettingsInput,
 } from '~/types/admin-portfolio'
 import type { SiteSocialIcon, SiteSocialLink } from '~/types/site'
+import { sanitizeSocialIconSvg } from '~/utils/social-icon-svg'
 
 interface SettingsForm {
   avatarAlt: string
@@ -57,6 +58,26 @@ const emptyForm = (): SettingsForm => ({
   tagline: '',
 })
 
+const toSocialIconInput = (
+  icon: SiteSocialIcon | null | undefined,
+): Pick<SiteSocialLink, 'icon'> => {
+  if (icon?.type === 'media') {
+    return {
+      icon: {
+        type: 'media',
+        url: icon.reference ?? icon.url,
+      },
+    }
+  }
+  if (icon?.type === 'preset') {
+    return { icon: { type: 'preset', preset: icon.preset } }
+  }
+  if (icon?.type === 'svg') {
+    return { icon: { type: 'svg', source: icon.source } }
+  }
+  return {}
+}
+
 const toForm = (settings: AdminSiteSettings): SettingsForm => ({
   avatarAlt: settings.avatarAlt ?? '',
   avatarUrl: settings.avatarUrl ?? '',
@@ -103,21 +124,7 @@ const toInput = (form: SettingsForm): AdminSiteSettingsInput => ({
   social_links: form.socialLinks
     .map((link) => ({
       href: link.href.trim(),
-      ...(link.icon?.type === 'media'
-        ? {
-            icon: {
-              type: 'media' as const,
-              url: link.icon.reference ?? link.icon.url,
-            },
-          }
-        : link.icon?.type === 'preset'
-          ? {
-              icon: {
-                type: 'preset' as const,
-                preset: link.icon.preset,
-              },
-            }
-          : {}),
+      ...toSocialIconInput(link.icon),
       kind: link.kind,
       label: link.label.trim(),
     }))
@@ -240,6 +247,8 @@ const socialIconPresets = [
   { label: 'X', value: 'x' },
   { label: '网站', value: 'website' },
   { label: 'YouTube', value: 'youtube' },
+  { label: '媒体库图片', value: 'custom-image' },
+  { label: 'SVG 源码', value: 'custom-svg' },
 ]
 
 const validate = () => {
@@ -285,6 +294,13 @@ const validate = () => {
       validation[`social-icon-${index}`] =
         '自定义图标必须来自媒体库中的图片 Media Asset。'
     }
+    if (
+      link.icon?.type === 'svg' &&
+      !sanitizeSocialIconSvg(link.icon.source)
+    ) {
+      validation[`social-icon-${index}`] =
+        '请粘贴包含有效 viewBox 的 SVG 源码（最多 20000 个字符）。'
+    }
   })
   if (
     form.value.contactEmail.trim() &&
@@ -323,11 +339,22 @@ const addSocialLink = () =>
   form.value.socialLinks.push({ href: '', kind: 'social', label: '' })
 const removeSocialLink = (index: number) =>
   form.value.socialLinks.splice(index, 1)
-const socialIconPresetFor = (link: SiteSocialLink) =>
-  link.icon?.type === 'preset' ? link.icon.preset : 'none'
+const socialIconChoiceFor = (link: SiteSocialLink) => {
+  if (link.icon?.type === 'media') return 'custom-image'
+  if (link.icon?.type === 'svg') return 'custom-svg'
+  return link.icon?.type === 'preset' ? link.icon.preset : 'none'
+}
 const selectSocialIconPreset = (index: number, preset: string) => {
   const link = form.value.socialLinks[index]
   if (!link) return
+  if (preset === 'custom-image') {
+    openSocialIconPicker(index)
+    return
+  }
+  if (preset === 'custom-svg') {
+    editSocialIconSvg(index)
+    return
+  }
   link.icon = preset === 'none' ? null : { type: 'preset', preset }
 }
 const openSocialIconPicker = (index: number) => {
@@ -344,6 +371,15 @@ const selectSocialIconMedia = (asset: { reference: string; url: string }) => {
   }
   form.value.socialLinks[index].icon = icon
   socialIconTargetIndex.value = null
+}
+const editSocialIconSvg = (index: number) => {
+  const link = form.value.socialLinks[index]
+  if (!link) return
+  if (link.icon?.type !== 'svg') link.icon = { type: 'svg', source: '' }
+}
+const updateSocialIconSvg = (index: number, source: string) => {
+  const link = form.value.socialLinks[index]
+  if (link) link.icon = { type: 'svg', source }
 }
 const clearSocialIcon = (index: number) => {
   const link = form.value.socialLinks[index]
@@ -686,7 +722,7 @@ function isAbortError(failure: unknown) {
             ]"
           />
           <UiSelect
-            :model-value="socialIconPresetFor(link)"
+            :model-value="socialIconChoiceFor(link)"
             :label="`社交链接图标 ${index + 1}`"
             :options="socialIconPresets"
             @update:model-value="selectSocialIconPreset(index, $event)"
@@ -704,6 +740,14 @@ function isAbortError(failure: unknown) {
               选择自定义图标 {{ index + 1 }}
             </UiButton>
             <UiButton
+              type="button"
+              variant="secondary"
+              size="small"
+              @click="editSocialIconSvg(index)"
+            >
+              粘贴 SVG 源码
+            </UiButton>
+            <UiButton
               v-if="link.icon"
               type="button"
               variant="ghost"
@@ -713,6 +757,17 @@ function isAbortError(failure: unknown) {
               清除图标
             </UiButton>
           </div>
+          <UiTextarea
+            v-if="link.icon?.type === 'svg'"
+            :label="`SVG 源码 ${index + 1}`"
+            :model-value="link.icon.source"
+            description="支持 svg、path、g、circle、rect 等图形标签；脚本、事件、样式和外部引用会被移除。"
+            placeholder='<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">…</svg>'
+            :maxlength="20000"
+            :rows="7"
+            spellcheck="false"
+            @update:model-value="updateSocialIconSvg(index, $event)"
+          />
           <p
             v-if="validation[`social-icon-${index}`]"
             class="admin-form-error"

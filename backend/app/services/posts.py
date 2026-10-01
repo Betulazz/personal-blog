@@ -2,10 +2,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError
+from app.models.comments import CommentThread
 from app.models.post import Post, PostStatus
 from app.models.taxonomy import Tag
 from app.repositories.posts import PostRepository
@@ -104,6 +106,12 @@ class PostService:
         post.status = PostStatus.PUBLISHED
         if post.published_at is None:
             post.published_at = datetime.now(UTC).replace(tzinfo=None, microsecond=0)
+        thread_key = f"post:{post.id}"
+        thread = await self._session.scalar(
+            select(CommentThread).where(CommentThread.resource_key == thread_key)
+        )
+        if thread is None:
+            self._session.add(CommentThread(resource_key=thread_key, post_id=post.id))
         await self._session.commit()
         return await self._require_post(post.id)
 

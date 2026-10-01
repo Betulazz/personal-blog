@@ -1,6 +1,7 @@
 export type SiteSocialIcon =
   | { type: 'preset'; preset: string }
   | { type: 'media'; url: string; reference?: string }
+  | { type: 'svg'; source: string }
 
 export interface SiteSocialLink {
   href: string

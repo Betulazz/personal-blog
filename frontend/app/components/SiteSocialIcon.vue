@@ -8,10 +8,11 @@ import {
   Send,
   Youtube,
 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import type { Component } from 'vue'
 
 import type { SiteSocialIcon as SiteSocialIconChoice } from '~/types/site'
+import { sanitizeSocialIconSvg } from '~/utils/social-icon-svg'
 
 const props = withDefaults(
   defineProps<{
@@ -35,6 +36,15 @@ const imageUrl = computed(() =>
   props.icon?.type === 'media' ? props.icon.url : '',
 )
 const imageUnavailable = ref(false)
+const mounted = ref(false)
+onMounted(() => {
+  mounted.value = true
+})
+const svgMarkup = computed(() =>
+  mounted.value && props.icon?.type === 'svg'
+    ? sanitizeSocialIconSvg(props.icon.source)
+    : '',
+)
 const isXPreset = computed(
   () => props.icon?.type === 'preset' && props.icon.preset === 'x',
 )
@@ -62,6 +72,15 @@ watch(imageUrl, () => {
     decoding="async"
     @error="imageUnavailable = true"
   />
+  <!-- eslint-disable vue/no-v-html -->
+  <span
+    v-else-if="svgMarkup"
+    class="site-social-icon site-social-icon--svg"
+    :style="{ width: `${size}px`, height: `${size}px` }"
+    aria-hidden="true"
+    v-html="svgMarkup"
+  />
+  <!-- eslint-enable vue/no-v-html -->
   <svg
     v-else-if="isXPreset"
     class="site-social-icon"
@@ -89,5 +108,11 @@ watch(imageUrl, () => {
   display: block;
   flex: none;
   object-fit: contain;
+}
+
+.site-social-icon--svg :deep(svg) {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 </style>

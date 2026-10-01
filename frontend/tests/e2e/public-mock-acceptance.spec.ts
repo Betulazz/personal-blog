@@ -46,7 +46,7 @@ const publicRoutes = [
 ] as const
 
 const notFoundRoute = {
-  heading: '这片夜空还没有页面',
+  heading: '这一页，还在路上。',
   path: '/definitely-not-a-real-page',
 } as const
 
@@ -297,10 +297,11 @@ test('public error and empty states offer an intentional recovery path', async (
   ).toHaveAttribute('href', '/posts')
 
   await page.goto('/tags/not-a-real-tag')
-  await expect(page.getByText('没有找到这个标签')).toBeVisible()
+  await expect(page).toHaveURL(/\/posts\?tag=not-a-real-tag$/)
+  await expect(page.getByText('还没有找到文章')).toBeVisible()
   await expect(
-    page.getByRole('link', { exact: true, name: '返回文章发现' }),
-  ).toHaveAttribute('href', '/tags')
+    page.getByRole('link', { name: '查看全部文章' }),
+  ).toHaveAttribute('href', '/posts')
 
   await page.goto('/search?q=not-a-real-query')
   await expect(page.getByText('还没有找到搜索结果')).toBeVisible()
@@ -310,7 +311,7 @@ test('public error and empty states offer an intentional recovery path', async (
 
   await page.goto('/definitely-not-a-real-page')
   await expect(
-    page.getByRole('heading', { name: '这片夜空还没有页面' }),
+    page.getByRole('heading', { name: notFoundRoute.heading }),
   ).toBeVisible()
   await expect(page.getByRole('link', { name: '返回首页' })).toHaveAttribute(
     'href',

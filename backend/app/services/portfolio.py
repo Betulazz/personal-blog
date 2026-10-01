@@ -257,9 +257,7 @@ class SiteSettingsService:
             else None
         )
         if banner_url is not None:
-            asset = await self._media_repository.find_by_key(
-                banner_url.removeprefix("/uploads/")
-            )
+            asset = await self._media_repository.find_by_key(banner_url.removeprefix("/uploads/"))
             if (
                 asset is None
                 or asset.media_kind != "image"

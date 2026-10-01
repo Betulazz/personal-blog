@@ -1,5 +1,12 @@
 import type { TimelineCollectionResponse } from '~/types/timeline'
 import type {
+  AdminCommentCollection,
+  AdminCommentThread,
+  BlogComment,
+  CommenterSession,
+  PublicCommentThread,
+} from '~/types/comments'
+import type {
   AdminChatter,
   AdminChatterInput,
   AdminResourceApi,
@@ -107,6 +114,74 @@ interface RawCollection<T> {
 
 interface RawApiResponse<T> {
   data: T
+}
+
+interface RawCommenterSession {
+  github_login_enabled: boolean
+  commenter: {
+    avatar_url: string | null
+    github_user_id: string
+    is_banned: boolean
+    login: string
+    profile_url: string
+  } | null
+}
+
+interface RawCommentItem {
+  author: {
+    avatar_url: string | null
+    kind: 'commenter' | 'administrator'
+    name: string
+    profile_url: string | null
+  }
+  body_html: string | null
+  body_markdown: string | null
+  can_edit: boolean
+  created_at: string
+  edited_at: string | null
+  id: number
+  like_count: number
+  liked_by_me: boolean
+  replies: RawCommentItem[]
+  state: 'visible' | 'hidden' | 'deleted'
+}
+
+interface RawPublicCommentThread {
+  comment_count: number
+  comments: RawCommentItem[]
+  has_more: boolean
+  is_open: boolean
+  next_cursor: number | null
+  resource_key: string
+}
+
+interface RawAdminComment {
+  author_avatar_url: string | null
+  author_name: string
+  author_profile_url: string | null
+  body_html: string | null
+  body_markdown: string | null
+  created_at: string
+  commenter_is_banned: boolean | null
+  edited_at: string | null
+  github_user_id: string | null
+  id: number
+  is_administrator: boolean
+  parent_id: number | null
+  reply_count: number
+  resource_key: string
+  resource_label: string
+  resource_path: string
+  state: 'visible' | 'hidden' | 'deleted'
+  thread_is_open: boolean
+}
+
+interface RawAdminCommentThread {
+  comment_count: number
+  is_open: boolean
+  resource_key: string
+  resource_label: string
+  resource_path: string
 }
 
 interface RawRuntimeUptimeStatus {
@@ -379,6 +454,44 @@ export class BlogApiError extends Error {
 }
 
 export interface BlogApiClient {
+  getCommenterSession: (signal?: AbortSignal) => Promise<CommenterSession>
+  getAboutComments: (
+    cursor?: string,
+    signal?: AbortSignal,
+  ) => Promise<PublicCommentThread>
+  getPostComments: (
+    postId: string,
+    cursor?: string,
+    signal?: AbortSignal,
+  ) => Promise<PublicCommentThread>
+  previewComment: (body: string) => Promise<string>
+  commenterLoginUrl: (returnPath: string) => string
+  logoutCommenter: () => Promise<void>
+  createAboutComment: (body: string, parentId?: string) => Promise<BlogComment>
+  createPostComment: (
+    postId: string,
+    body: string,
+    parentId?: string,
+  ) => Promise<BlogComment>
+  editComment: (id: string, body: string) => Promise<BlogComment>
+  deleteComment: (id: string) => Promise<void>
+  toggleCommentLike: (id: string) => Promise<boolean>
+  listAdminComments: (
+    page: number,
+    pageSize?: number,
+    signal?: AbortSignal,
+  ) => Promise<AdminCommentCollection>
+  listAdminCommentThreads: (
+    signal?: AbortSignal,
+  ) => Promise<AdminCommentThread[]>
+  getUnreadCommentCount: () => Promise<number>
+  setAdminCommentVisibility: (
+    id: string,
+    state: 'visible' | 'hidden',
+  ) => Promise<void>
+  replyAsAdministrator: (id: string, body: string) => Promise<BlogComment>
+  setCommenterBanned: (githubUserId: string, isBanned: boolean) => Promise<void>
+  setCommentThreadOpen: (resourceKey: string, isOpen: boolean) => Promise<void>
   listTimeline: (
     query: PublicFeedQuery,
     signal?: AbortSignal,
@@ -527,6 +640,36 @@ const pagination = (value: RawPagination): PublicCollectionPagination => ({
   pageSize: value.page_size,
   total: value.total,
   totalPages: value.total_pages,
+})
+
+const toCommentItem = (value: RawCommentItem): BlogComment => ({
+  author: {
+    avatarUrl: value.author.avatar_url,
+    kind: value.author.kind,
+    name: value.author.name,
+    profileUrl: value.author.profile_url,
+  },
+  bodyHtml: value.body_html,
+  bodyMarkdown: value.body_markdown,
+  canEdit: value.can_edit,
+  createdAt: value.created_at,
+  editedAt: value.edited_at,
+  id: String(value.id),
+  likeCount: value.like_count,
+  likedByMe: value.liked_by_me,
+  replies: value.replies.map(toCommentItem),
+  state: value.state,
+})
+
+const toPublicCommentThread = (
+  value: RawPublicCommentThread,
+): PublicCommentThread => ({
+  commentCount: value.comment_count,
+  comments: value.comments.map(toCommentItem),
+  hasMore: value.has_more,
+  isOpen: value.is_open,
+  nextCursor: value.next_cursor === null ? null : String(value.next_cursor),
+  resourceKey: value.resource_key,
 })
 
 type MediaUrlResolver = (value: string) => string
@@ -992,7 +1135,7 @@ export function useApiClient(): BlogApiClient {
     options: {
       body?: Record<string, unknown>
       headers?: Record<string, string>
-      method?: 'DELETE' | 'GET' | 'PATCH' | 'POST'
+      method?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT'
       query?: Record<string, string | number | undefined>
       signal?: AbortSignal
     } = {},
@@ -1023,7 +1166,7 @@ export function useApiClient(): BlogApiClient {
 
   const mutateWithCsrf = async <T>(
     path: string,
-    method: 'DELETE' | 'PATCH' | 'POST',
+    method: 'DELETE' | 'PATCH' | 'POST' | 'PUT',
     body?: Record<string, unknown>,
   ) => {
     const token = await csrfToken()
@@ -1490,6 +1633,221 @@ export function useApiClient(): BlogApiClient {
     return toAdminDashboard(response.data)
   }
 
+  const getCommenterSession = async (signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawCommenterSession>>(
+      '/comments/session',
+      { signal },
+    )
+    const commenter = response.data.commenter
+    return {
+      commenter: commenter
+        ? {
+            avatarUrl: commenter.avatar_url,
+            githubUserId: commenter.github_user_id,
+            isBanned: commenter.is_banned,
+            login: commenter.login,
+            profileUrl: commenter.profile_url,
+          }
+        : null,
+      githubLoginEnabled: response.data.github_login_enabled,
+    }
+  }
+
+  const getComments = async (
+    path: string,
+    cursor?: string,
+    signal?: AbortSignal,
+  ) => {
+    const response = await request<RawApiResponse<RawPublicCommentThread>>(
+      path,
+      {
+        query: { cursor: cursor ? Number(cursor) : undefined },
+        signal,
+      },
+    )
+    return toPublicCommentThread(response.data)
+  }
+
+  const getAboutComments = (cursor?: string, signal?: AbortSignal) =>
+    getComments('/comments/about', cursor, signal)
+
+  const getPostComments = (
+    postId: string,
+    cursor?: string,
+    signal?: AbortSignal,
+  ) =>
+    getComments(`/comments/posts/${encodeURIComponent(postId)}`, cursor, signal)
+
+  const previewComment = async (body: string) => {
+    const response = await mutateWithCsrf<RawApiResponse<{ html: string }>>(
+      '/comments/preview',
+      'POST',
+      { body },
+    )
+    return response.data.html
+  }
+
+  const commenterLoginUrl = (returnPath: string) => {
+    const query = new URLSearchParams({ return_to: returnPath })
+    return `${baseURL}/comments/auth/github/start?${query.toString()}`
+  }
+
+  const logoutCommenter = async () => {
+    await mutateWithCsrf<RawApiResponse<{ logged_out: boolean }>>(
+      '/comments/logout',
+      'POST',
+    )
+  }
+
+  const writeComment = async (
+    path: string,
+    body: string,
+    parentId?: string,
+  ) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawCommentItem>>(
+      path,
+      'POST',
+      {
+        body,
+        ...(parentId ? { parent_id: Number(parentId) } : {}),
+      },
+    )
+    return toCommentItem(response.data)
+  }
+
+  const createAboutComment = (body: string, parentId?: string) =>
+    writeComment('/comments/about', body, parentId)
+
+  const createPostComment = (postId: string, body: string, parentId?: string) =>
+    writeComment(
+      `/comments/posts/${encodeURIComponent(postId)}`,
+      body,
+      parentId,
+    )
+
+  const editComment = async (id: string, body: string) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawCommentItem>>(
+      `/comments/${encodeURIComponent(id)}`,
+      'PATCH',
+      { body },
+    )
+    return toCommentItem(response.data)
+  }
+
+  const deleteComment = async (id: string) => {
+    await mutateWithCsrf<RawApiResponse<{ deleted: boolean }>>(
+      `/comments/${encodeURIComponent(id)}`,
+      'DELETE',
+    )
+  }
+
+  const toggleCommentLike = async (id: string) => {
+    const response = await mutateWithCsrf<RawApiResponse<{ liked: boolean }>>(
+      `/comments/${encodeURIComponent(id)}/like`,
+      'PUT',
+    )
+    return response.data.liked
+  }
+
+  const listAdminComments = async (
+    page: number,
+    pageSize = 20,
+    signal?: AbortSignal,
+  ): Promise<AdminCommentCollection> => {
+    const response = await request<RawCollection<RawAdminComment>>(
+      '/admin/comments',
+      {
+        query: { page, page_size: pageSize },
+        signal,
+      },
+    )
+    return {
+      data: response.data.map((comment) => ({
+        authorAvatarUrl: comment.author_avatar_url,
+        authorName: comment.author_name,
+        authorProfileUrl: comment.author_profile_url,
+        bodyHtml: comment.body_html,
+        bodyMarkdown: comment.body_markdown,
+        createdAt: comment.created_at,
+        commenterIsBanned: comment.commenter_is_banned,
+        editedAt: comment.edited_at,
+        githubUserId: comment.github_user_id,
+        id: String(comment.id),
+        isAdministrator: comment.is_administrator,
+        parentId: comment.parent_id === null ? null : String(comment.parent_id),
+        replyCount: comment.reply_count,
+        resourceKey: comment.resource_key,
+        resourceLabel: comment.resource_label,
+        resourcePath: comment.resource_path,
+        state: comment.state,
+        threadIsOpen: comment.thread_is_open,
+      })),
+      pagination: pagination(response.pagination),
+    }
+  }
+
+  const listAdminCommentThreads = async (signal?: AbortSignal) => {
+    const response = await request<RawApiResponse<RawAdminCommentThread[]>>(
+      '/admin/comment-threads',
+      { signal },
+    )
+    return response.data.map((thread) => ({
+      commentCount: thread.comment_count,
+      isOpen: thread.is_open,
+      resourceKey: thread.resource_key,
+      resourceLabel: thread.resource_label,
+      resourcePath: thread.resource_path,
+    }))
+  }
+
+  const getUnreadCommentCount = async () => {
+    const response = await request<RawApiResponse<{ count: number }>>(
+      '/admin/comments/unread-count',
+    )
+    return response.data.count
+  }
+
+  const setAdminCommentVisibility = async (
+    id: string,
+    state: 'visible' | 'hidden',
+  ) => {
+    await mutateWithCsrf<RawApiResponse<{ state: string }>>(
+      `/admin/comments/${encodeURIComponent(id)}/visibility`,
+      'PATCH',
+      { state },
+    )
+  }
+
+  const replyAsAdministrator = async (id: string, body: string) => {
+    const response = await mutateWithCsrf<RawApiResponse<RawCommentItem>>(
+      `/admin/comments/${encodeURIComponent(id)}/reply`,
+      'POST',
+      { body },
+    )
+    return toCommentItem(response.data)
+  }
+
+  const setCommenterBanned = async (
+    githubUserId: string,
+    isBanned: boolean,
+  ) => {
+    await mutateWithCsrf<RawApiResponse<unknown>>(
+      `/admin/commenters/${encodeURIComponent(githubUserId)}/ban`,
+      'POST',
+      { is_banned: isBanned },
+    )
+  }
+
+  const setCommentThreadOpen = async (resourceKey: string, isOpen: boolean) => {
+    const path =
+      resourceKey === 'about'
+        ? '/admin/comment-threads/about'
+        : `/admin/comment-threads/posts/${encodeURIComponent(resourceKey.replace('post:', ''))}`
+    await mutateWithCsrf<RawApiResponse<unknown>>(path, 'PATCH', {
+      is_open: isOpen,
+    })
+  }
+
   const listAdminPosts = async (
     query: AdminPostQuery,
     signal?: AbortSignal,
@@ -1902,6 +2260,9 @@ export function useApiClient(): BlogApiClient {
 
   return {
     adminChatter: adminResource<AdminChatter, AdminChatterInput>('chatter'),
+    commenterLoginUrl,
+    createAboutComment,
+    createPostComment,
     createAdminFriend,
     createAdminMusicTrack,
     createAdminProject,
@@ -1914,6 +2275,8 @@ export function useApiClient(): BlogApiClient {
     deleteAdminProject,
     deleteAdminTag,
     getAdminDashboard,
+    getAboutComments,
+    getCommenterSession,
     getAdminFriend,
     getAdminMediaPolicy,
     getAdminMediaReferences,
@@ -1924,14 +2287,18 @@ export function useApiClient(): BlogApiClient {
     getCurrentUser,
     getAbout,
     getPostBySlug,
+    getPostComments,
     getSettings,
     getRuntimeUptime,
     login,
     logout,
+    logoutCommenter,
     listAdminFriends,
     listAdminMedia,
     listAdminMusicTracks,
     listAdminPosts,
+    listAdminComments,
+    listAdminCommentThreads,
     listAdminProjects,
     listAdminTags,
     listChatter,
@@ -1946,12 +2313,17 @@ export function useApiClient(): BlogApiClient {
     listPosts,
     listProjects,
     listTags,
+    getUnreadCommentCount,
+    previewComment,
     previewAdminPost,
     previewAdminMusicTrack,
     publishAdminPost,
     refreshSession,
     reorderAdminMusicTracks,
     setAdminMusicTrackEnabled,
+    setAdminCommentVisibility,
+    setCommenterBanned,
+    setCommentThreadOpen,
     unpublishAdminPost,
     updateAdminFriend,
     updateAdminMusicTrack,
@@ -1960,6 +2332,10 @@ export function useApiClient(): BlogApiClient {
     updateAdminSettings,
     updateAdminTag,
     uploadAdminMedia,
+    editComment,
+    deleteComment,
+    toggleCommentLike,
+    replyAsAdministrator,
   }
 }
 

@@ -144,9 +144,7 @@ class MediaAssetRepository:
             if isinstance(banner_reference, str) and _contains_media(
                 banner_reference, key, public_url
             ):
-                references.append(
-                    MediaReference("site_settings", settings.id, "about.banner_url")
-                )
+                references.append(MediaReference("site_settings", settings.id, "about.banner_url"))
             for index, entry in enumerate(settings.social_links or []):
                 if not isinstance(entry, dict):
                     continue

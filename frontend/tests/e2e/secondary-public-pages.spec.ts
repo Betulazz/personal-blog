@@ -251,6 +251,17 @@ test('About keeps Profile in document flow above Skills on desktop and mobile', 
     ),
   ).toBe(1)
 
+  const musicPlayer = page.locator('[data-testid="music-player"]')
+  if (await musicPlayer.count()) {
+    await expect(musicPlayer).toHaveCSS('position', 'fixed')
+    const playerBounds = await musicPlayer.boundingBox()
+    expect(playerBounds).not.toBeNull()
+    expect(playerBounds!.x).toBeGreaterThanOrEqual(0)
+    expect(playerBounds!.y).toBeGreaterThanOrEqual(0)
+    expect(playerBounds!.x + playerBounds!.width).toBeLessThanOrEqual(430)
+    expect(playerBounds!.y + playerBounds!.height).toBeLessThanOrEqual(932)
+  }
+
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -258,18 +269,6 @@ test('About keeps Profile in document flow above Skills on desktop and mobile', 
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
   await page.locator('#about-contact-title').scrollIntoViewIfNeeded()
   await expect(page.locator('#about-contact-title')).toBeVisible()
-
-  const musicPlayer = page.locator('[data-testid="music-player"]')
-  if (await musicPlayer.count()) {
-    await expect(musicPlayer).toHaveCSS('position', 'relative')
-    const aboutBounds = await page.locator('[data-about-page]').boundingBox()
-    const playerBounds = await musicPlayer.boundingBox()
-    expect(aboutBounds).not.toBeNull()
-    expect(playerBounds).not.toBeNull()
-    expect(playerBounds!.y).toBeGreaterThanOrEqual(
-      aboutBounds!.y + aboutBounds!.height,
-    )
-  }
 })
 
 test('About falls back to a legible monogram when its avatar fails', async ({
@@ -308,7 +307,7 @@ test('custom recovery pages handle not-found and unexpected errors', async ({
   expect(notFoundResponse?.status()).toBe(404)
   await expect(page.locator('[data-error-page]')).toBeVisible()
   await expect(
-    page.getByRole('heading', { name: '这片夜空还没有页面' }),
+    page.getByRole('heading', { name: '这一页，还在路上。' }),
   ).toBeVisible()
   await expect(page.getByRole('link', { name: '返回首页' })).toBeVisible()
   await page.getByRole('link', { name: '阅读文章' }).click()

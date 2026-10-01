@@ -3,7 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, model_validator
+from pydantic import AnyHttpUrl, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.types.media import MediaStorageStrategy
@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     refresh_cookie_name: str = "refresh_token"
     csrf_cookie_name: str = "csrf_token"
     csrf_header_name: str = "X-CSRF-Token"
+    commenter_session_cookie_name: str = "commenter_session"
+    commenter_oauth_cookie_name: str = "commenter_oauth_state"
+    commenter_session_ttl_days: int = Field(default=30, ge=1, le=90)
+    github_app_client_id: str | None = None
+    github_app_client_secret: str | None = None
+    github_app_callback_url: AnyHttpUrl | None = None
+    github_app_webhook_secret: str | None = None
+    public_site_url: AnyHttpUrl = AnyHttpUrl("http://127.0.0.1:3000")
     uptime_state_file: Path = DEFAULT_UPTIME_STATE_FILE
     media_root: Path = Path("uploads")
     media_public_prefix: str = "/uploads"
@@ -49,6 +57,11 @@ class Settings(BaseSettings):
         default_factory=lambda: [AnyHttpUrl("http://127.0.0.1:3000")]
     )
     trusted_hosts: list[str] = Field(default_factory=lambda: ["*"])
+
+    @field_validator("github_app_callback_url", mode="before")
+    @classmethod
+    def normalize_optional_callback_url(cls, value: object) -> object:
+        return None if value == "" else value
 
     @model_validator(mode="after")
     def validate_auth_configuration(self) -> "Settings":

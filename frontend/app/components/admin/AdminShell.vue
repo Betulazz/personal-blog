@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { Menu } from 'lucide-vue-next'
+
+import { useApiClient } from '~/api/client'
 import { useAdminSession } from '~/stores/adminSession'
 
+const api = useApiClient()
 const session = useAdminSession()
 const route = useRoute()
 const isMenuOpen = ref(false)
+const unreadComments = ref(0)
 
 const navigation = [
   {
@@ -18,6 +22,7 @@ const navigation = [
       { label: '标签', to: '/admin/tags', number: '02' },
       { label: 'Chatter', to: '/admin/chatter', number: '03' },
       { label: '项目', to: '/admin/projects', number: '04' },
+      { label: '评论', to: '/admin/comments', number: '10' },
     ],
   },
   {
@@ -33,10 +38,24 @@ const navigation = [
 ]
 
 const isCurrentRoute = (to: string) =>
-  to === '/admin' ? route.path === to : route.path.startsWith(`${to}/`)
+  route.path === to || route.path.startsWith(`${to}/`)
 
 const closeMenu = () => {
   isMenuOpen.value = false
+}
+
+const refreshUnreadComments = async () => {
+  if (!session.isAuthenticated) {
+    unreadComments.value = 0
+    return
+  }
+  try {
+    unreadComments.value = await session.withSession(() =>
+      api.getUnreadCommentCount(),
+    )
+  } catch {
+    unreadComments.value = 0
+  }
 }
 
 const logout = async () => {
@@ -45,8 +64,21 @@ const logout = async () => {
 }
 
 watch(
-  () => route.path,
-  () => closeMenu(),
+  [() => route.path, () => session.status],
+  ([path, status]) => {
+    closeMenu()
+    if (status !== 'authenticated') {
+      unreadComments.value = 0
+    } else if (
+      path === '/admin/comments' ||
+      path.startsWith('/admin/comments/')
+    ) {
+      unreadComments.value = 0
+    } else {
+      void refreshUnreadComments()
+    }
+  },
+  { immediate: true },
 )
 </script>
 
@@ -110,6 +142,13 @@ watch(
                 item.number
               }}</span>
               <span>{{ item.label }}</span>
+              <span
+                v-if="item.to === '/admin/comments' && unreadComments > 0"
+                class="admin-shell__nav-badge"
+                aria-label="新评论"
+              >
+                {{ unreadComments > 99 ? '99+' : unreadComments }}
+              </span>
               <span aria-hidden="true" class="admin-shell__nav-arrow">↗</span>
             </NuxtLink>
           </div>
@@ -150,6 +189,13 @@ watch(
               item.number
             }}</span>
             {{ item.label }}
+            <span
+              v-if="item.to === '/admin/comments' && unreadComments > 0"
+              class="admin-shell__nav-badge"
+              aria-label="新评论"
+            >
+              {{ unreadComments > 99 ? '99+' : unreadComments }}
+            </span>
           </NuxtLink>
         </div>
       </nav>
@@ -385,6 +431,19 @@ watch(
   font-family: var(--font-mono);
   font-size: 0.66rem;
   font-variant-numeric: tabular-nums;
+}
+
+.admin-shell__nav-badge {
+  min-width: 1.35rem;
+  margin-left: auto;
+  border-radius: var(--radius-round);
+  padding: 0.12rem 0.35rem;
+  background: var(--color-accent);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .admin-shell__nav-arrow {

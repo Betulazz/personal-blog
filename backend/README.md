@@ -55,6 +55,22 @@ from `/csrf` in the `X-CSRF-Token` header. Refresh tokens are rotated and stored
 server-side only as SHA-256 digests; reusing a rotated token revokes the user's
 remaining refresh sessions.
 
+## GitHub Comments
+
+Visitor comment identity is independent from Administrator authentication.
+Configure a GitHub App with the callback URL
+`https://<public-host>/api/v1/comments/auth/github/callback` and set
+`GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, and
+`GITHUB_APP_CALLBACK_URL`. Configure the App webhook at
+`https://<public-host>/api/v1/webhooks/github/app` and set
+`GITHUB_APP_WEBHOOK_SECRET`. GitHub delivers the `github_app_authorization`
+revocation event by default. The app has no email or repository permissions;
+GitHub Apps use configured permissions instead of OAuth scope parameters.
+Commenters receive a separate
+HttpOnly session cookie; revocation webhooks invalidate those sessions. Comments
+and likes remain in MySQL. Apply migration `0017_github_comments` before enabling
+the GitHub App integration.
+
 ## NetEase Music
 
 The public playlist is `GET /api/v1/music-tracks`. Visitors resolve a browser
@@ -129,7 +145,7 @@ dedicated `_test` database around the session for a genuinely fresh smoke run.
 
 ## v2 content behavior
 
-The current database head is `0016_background_gallery`. Project records use a
+The current database head is `0017_github_comments`. Project records use a
 Personal or GitHub variant with validated variant-specific fields. The GitHub
 variant is manually authored; it does not call the GitHub API or synchronize
 repository data. Site Identity stores an ordered Background Gallery of at most
@@ -146,7 +162,7 @@ for exact acceptance commands and evidence limits.
 
 ## v2 content behavior
 
-The current database head is `0016_background_gallery`. Project records use a
+The current database head is `0017_github_comments`. Project records use a
 Personal or GitHub variant with validated variant-specific fields. The GitHub
 variant is manually authored; it does not call the GitHub API or synchronize
 repository data. Site Identity stores an ordered Background Gallery of at most

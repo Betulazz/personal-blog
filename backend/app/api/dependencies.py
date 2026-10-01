@@ -9,7 +9,9 @@ from app.core.config import get_settings
 from app.core.exceptions import AppError
 from app.db.session import get_session
 from app.models.auth import User
+from app.models.comments import Commenter
 from app.services.auth import AuthService
+from app.services.comment_auth import CommentAuthService, github_app_is_configured
 from app.services.media import MediaAssetService
 from app.storage.factory import create_storage_adapter
 
@@ -33,6 +35,34 @@ async def get_current_user(
     return await AuthService(session, get_settings()).current_user(
         request.cookies.get(get_settings().access_cookie_name)
     )
+
+
+async def get_current_commenter(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> Commenter | None:
+    settings = get_settings()
+    return await CommentAuthService(session, settings).resolve_session(
+        request.cookies.get(settings.commenter_session_cookie_name)
+    )
+
+
+async def require_commenter(
+    commenter: Annotated[Commenter | None, Depends(get_current_commenter)],
+) -> Commenter:
+    if not github_app_is_configured(get_settings()):
+        raise AppError(
+            code="github_login_unavailable",
+            message="GitHub comment login is not configured",
+            status_code=503,
+        )
+    if commenter is None:
+        raise AppError(
+            code="commenter_authentication_required",
+            message="Sign in with GitHub to participate in comments",
+            status_code=401,
+        )
+    return commenter
 
 
 async def require_csrf(request: Request) -> None:

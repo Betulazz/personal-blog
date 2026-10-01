@@ -55,7 +55,8 @@ const actionCopy = computed(() => {
   if (pendingAction.value === 'delete') {
     return {
       confirm: '删除文章',
-      description: '这会永久删除文章及其标签关联，删除后无法从后台恢复。',
+      description:
+        '这会永久删除文章、标签关联，以及该文章的评论讨论和全部回复与喜欢；删除后无法从后台恢复。',
       title: '确认删除这篇文章？',
     }
   }

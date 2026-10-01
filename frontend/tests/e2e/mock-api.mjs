@@ -1059,6 +1059,31 @@ const server = createServer(async (request, response) => {
     json(response, { data: { uptime_seconds: 16_567_200 } })
     return
   }
+  if (path === '/comments/session' && request.method === 'GET') {
+    json(response, {
+      data: { commenter: null, github_login_enabled: false },
+    })
+    return
+  }
+  if (
+    (path === '/comments/about' || /^\/comments\/posts\/\d+$/.test(path)) &&
+    request.method === 'GET'
+  ) {
+    json(response, {
+      data: {
+        resource_key:
+          path === '/comments/about'
+            ? 'about'
+            : `post:${path.split('/').at(-1)}`,
+        is_open: true,
+        comment_count: 0,
+        comments: [],
+        next_cursor: null,
+        has_more: false,
+      },
+    })
+    return
+  }
   if (path === '/__control/failure') {
     const resource = query.resource
     if (resource) failures.add(resource)

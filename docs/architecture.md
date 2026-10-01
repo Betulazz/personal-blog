@@ -155,7 +155,7 @@ backend/app/
 - Constraint names follow a deterministic metadata convention.
 - Article and chatter Markdown bodies use `LONGTEXT`.
 - Article Tags are normalized entities with a Post junction table, never CSV strings. Chatter has no Tag relationship, and Category is retired.
-- Migrations `0012`–`0014` preserve removed Moment, Category/Chatter-Tag, legacy music, and manual SEO values in the private migration archive before dropping active legacy fields. Migration `0015_discriminated_project_variants` migrates existing Projects to the Personal variant while preserving shared fields; `0016_background_gallery` adds the ordered gallery setting, empty for existing installations. The current schema head is `0016_background_gallery`.
+- Migrations `0012`–`0014` preserve removed Moment, Category/Chatter-Tag, legacy music, and manual SEO values in the private migration archive before dropping active legacy fields. Migration `0015_discriminated_project_variants` migrates existing Projects to the Personal variant while preserving shared fields; `0016_background_gallery` adds the ordered gallery setting, empty for existing installations. Migration `0017_github_comments` adds local comment threads, GitHub commenter sessions, comments, likes, rate buckets, and moderation state. The current schema head is `0017_github_comments`.
 - JSON is limited to naturally configuration-shaped data and does not replace relational fields.
 - Foreign keys, unique indexes, and composite indexes are selected from actual query and integrity requirements during Phase 5.
 
@@ -211,7 +211,7 @@ Business services depend on `StorageAdapter`, not a provider SDK.
 
 ## Deployment
 
-The baseline Compose topology contains `nginx`, `frontend`, `backend`, and `mysql`. Images use multi-stage builds and runtime users without root privileges where practical. MySQL and uploads use named volumes. Health checks gate service ordering, but migrations remain an explicit deployment step rather than a hidden web-process side effect. The current release schema is migration `0016_background_gallery`; existing v1 databases must be backed up before the archive-first `0012`–`0014` upgrade and reviewed `0015`–`0016` additions. Schema rollback uses restoration of that backup, not an unverified Alembic downgrade.
+The baseline Compose topology contains `nginx`, `frontend`, `backend`, and `mysql`. Images use multi-stage builds and runtime users without root privileges where practical. MySQL and uploads use named volumes. Health checks gate service ordering, but migrations remain an explicit deployment step rather than a hidden web-process side effect. The current release schema is migration `0017_github_comments`; existing v1 databases must be backed up before the archive-first `0012`–`0014` upgrade and reviewed `0015`–`0017` additions. Schema rollback uses restoration of that backup, not an unverified Alembic downgrade.
 
 Docker is not installed on the current development host. The Compose/Dockerfile rehearsal recorded in [`deployment.md`](deployment.md) covers the v1 image and schema; the v2 images and migration deployment were not revalidated on a Docker-capable host.
 

@@ -358,7 +358,8 @@ const featureStatus = computed(() => {
   flex-direction: column;
   align-items: flex-start;
   padding: var(--space-3) clamp(1.25rem, 2vw, 2rem);
-  transition: background-color 220ms ease;
+  transition: background-color var(--motion-duration-normal)
+    var(--motion-ease-standard);
 }
 
 .hero__index-link:first-child:not(:last-child) {
