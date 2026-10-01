@@ -1,9 +1,10 @@
 # 评论体验修复方案
 
 Date: 2026-10-01
-Status: implemented; local acceptance verified; cloud deployment pending
+Status: deployed; local and cloud acceptance verified
 Related: [云端诊断与重放证据](./diagnosis.md)
-Execution boundary: 用户于 2026-10-01 授权按 spec 完成本地代码及验证；云端部署不在本次范围。
+Execution boundary: 用户于 2026-10-01 授权本地实现，随后授权提交相关更改、云端部署及迁移；
+云端于 2026-10-02（Asia/Shanghai）完成，详见 [部署验收记录](cloud-deployment.md)。
 
 ## 已由用户确定的行为
 

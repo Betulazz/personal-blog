@@ -10,7 +10,8 @@ const { chromium } = req('@playwright/test');
   try {
     const page = await browser.newPage({
       ignoreHTTPSErrors: true,
-      viewport: { width: 1440, height: 1000 },
+      viewport: process.argv.includes('--mobile')
+        ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
     });
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -28,8 +29,10 @@ const { chromium } = req('@playwright/test');
       h2: getComputedStyle(node.querySelector('h2')).fontSize,
       weight: getComputedStyle(node.querySelector('h1')).fontWeight,
     }));
-    const screenshot = path.join(os.tmpdir(), process.argv.includes('--css-probe')
-      ? 'blog-comment-section-css-probe.png' : 'blog-comment-section-before.png');
+    const screenshot = path.join(os.tmpdir(), process.argv.includes('--deployed')
+      ? `blog-comments-cloud-after${process.argv.includes('--mobile') ? '-mobile' : ''}.png`
+      : process.argv.includes('--css-probe')
+        ? 'blog-comment-section-css-probe.png' : 'blog-comment-section-before.png');
     await page.locator('.comment-section').screenshot({ path: screenshot, caret: 'initial' });
     console.log(JSON.stringify({ url: page.url(), title: await page.title(), metrics, errors, screenshot }));
     if (parseFloat(metrics.h1) <= parseFloat(metrics.h2) ||
