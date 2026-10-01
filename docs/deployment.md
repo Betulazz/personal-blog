@@ -176,6 +176,8 @@ affected by anything here.
 
    ```bash
    docker compose build backend
+   # Keep the one-shot migration image current with the backend code.
+   docker compose --profile tools build migrate
    # small host: rebuild .output on a workstation, transfer it, then
    docker compose -f docker-compose.yml -f docker-compose.prebuilt.yml build frontend
    ```
