@@ -1,7 +1,7 @@
-from datetime import datetime
-from typing import Literal
+from datetime import UTC, datetime
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_serializer
 
 
 class CommenterProfile(BaseModel):
@@ -24,14 +24,23 @@ class CommentAuthor(BaseModel):
     profile_url: HttpUrl | None
 
 
-class CommentItem(BaseModel):
+class _CommentDates(BaseModel):
+    created_at: datetime
+    edited_at: datetime | None
+
+    @field_serializer("created_at", "edited_at")
+    def serialize_utc(self, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
+class CommentItem(_CommentDates):
     id: int
     author: CommentAuthor
     body_markdown: str | None
     body_html: str | None
     state: Literal["visible", "hidden", "deleted"]
-    created_at: datetime
-    edited_at: datetime | None
     like_count: int = Field(ge=0)
     liked_by_me: bool
     can_edit: bool
@@ -76,13 +85,25 @@ class CommenterBanRequest(BaseModel):
     is_banned: bool
 
 
-class AdminCommentItem(BaseModel):
+class AdminCommentParent(BaseModel):
+    id: int
+    author_name: str
+    body_excerpt: str | None
+    state: Literal["visible", "hidden", "deleted"]
+
+
+class AdminCommentReadRequest(BaseModel):
+    comment_ids: list[Annotated[int, Field(gt=0)]] = Field(min_length=1, max_length=100)
+
+
+class AdminCommentItem(_CommentDates):
     id: int
     resource_key: str
     resource_label: str
     resource_path: str
     thread_is_open: bool
     parent_id: int | None
+    parent: AdminCommentParent | None = None
     author_name: str
     author_avatar_url: HttpUrl | None
     author_profile_url: HttpUrl | None
@@ -92,9 +113,12 @@ class AdminCommentItem(BaseModel):
     body_markdown: str | None
     body_html: str | None
     state: Literal["visible", "hidden", "deleted"]
-    created_at: datetime
-    edited_at: datetime | None
     reply_count: int = Field(ge=0)
+
+
+class AdminCommentDiscussion(BaseModel):
+    root: AdminCommentItem
+    replies: list[AdminCommentItem]
 
 
 class AdminCommenterItem(BaseModel):

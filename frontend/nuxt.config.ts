@@ -30,7 +30,7 @@ export default defineNuxtConfig({
     },
   },
   compatibilityDate: '2025-07-15',
-  css: ['~/assets/css/main.css'],
+  css: ['~/assets/css/main.css', '~/assets/css/comment-markdown.css'],
   devtools: { enabled: false },
   modules: ['@nuxt/eslint', '@pinia/nuxt', '@vueuse/nuxt', 'motion-v/nuxt'],
   telemetry: false,

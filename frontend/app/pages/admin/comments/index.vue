@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import { ArrowUpRight, MessageCircle, Shield, ShieldOff } from 'lucide-vue-next'
+import { MessageCircle } from 'lucide-vue-next'
 
 import { BlogApiError, useApiClient } from '~/api/client'
 import { useAdminSession } from '~/stores/adminSession'
-import type { AdminComment, AdminCommentThread } from '~/types/comments'
+import { useAdminCommentNotifications } from '~/stores/adminCommentNotifications'
+import type {
+  AdminComment,
+  AdminCommentThread,
+  AdminCommentDiscussion,
+} from '~/types/comments'
+import AdminCommentCard from '~/components/admin/AdminCommentCard.vue'
 
 definePageMeta({ layout: 'admin' })
 
 const api = useApiClient()
 const session = useAdminSession()
+const notifications = useAdminCommentNotifications()
 const comments = ref<AdminComment[]>([])
 const threads = ref<AdminCommentThread[]>([])
 const pagination = ref({ page: 1, pageSize: 20, total: 0, totalPages: 0 })
@@ -18,6 +25,79 @@ const workingId = ref<string | null>(null)
 const errorMessage = ref('')
 const notice = ref('')
 let requestId = 0
+let discussionRequestId = 0
+const discussionOpen = ref(false)
+const discussion = ref<AdminCommentDiscussion | null>(null)
+const discussionId = ref<string | null>(null)
+const discussionLoading = ref(false)
+const discussionError = ref('')
+const readError = ref('')
+const pendingReadIds = new Set<string>()
+let discussionTrigger: HTMLElement | null = null
+const restoreDiscussionFocus = (event: Event) => {
+  if (discussionTrigger?.isConnected) {
+    event.preventDefault()
+    discussionTrigger.focus()
+  }
+}
+
+const acknowledge = async (items: AdminComment[]) => {
+  for (const item of items) {
+    if (!item.isAdministrator && item.state === 'visible')
+      pendingReadIds.add(item.id)
+  }
+  const ids = [...pendingReadIds]
+  try {
+    await notifications.markRead(ids)
+    for (const id of ids) pendingReadIds.delete(id)
+    readError.value = pendingReadIds.size ? readError.value : ''
+  } catch {
+    readError.value = '评论已加载，但已读状态保存失败。请重试。'
+    void notifications.refresh().catch(() => undefined)
+  }
+}
+
+const loadDiscussion = async () => {
+  if (!discussionId.value || !discussionOpen.value) return
+  const current = ++discussionRequestId
+  discussionLoading.value = true
+  discussionError.value = ''
+  try {
+    const result = await session.withSession(() =>
+      api.getAdminCommentDiscussion(discussionId.value!),
+    )
+    if (current !== discussionRequestId || !discussionOpen.value) return
+    discussion.value = result
+    discussionLoading.value = false
+    await nextTick()
+    if (current === discussionRequestId && discussionOpen.value)
+      await acknowledge([result.root, ...result.replies])
+  } catch {
+    if (current === discussionRequestId)
+      discussionError.value = '完整讨论暂时无法加载，请重试。'
+  } finally {
+    if (current === discussionRequestId) discussionLoading.value = false
+  }
+}
+
+const openDiscussion = async (comment: AdminComment) => {
+  discussionTrigger =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+  discussion.value = null
+  discussionId.value = comment.parentId ?? comment.id
+  discussionOpen.value = true
+  await loadDiscussion()
+}
+
+watch(discussionOpen, (open) => {
+  if (!open) discussionRequestId++
+})
+onBeforeUnmount(() => {
+  requestId++
+  discussionRequestId++
+})
 
 const load = async () => {
   if (!session.isAuthenticated) return
@@ -35,6 +115,9 @@ const load = async () => {
     comments.value = result.data
     pagination.value = result.pagination
     threads.value = threadResult
+    isLoading.value = false
+    await nextTick()
+    if (current === requestId) await acknowledge(result.data)
   } catch (error: unknown) {
     if (current !== requestId) return
     errorMessage.value =
@@ -49,6 +132,7 @@ const load = async () => {
 const refresh = async (message?: string) => {
   if (message) notice.value = message
   await load()
+  if (discussionOpen.value) await loadDiscussion()
 }
 
 const setVisibility = async (comment: AdminComment) => {
@@ -104,7 +188,9 @@ const reply = async (comment: AdminComment) => {
   workingId.value = comment.id
   errorMessage.value = ''
   try {
-    await session.withSession(() => api.replyAsAdministrator(comment.id, body))
+    await session.withSession(() =>
+      api.replyAsAdministrator(comment.parentId ?? comment.id, body),
+    )
     replies.value[comment.id] = ''
     await refresh('已使用“博主”身份回复。')
   } catch (error: unknown) {
@@ -143,12 +229,6 @@ const goToPage = async (page: number) => {
   await load()
 }
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
-
 watch(
   () => session.status,
   (status) => {
@@ -179,6 +259,13 @@ useHead({ title: '评论管理 · 后台空间' })
     </p>
     <p v-if="errorMessage" class="admin-comments-page__error" role="alert">
       {{ errorMessage }}
+      <button type="button" :disabled="isLoading" @click="load">
+        重新加载评论
+      </button>
+    </p>
+    <p v-if="readError" class="admin-comments-page__error" role="alert">
+      {{ readError }}
+      <button type="button" @click="acknowledge([])">重试保存已读状态</button>
     </p>
 
     <section
@@ -229,131 +316,18 @@ useHead({ title: '评论管理 · 后台空间' })
       暂时还没有评论。
     </UiGlassPanel>
     <div v-else class="admin-comments-page__list">
-      <UiGlassPanel
+      <AdminCommentCard
         v-for="comment in comments"
         :key="comment.id"
-        class="admin-comment-card"
-        padding="spacious"
-      >
-        <header class="admin-comment-card__header">
-          <img
-            v-if="comment.authorAvatarUrl"
-            :src="comment.authorAvatarUrl"
-            :alt="`${comment.authorName} 的头像`"
-            referrerpolicy="no-referrer"
-          />
-          <span v-else class="admin-comment-card__avatar-fallback">
-            {{ comment.isAdministrator ? '博' : '✳' }}
-          </span>
-          <div class="admin-comment-card__byline">
-            <strong>{{ comment.authorName }}</strong>
-            <span
-              v-if="comment.isAdministrator"
-              class="admin-comment-card__owner"
-              >博主</span
-            >
-            <span v-else>{{
-              comment.commenterIsBanned ? 'GitHub 用户 · 已封禁' : 'GitHub 用户'
-            }}</span>
-            <time :datetime="comment.createdAt">{{
-              formatDate(comment.createdAt)
-            }}</time>
-          </div>
-          <span class="admin-comment-card__state" :data-state="comment.state">
-            {{
-              comment.state === 'hidden'
-                ? '已隐藏'
-                : comment.state === 'deleted'
-                  ? '已删除'
-                  : '公开'
-            }}
-          </span>
-        </header>
-
-        <div class="admin-comment-card__resource">
-          <a
-            :href="comment.resourcePath"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {{ comment.resourceLabel }}
-            <ArrowUpRight :size="14" aria-hidden="true" />
-          </a>
-          <span>
-            {{ comment.resourceKey === 'about' ? '关于页面讨论' : '文章讨论' }}
-            · {{ comment.threadIsOpen ? '开放中' : '已关闭' }}
-          </span>
-          <span v-if="comment.parentId">回复评论 #{{ comment.parentId }}</span>
-        </div>
-
-        <div
-          v-if="comment.state === 'deleted'"
-          class="admin-comment-card__deleted"
-        >
-          评论正文已删除，回复仍保留。
-        </div>
-        <div v-else class="admin-comment-card__body">
-          <!-- The API returns HTML sanitized by the server Markdown allowlist. -->
-          <!-- eslint-disable-next-line vue/no-v-html -->
-          <div v-if="comment.bodyHtml" v-html="comment.bodyHtml" />
-        </div>
-
-        <footer class="admin-comment-card__actions">
-          <button
-            v-if="!comment.isAdministrator && comment.githubUserId"
-            type="button"
-            :disabled="workingId === comment.id"
-            @click="setBan(comment)"
-          >
-            <Shield :size="15" aria-hidden="true" />
-            {{ comment.commenterIsBanned ? '解除封禁' : '封禁账号' }}
-          </button>
-          <button
-            v-if="comment.state !== 'deleted'"
-            type="button"
-            :disabled="workingId === comment.id"
-            @click="setVisibility(comment)"
-          >
-            <ShieldOff :size="15" aria-hidden="true" />
-            {{ comment.state === 'hidden' ? '恢复显示' : '隐藏评论' }}
-          </button>
-          <button
-            type="button"
-            :disabled="workingId === comment.resourceKey"
-            @click="toggleThread(comment)"
-          >
-            {{ comment.threadIsOpen ? '关闭这条讨论' : '重新开放讨论' }}
-          </button>
-        </footer>
-
-        <form
-          v-if="comment.state === 'visible' && comment.threadIsOpen"
-          class="admin-comment-card__reply"
-          @submit.prevent="reply(comment)"
-        >
-          <label :for="`admin-reply-${comment.id}`">以“博主”身份回复</label>
-          <textarea
-            :id="`admin-reply-${comment.id}`"
-            v-model="replies[comment.id]"
-            maxlength="3000"
-            rows="3"
-            placeholder="写下公开回复…支持 Markdown。"
-          />
-          <div>
-            <span v-if="comment.replyCount"
-              >已有 {{ comment.replyCount }} 条回复</span
-            >
-            <button
-              type="submit"
-              :disabled="
-                !replies[comment.id]?.trim() || workingId === comment.id
-              "
-            >
-              发布回复
-            </button>
-          </div>
-        </form>
-      </UiGlassPanel>
+        v-model:reply-body="replies[comment.id]"
+        :comment="comment"
+        :working-id="workingId"
+        @ban="setBan"
+        @visibility="setVisibility"
+        @thread="toggleThread"
+        @reply="reply"
+        @discussion="openDiscussion"
+      />
     </div>
 
     <nav
@@ -379,6 +353,57 @@ useHead({ title: '评论管理 · 后台空间' })
         下一页
       </UiButton>
     </nav>
+    <UiSheet
+      v-model:open="discussionOpen"
+      title="完整讨论"
+      description="查看原评论及全部一层回复，在后台继续处理讨论。"
+      content-class="admin-shell admin-discussion-sheet"
+      @close-auto-focus="restoreDiscussionFocus"
+    >
+      <div class="admin-discussion">
+        <p v-if="discussionLoading" role="status">正在读取完整讨论…</p>
+        <p v-else-if="discussionError" role="alert">
+          {{ discussionError }}
+          <button type="button" @click="loadDiscussion">重试加载讨论</button>
+        </p>
+        <template v-else-if="discussion">
+          <p class="admin-discussion__label">
+            原评论 · {{ discussion.root.resourceLabel }}
+          </p>
+          <AdminCommentCard
+            v-model:reply-body="replies[discussion.root.id]"
+            :comment="discussion.root"
+            :working-id="workingId"
+            in-discussion
+            @ban="setBan"
+            @visibility="setVisibility"
+            @thread="toggleThread"
+            @reply="reply"
+          />
+          <p class="admin-discussion__label">
+            {{ discussion.replies.length }} 条回复
+          </p>
+          <AdminCommentCard
+            v-for="item in discussion.replies"
+            :key="item.id"
+            v-model:reply-body="replies[item.id]"
+            :comment="item"
+            :working-id="workingId"
+            in-discussion
+            @ban="setBan"
+            @visibility="setVisibility"
+            @thread="toggleThread"
+            @reply="reply"
+          />
+        </template>
+        <p v-if="readError" role="alert">
+          {{ readError }}
+          <button type="button" @click="acknowledge([])">
+            重试保存已读状态
+          </button>
+        </p>
+      </div>
+    </UiSheet>
   </div>
 </template>
 
@@ -387,6 +412,36 @@ useHead({ title: '评论管理 · 后台空间' })
   display: grid;
   gap: var(--space-6);
   padding-block: var(--space-6);
+}
+
+.admin-discussion {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.admin-discussion__label {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+}
+:global(.admin-discussion-sheet.sheet__content) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: min(46rem, 100vw);
+  background: var(--color-canvas);
+  color: var(--color-text);
+  border-radius: 0;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+:global(.admin-discussion-sheet .overlay__header) {
+  flex-shrink: 0;
+}
+:global(.admin-discussion-sheet .overlay__body) {
+  min-height: 0;
+  overflow-y: auto;
+}
+:global(.admin-discussion-sheet .admin-comment-card) {
+  padding: 1rem;
 }
 
 .admin-comments-page__summary,
@@ -506,177 +561,6 @@ useHead({ title: '评论管理 · 后台空间' })
   margin: 0;
 }
 
-.admin-comment-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-small);
-  background: var(--color-canvas-raised);
-  box-shadow: none;
-}
-
-.admin-comment-card :deep(.glass-card__body) {
-  display: grid;
-  gap: var(--space-4);
-}
-
-.admin-comment-card__header {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.admin-comment-card__header img,
-.admin-comment-card__avatar-fallback {
-  width: 2.5rem;
-  height: 2.5rem;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.admin-comment-card__avatar-fallback {
-  display: grid;
-  place-items: center;
-  background: var(--badge-accent-bg);
-  color: var(--color-accent-strong);
-}
-
-.admin-comment-card__byline {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--color-text-muted);
-  font-size: var(--text-caption);
-}
-
-.admin-comment-card__byline strong {
-  color: var(--color-text);
-  font-size: var(--text-small);
-}
-
-.admin-comment-card__byline time {
-  color: var(--color-text-subtle);
-}
-
-.admin-comment-card__owner,
-.admin-comment-card__state {
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-round);
-  background: var(--badge-accent-bg);
-  color: var(--color-accent-strong);
-}
-
-.admin-comment-card__state {
-  margin-left: auto;
-  font-size: var(--text-caption);
-}
-
-.admin-comment-card__state[data-state='hidden'],
-.admin-comment-card__state[data-state='deleted'] {
-  background: var(--glass-bg-hover);
-  color: var(--color-text-subtle);
-}
-
-.admin-comment-card__resource {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  color: var(--color-text-subtle);
-  font-size: var(--text-caption);
-}
-
-.admin-comment-card__resource a {
-  color: var(--color-accent-soft);
-}
-
-.admin-comment-card__body,
-.admin-comment-card__deleted {
-  color: var(--color-text-muted);
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-}
-
-.admin-comment-card__body :deep(p) {
-  margin: 0.45rem 0;
-}
-
-.admin-comment-card__body :deep(a) {
-  color: var(--color-accent-soft);
-  text-decoration: underline;
-}
-
-.admin-comment-card__deleted {
-  font-style: italic;
-}
-
-.admin-comment-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  border-top: 1px solid var(--color-border);
-  padding-top: var(--space-3);
-}
-
-.admin-comment-card__actions button,
-.admin-comment-card__reply button {
-  min-height: 2.25rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-small);
-  padding: 0.4rem 0.7rem;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--text-caption);
-}
-
-.admin-comment-card__actions button:disabled,
-.admin-comment-card__reply button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.admin-comment-card__reply {
-  display: grid;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-}
-
-.admin-comment-card__reply label {
-  color: var(--color-text-muted);
-  font-size: var(--text-small);
-  font-weight: 600;
-}
-
-.admin-comment-card__reply textarea {
-  width: 100%;
-  resize: vertical;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-small);
-  padding: 0.75rem;
-  background: var(--color-canvas);
-  color: var(--color-text);
-  font: inherit;
-  line-height: 1.6;
-}
-
-.admin-comment-card__reply > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  color: var(--color-text-subtle);
-  font-size: var(--text-caption);
-}
-
-.admin-comment-card__reply button {
-  border-color: var(--color-text);
-  background: var(--color-text);
-  color: var(--color-canvas);
-}
-
 .admin-comments-page__state {
   display: grid;
   min-height: 10rem;
@@ -697,14 +581,6 @@ useHead({ title: '评论管理 · 后台空间' })
   .admin-comments-page__section-heading {
     align-items: start;
     flex-direction: column;
-  }
-
-  .admin-comment-card__header {
-    align-items: start;
-  }
-
-  .admin-comment-card__state {
-    margin-left: auto;
   }
 }
 </style>

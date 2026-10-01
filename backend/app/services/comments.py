@@ -2,12 +2,13 @@ import hashlib
 import hmac
 import re
 from datetime import UTC, datetime, timedelta
+from html.parser import HTMLParser
 from typing import Literal
 from urllib.parse import urlsplit
 
 import nh3
 from markdown_it import MarkdownIt
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -18,7 +19,6 @@ from app.core.exceptions import AppError
 from app.models.auth import User
 from app.models.comments import (
     Comment,
-    CommentAdminState,
     Commenter,
     CommentLike,
     CommentRateBucket,
@@ -26,8 +26,10 @@ from app.models.comments import (
 )
 from app.models.post import Post
 from app.schemas.comments import (
+    AdminCommentDiscussion,
     AdminCommenterItem,
     AdminCommentItem,
+    AdminCommentParent,
     AdminCommentThreadItem,
     CommentAuthor,
     CommenterProfile,
@@ -206,6 +208,7 @@ class CommentService:
                 )
         comment = Comment(
             thread_id=thread.id,
+            created_at=datetime.now(UTC).replace(tzinfo=None),
             parent_id=parent.id if parent else None,
             commenter_id=commenter.id,
             administrator_id=None,
@@ -259,7 +262,22 @@ class CommentService:
                 delete(CommentLike).where(CommentLike.comment_id == comment.id)
             )
         else:
+            parent_id = comment.parent_id
             await self._session.delete(comment)
+            await self._session.flush()
+            if parent_id is not None:
+                # The thread is already locked, so reply creation/deletion cannot
+                # race this check. Hidden replies also require their root to remain.
+                parent = await self._session.scalar(
+                    select(Comment)
+                    .where(Comment.id == parent_id, Comment.state == "deleted")
+                    .with_for_update()
+                )
+                remaining_reply = await self._session.scalar(
+                    select(Comment.id).where(Comment.parent_id == parent_id).limit(1)
+                )
+                if parent is not None and remaining_reply is None:
+                    await self._session.delete(parent)
         await self._session.commit()
 
     async def toggle_like(
@@ -292,7 +310,6 @@ class CommentService:
     async def list_admin_comments(
         self, page: int, page_size: int
     ) -> tuple[list[AdminCommentItem], int]:
-        seen_at = datetime.now(UTC).replace(tzinfo=None)
         total = int(await self._session.scalar(select(func.count(Comment.id))) or 0)
         rows = list(
             (
@@ -305,6 +322,60 @@ class CommentService:
                 )
             ).all()
         )
+        return await self._admin_items(rows), total
+
+    async def get_admin_discussion(self, comment_id: int) -> AdminCommentDiscussion:
+        target = await self._session.get(Comment, comment_id)
+        if target is None:
+            raise _comment_not_found()
+        root_id = target.parent_id or target.id
+        rows = list(
+            (
+                await self._session.scalars(
+                    select(Comment)
+                    .options(selectinload(Comment.commenter))
+                    .where(
+                        Comment.thread_id == target.thread_id,
+                        (Comment.id == root_id) | (Comment.parent_id == root_id),
+                    )
+                    .order_by(Comment.created_at.asc(), Comment.id.asc())
+                )
+            ).all()
+        )
+        items = await self._admin_items(rows)
+        root = next((item for item in items if item.id == root_id), None)
+        if root is None:
+            raise _comment_not_found()
+        return AdminCommentDiscussion(
+            root=root, replies=[item for item in items if item.id != root_id]
+        )
+
+    async def mark_admin_comments_read(self, comment_ids: list[int]) -> int:
+        await self._session.execute(
+            update(Comment)
+            .where(
+                Comment.id.in_(set(comment_ids)),
+                Comment.commenter_id.is_not(None),
+                Comment.state == "visible",
+                Comment.admin_read_at.is_(None),
+            )
+            .values(admin_read_at=datetime.now(UTC).replace(tzinfo=None))
+        )
+        await self._session.commit()
+        return await self.unread_comment_count()
+
+    async def _admin_items(self, rows: list[Comment]) -> list[AdminCommentItem]:
+        parent_ids = {comment.parent_id for comment in rows if comment.parent_id is not None}
+        parents = (
+            list(
+                (
+                    await self._session.scalars(select(Comment).where(Comment.id.in_(parent_ids)))
+                ).all()
+            )
+            if parent_ids
+            else []
+        )
+        parent_map = {parent.id: parent for parent in parents}
         thread_ids = {comment.thread_id for comment in rows}
         threads = (
             list(
@@ -351,6 +422,17 @@ class CommentService:
                     else (f"/posts/{post.slug}" if post else "/posts"),
                     thread_is_open=thread.is_open,
                     parent_id=comment.parent_id,
+                    parent=AdminCommentParent(
+                        id=parent.id,
+                        author_name=parent.author_name,
+                        body_excerpt=_markdown_excerpt(parent.body)
+                        if parent.state != "deleted" and parent.body
+                        else None,
+                        state=parent.state,
+                    )
+                    if comment.parent_id is not None
+                    and (parent := parent_map.get(comment.parent_id)) is not None
+                    else None,
                     author_name=comment.author_name,
                     author_avatar_url=comment.commenter.avatar_url
                     if comment.commenter
@@ -371,21 +453,14 @@ class CommentService:
                     reply_count=replies_count.get(comment.id, 0),
                 )
             )
-        state = await self._session.get(CommentAdminState, 1)
-        if state is None:
-            self._session.add(CommentAdminState(id=1, last_seen_at=seen_at))
-        else:
-            state.last_seen_at = seen_at
-        await self._session.commit()
-        return data, total
+        return data
 
     async def unread_comment_count(self) -> int:
-        state = await self._session.get(CommentAdminState, 1)
         statement = select(func.count(Comment.id)).where(
-            Comment.commenter_id.is_not(None), Comment.state == "visible"
+            Comment.commenter_id.is_not(None),
+            Comment.state == "visible",
+            Comment.admin_read_at.is_(None),
         )
-        if state and state.last_seen_at:
-            statement = statement.where(Comment.created_at > state.last_seen_at)
         return int(await self._session.scalar(statement) or 0)
 
     async def list_admin_threads(self) -> list[AdminCommentThreadItem]:
@@ -494,6 +569,7 @@ class CommentService:
         self._require_thread_open(thread)
         reply = Comment(
             thread_id=thread.id,
+            created_at=datetime.now(UTC).replace(tzinfo=None),
             parent_id=root.id,
             commenter_id=None,
             administrator_id=administrator.id,
@@ -788,6 +864,21 @@ def _render_markdown(body: str) -> str:
         strip_comments=True,
         link_rel="nofollow noopener noreferrer",
     )
+
+
+class _CommentText(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
+
+
+def _markdown_excerpt(body: str) -> str:
+    parser = _CommentText()
+    parser.feed(_render_markdown(body))
+    return " ".join(" ".join(parser.parts).split())[:240]
 
 
 def _validate_link_destination(destination: str) -> None:

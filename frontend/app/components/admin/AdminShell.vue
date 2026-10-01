@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { Menu } from 'lucide-vue-next'
 
-import { useApiClient } from '~/api/client'
+import { useAdminCommentNotifications } from '~/stores/adminCommentNotifications'
 import { useAdminSession } from '~/stores/adminSession'
 
-const api = useApiClient()
+const notifications = useAdminCommentNotifications()
 const session = useAdminSession()
 const route = useRoute()
 const isMenuOpen = ref(false)
-const unreadComments = ref(0)
+const unreadComments = computed(() => notifications.count)
 
 const navigation = [
   {
@@ -46,15 +46,13 @@ const closeMenu = () => {
 
 const refreshUnreadComments = async () => {
   if (!session.isAuthenticated) {
-    unreadComments.value = 0
+    notifications.reset()
     return
   }
   try {
-    unreadComments.value = await session.withSession(() =>
-      api.getUnreadCommentCount(),
-    )
+    await notifications.refresh()
   } catch {
-    unreadComments.value = 0
+    // Preserve the last known count when the service is unavailable.
   }
 }
 
@@ -65,15 +63,10 @@ const logout = async () => {
 
 watch(
   [() => route.path, () => session.status],
-  ([path, status]) => {
+  ([, status]) => {
     closeMenu()
     if (status !== 'authenticated') {
-      unreadComments.value = 0
-    } else if (
-      path === '/admin/comments' ||
-      path.startsWith('/admin/comments/')
-    ) {
-      unreadComments.value = 0
+      if (status !== 'refreshing') notifications.reset()
     } else {
       void refreshUnreadComments()
     }

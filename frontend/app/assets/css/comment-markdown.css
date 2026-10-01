@@ -1,0 +1,80 @@
+.comment-markdown {
+  min-width: 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.comment-markdown :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1em 0 0.4em;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.comment-markdown h1 {
+  font-size: 1.5em;
+}
+.comment-markdown h2 {
+  font-size: 1.3em;
+}
+.comment-markdown h3 {
+  font-size: 1.15em;
+}
+.comment-markdown :is(h4, h5, h6) {
+  font-size: 1em;
+}
+.comment-markdown p {
+  margin: 0.5em 0;
+}
+.comment-markdown :is(ul, ol) {
+  margin: 0.6em 0;
+  padding-left: 1.5em;
+}
+.comment-markdown ul {
+  list-style: disc;
+}
+.comment-markdown ol {
+  list-style: decimal;
+}
+.comment-markdown li {
+  margin: 0.2em 0;
+}
+.comment-markdown blockquote {
+  margin: 0.8em 0;
+  border-left: 3px solid var(--color-border);
+  padding-left: 1em;
+  color: var(--color-text-muted);
+}
+.comment-markdown code {
+  padding: 0.1em 0.3em;
+  background: var(--color-canvas-raised);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+.comment-markdown pre {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.8em 0;
+  padding: 0.8em;
+  border: 1px solid var(--color-border);
+  background: var(--color-canvas-raised);
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.comment-markdown pre code {
+  padding: 0;
+  background: none;
+}
+.comment-markdown a {
+  color: var(--color-accent-soft);
+  text-decoration: underline;
+}
+.comment-markdown hr {
+  margin: 1em 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+.comment-markdown > :first-child {
+  margin-top: 0;
+}
+.comment-markdown > :last-child {
+  margin-bottom: 0;
+}

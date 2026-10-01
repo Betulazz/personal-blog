@@ -49,6 +49,17 @@ python -m alembic current
 Pop-Location
 ```
 
+Run this step after pulling changes that add migrations, before starting the
+updated backend. Integration tests migrate only `TEST_DATABASE_URL`; they do
+not upgrade the running application's `DATABASE_URL` database.
+
+If comment requests report MySQL `1054` with
+`Unknown column 'comments.admin_read_at'`, the running database is missing
+`0018_comment_read_receipts`. Apply the commands above to the local development
+database. This migration adds the nullable read receipt and its index without
+rewriting existing comments or timestamps. Restarting the application alone
+does not apply migrations.
+
 To populate the native development database with the public content used by
 the live browser acceptance run, apply migrations first and then run the
 idempotent seed command:
@@ -71,12 +82,17 @@ not call `create_all`, Alembic, or any other schema-mutating operation. A fresh
 database therefore remains untouched until the explicit `upgrade` command is
 run.
 
-The current v2 schema head is `0016_background_gallery`. It follows `0012`'s
+The current schema head is `0019_prune_deleted_roots`. It follows `0012`'s
 Moment-to-Chatter conversion and private archive, `0013`'s archive-first
 NetEase-only playlist migration, `0014`'s archive of retired manual SEO
 overrides, `0015`'s migration of existing Projects to the Personal variant,
-and `0016`'s empty initial Background Gallery setting. Back up an existing
-database before upgrading it. Migrations `0012`–`0014` remove active legacy
+`0016`'s empty initial Background Gallery setting, `0017`'s locally owned
+GitHub-identified Comments, `0018`'s explicit administrator read receipts, and
+`0019`'s removal of empty deleted root placeholders. Migration `0019` removes
+only deleted roots with no body and no replies; visible/hidden comments and
+deleted roots with surviving replies remain. A downgrade does not resurrect
+these already-deleted placeholders. Back up an existing database before
+upgrading it. Migrations `0012`–`0014` remove active legacy
 columns and tables after archiving their values; the supported schema rollback
 is restoring a verified pre-upgrade backup, not an Alembic downgrade. Uploaded
 media bytes are not moved or deleted by these migrations.

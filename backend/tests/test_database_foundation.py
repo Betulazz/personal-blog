@@ -49,8 +49,26 @@ async def test_native_mysql_migration_records_the_explicit_head(
 ) -> None:
     async with mysql_engine.connect() as connection:
         result = await connection.execute(text("SELECT version_num FROM alembic_version"))
+        revision = result.scalar_one()
+        receipt_type = await connection.scalar(
+            text(
+                "SELECT DATA_TYPE FROM information_schema.columns "
+                "WHERE table_schema = DATABASE() AND table_name = 'comments' "
+                "AND column_name = 'admin_read_at' AND IS_NULLABLE = 'YES'"
+            )
+        )
+        receipt_index = await connection.scalar(
+            text(
+                "SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) "
+                "FROM information_schema.statistics "
+                "WHERE table_schema = DATABASE() AND table_name = 'comments' "
+                "AND index_name = 'ix_comments_admin_unread'"
+            )
+        )
 
-    assert result.scalar_one() == "0017_github_comments"
+    assert revision == "0019_prune_deleted_roots"
+    assert receipt_type == "datetime"
+    assert receipt_index == "admin_read_at,state,commenter_id"
 
 
 @pytest.mark.asyncio

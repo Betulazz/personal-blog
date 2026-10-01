@@ -72,5 +72,11 @@ A message a Commenter or Administrator adds to a Post or About page discussion, 
 **Comment Thread**:
 The discussion attached to one Post or the About page, containing Comments and their one-level replies. It is distinct from the owner's authored Post and About Page Content.
 
+**Root Comment**:
+A Comment added directly to a Comment Thread, with no parent Comment. Its replies form one conversation beneath it.
+
+**Comment Reply**:
+A Comment addressed to a Root Comment within the same Comment Thread. Replies remain one level deep, including when an Administrator starts a reply while inspecting another reply.
+
 **Comment Like**:
 A Commenter's positive response to a Comment, which that Commenter may withdraw.

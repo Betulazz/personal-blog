@@ -99,6 +99,7 @@ class Comment(Base):
         Index("ix_comments_thread_parent_id", "thread_id", "parent_id", "id"),
         Index("ix_comments_parent_id", "parent_id"),
         Index("ix_comments_newest", "created_at", "id"),
+        Index("ix_comments_admin_unread", "admin_read_at", "state", "commenter_id"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -131,6 +132,7 @@ class Comment(Base):
         onupdate=func.current_timestamp(),
     )
     edited_at: Mapped[datetime | None] = mapped_column(DateTime)
+    admin_read_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     commenter: Mapped[Commenter | None] = relationship()
     administrator: Mapped["User | None"] = relationship()

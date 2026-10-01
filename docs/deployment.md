@@ -1,7 +1,7 @@
 # Deployment
 
 Status: v1 Docker deployment baseline; v2 native acceptance recorded (Docker not rerun)
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
 This runbook covers the containerized production topology for a single
 Docker-capable Linux host. Native Windows development is documented separately
@@ -171,6 +171,34 @@ affected by anything here.
 
 ## Routine update
 
+### Comment read receipts (0018)
+
+When shipping the comment repair, apply migration `0018_comment_read_receipts`
+before starting the updated backend, and release the updated frontend together
+with it. The new backend requires `comments.admin_read_at`; the new frontend
+explicitly acknowledges the successfully loaded comment IDs through a CSRF-
+protected administrator endpoint. An older frontend will not send these receipts.
+
+Use the migration build/run steps below with the updated release. The migration
+adds a nullable column and index, leaves comment bodies and timestamps intact,
+and preserves the legacy `comment_admin_state` table for reference. Existing
+visible reader comments initially become unread and clear as their pages are
+loaded. Do not infer read status from the legacy timestamp or bulk-shift historical
+comment timestamps; mixed historical time origins require separate verification.
+Downgrading this migration drops only the new receipt column/index, losing the
+new read receipts while retaining the comments.
+
+### Deleted root cleanup (0019)
+
+Migration `0019_prune_deleted_roots` removes historical root placeholders only
+when they are already deleted, their body is null, and no replies remain.
+It preserves visible/hidden comments and deleted roots with any surviving reply,
+including hidden replies. The updated backend also removes such a root in the
+same transaction when its last reply is deleted. Downgrading 0019 changes only
+the revision marker; it does not resurrect placeholders the author deleted.
+
+### Update steps
+
 1. Fetch the new revision on the host.
 2. Rebuild only what changed:
 
@@ -184,11 +212,12 @@ affected by anything here.
 
 3. Apply migrations before restarting application containers. If the release
    contains schema changes, take and verify a database and uploads backup
-   first. Current schema head: `0017_github_comments`. This migration creates
-   the About discussion and a thread for every currently published Post. A
-   downgrade drops all Commenters, sessions, Comments, replies, likes, and
-   moderation state created by the feature; restore a database backup to recover
-   that data after downgrade.
+   first. Current schema head: `0019_prune_deleted_roots`. Migration 0017 creates
+   the About discussion and a thread for every currently published Post;
+   0018 adds explicit read receipts, and 0019 removes empty deleted roots.
+   Downgrading past 0017 drops all Commenters, sessions, Comments, replies,
+   likes, and moderation state created by the feature; restore a database backup
+   to recover that data after downgrade.
 
    ```bash
    docker compose --profile tools run --rm migrate

@@ -54,12 +54,23 @@ export interface AdminComment {
   id: string
   isAdministrator: boolean
   parentId: string | null
+  parent: {
+    id: string
+    authorName: string
+    bodyExcerpt: string | null
+    state: 'visible' | 'hidden' | 'deleted'
+  } | null
   replyCount: number
   resourceKey: string
   resourceLabel: string
   resourcePath: string
   state: 'visible' | 'hidden' | 'deleted'
   threadIsOpen: boolean
+}
+
+export interface AdminCommentDiscussion {
+  root: AdminComment
+  replies: AdminComment[]
 }
 
 export interface AdminCommentCollection {

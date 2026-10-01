@@ -521,7 +521,10 @@ watch(draftKey, () => {
           rows="6"
         />
 
-        <div v-if="showPreview" class="comment-composer__preview">
+        <div
+          v-if="showPreview"
+          class="comment-composer__preview comment-markdown"
+        >
           <p v-if="isPreviewing">正在生成预览…</p>
           <!-- The API returns HTML sanitized by the server Markdown allowlist. -->
           <!-- eslint-disable-next-line vue/no-v-html -->
@@ -620,8 +623,13 @@ watch(draftKey, () => {
             </div>
             <div v-else class="comment-item__body">
               <!-- The API returns HTML sanitized by the server Markdown allowlist. -->
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <div v-if="comment.bodyHtml" v-html="comment.bodyHtml" />
+              <!-- eslint-disable vue/no-v-html -->
+              <div
+                v-if="comment.bodyHtml"
+                class="comment-markdown"
+                v-html="comment.bodyHtml"
+              />
+              <!-- eslint-enable vue/no-v-html -->
             </div>
 
             <footer class="comment-item__actions">
@@ -716,8 +724,13 @@ watch(draftKey, () => {
                     此评论暂不可见
                   </div>
                   <div v-else class="comment-item__body">
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <div v-if="reply.bodyHtml" v-html="reply.bodyHtml" />
+                    <!-- eslint-disable vue/no-v-html -->
+                    <div
+                      v-if="reply.bodyHtml"
+                      class="comment-markdown"
+                      v-html="reply.bodyHtml"
+                    />
+                    <!-- eslint-enable vue/no-v-html -->
                   </div>
                   <footer class="comment-item__actions">
                     <button

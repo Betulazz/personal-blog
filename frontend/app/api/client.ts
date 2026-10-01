@@ -1,6 +1,8 @@
 import type { TimelineCollectionResponse } from '~/types/timeline'
 import type {
   AdminCommentCollection,
+  AdminComment,
+  AdminCommentDiscussion,
   AdminCommentThread,
   BlogComment,
   CommenterSession,
@@ -168,6 +170,12 @@ interface RawAdminComment {
   id: number
   is_administrator: boolean
   parent_id: number | null
+  parent?: {
+    id: number
+    author_name: string
+    body_excerpt: string | null
+    state: 'visible' | 'hidden' | 'deleted'
+  } | null
   reply_count: number
   resource_key: string
   resource_label: string
@@ -485,6 +493,8 @@ export interface BlogApiClient {
     signal?: AbortSignal,
   ) => Promise<AdminCommentThread[]>
   getUnreadCommentCount: () => Promise<number>
+  markAdminCommentsRead: (ids: string[]) => Promise<number>
+  getAdminCommentDiscussion: (id: string) => Promise<AdminCommentDiscussion>
   setAdminCommentVisibility: (
     id: string,
     state: 'visible' | 'hidden',
@@ -1749,6 +1759,56 @@ export function useApiClient(): BlogApiClient {
     return response.data.liked
   }
 
+  const toAdminComment = (comment: RawAdminComment): AdminComment => ({
+    authorAvatarUrl: comment.author_avatar_url,
+    authorName: comment.author_name,
+    authorProfileUrl: comment.author_profile_url,
+    bodyHtml: comment.body_html,
+    bodyMarkdown: comment.body_markdown,
+    createdAt: comment.created_at,
+    commenterIsBanned: comment.commenter_is_banned,
+    editedAt: comment.edited_at,
+    githubUserId: comment.github_user_id,
+    id: String(comment.id),
+    isAdministrator: comment.is_administrator,
+    parentId: comment.parent_id === null ? null : String(comment.parent_id),
+    parent: comment.parent
+      ? {
+          id: String(comment.parent.id),
+          authorName: comment.parent.author_name,
+          bodyExcerpt: comment.parent.body_excerpt,
+          state: comment.parent.state,
+        }
+      : null,
+    replyCount: comment.reply_count,
+    resourceKey: comment.resource_key,
+    resourceLabel: comment.resource_label,
+    resourcePath: comment.resource_path,
+    state: comment.state,
+    threadIsOpen: comment.thread_is_open,
+  })
+
+  const getAdminCommentDiscussion = async (
+    id: string,
+  ): Promise<AdminCommentDiscussion> => {
+    const response = await request<
+      RawApiResponse<{ root: RawAdminComment; replies: RawAdminComment[] }>
+    >(`/admin/comments/${encodeURIComponent(id)}/discussion`)
+    return {
+      root: toAdminComment(response.data.root),
+      replies: response.data.replies.map(toAdminComment),
+    }
+  }
+
+  const markAdminCommentsRead = async (ids: string[]) => {
+    const response = await mutateWithCsrf<RawApiResponse<{ count: number }>>(
+      '/admin/comments/read',
+      'POST',
+      { comment_ids: ids.map(Number) },
+    )
+    return response.data.count
+  }
+
   const listAdminComments = async (
     page: number,
     pageSize = 20,
@@ -1762,26 +1822,7 @@ export function useApiClient(): BlogApiClient {
       },
     )
     return {
-      data: response.data.map((comment) => ({
-        authorAvatarUrl: comment.author_avatar_url,
-        authorName: comment.author_name,
-        authorProfileUrl: comment.author_profile_url,
-        bodyHtml: comment.body_html,
-        bodyMarkdown: comment.body_markdown,
-        createdAt: comment.created_at,
-        commenterIsBanned: comment.commenter_is_banned,
-        editedAt: comment.edited_at,
-        githubUserId: comment.github_user_id,
-        id: String(comment.id),
-        isAdministrator: comment.is_administrator,
-        parentId: comment.parent_id === null ? null : String(comment.parent_id),
-        replyCount: comment.reply_count,
-        resourceKey: comment.resource_key,
-        resourceLabel: comment.resource_label,
-        resourcePath: comment.resource_path,
-        state: comment.state,
-        threadIsOpen: comment.thread_is_open,
-      })),
+      data: response.data.map(toAdminComment),
       pagination: pagination(response.pagination),
     }
   }
@@ -2299,6 +2340,8 @@ export function useApiClient(): BlogApiClient {
     listAdminPosts,
     listAdminComments,
     listAdminCommentThreads,
+    getAdminCommentDiscussion,
+    markAdminCommentsRead,
     listAdminProjects,
     listAdminTags,
     listChatter,

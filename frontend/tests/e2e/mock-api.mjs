@@ -1065,6 +1065,25 @@ const server = createServer(async (request, response) => {
     })
     return
   }
+  if (path === '/admin/comments/unread-count' && request.method === 'GET') {
+    json(response, { data: { count: 0 } })
+    return
+  }
+  if (path === '/admin/comments/read' && request.method === 'POST') {
+    json(response, { data: { count: 0 } })
+    return
+  }
+  if (path === '/admin/comments' && request.method === 'GET') {
+    json(response, {
+      data: [],
+      pagination: { page: 1, page_size: 20, total: 0, total_pages: 0 },
+    })
+    return
+  }
+  if (path === '/admin/comment-threads' && request.method === 'GET') {
+    json(response, { data: [] })
+    return
+  }
   if (
     (path === '/comments/about' || /^\/comments\/posts\/\d+$/.test(path)) &&
     request.method === 'GET'

@@ -13,21 +13,30 @@ import {
 withDefaults(
   defineProps<{
     description: string
+    contentClass?: string
     open?: boolean
     side?: 'left' | 'right'
     title: string
   }>(),
-  { open: false, side: 'right' },
+  { open: false, side: 'right', contentClass: '' },
 )
 
-defineEmits<{ 'update:open': [value: boolean] }>()
+defineEmits<{
+  'update:open': [value: boolean]
+  closeAutoFocus: [event: Event]
+}>()
 </script>
 
 <template>
   <DialogRoot :open="open" @update:open="$emit('update:open', $event)">
     <DialogPortal>
       <DialogOverlay class="overlay__backdrop" />
-      <DialogContent class="overlay__content sheet__content" :data-side="side">
+      <DialogContent
+        class="overlay__content sheet__content"
+        :class="contentClass"
+        :data-side="side"
+        @close-auto-focus="$emit('closeAutoFocus', $event)"
+      >
         <DialogClose class="overlay__close" :aria-label="`关闭${title}`">
           <X :size="18" aria-hidden="true" />
         </DialogClose>

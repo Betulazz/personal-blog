@@ -20,7 +20,9 @@ from app.core.exceptions import AppError
 from app.models.auth import User
 from app.models.comments import Commenter
 from app.schemas.comments import (
+    AdminCommentDiscussion,
     AdminCommentItem,
+    AdminCommentReadRequest,
     AdminCommentThreadItem,
     CommentEditRequest,
     CommenterBanRequest,
@@ -338,6 +340,35 @@ async def list_admin_comments(
             total_pages=total_pages,
         ),
     )
+
+
+@router.post(
+    "/admin/comments/read",
+    response_model=ApiResponse[dict[str, int]],
+    dependencies=[Depends(require_csrf)],
+)
+async def mark_admin_comments_read(
+    payload: AdminCommentReadRequest,
+    _: CurrentAdmin,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ApiResponse[dict[str, int]]:
+    count = await CommentService(session, get_settings()).mark_admin_comments_read(
+        payload.comment_ids
+    )
+    return ApiResponse(data={"count": count})
+
+
+@router.get(
+    "/admin/comments/{comment_id}/discussion",
+    response_model=ApiResponse[AdminCommentDiscussion],
+)
+async def get_admin_comment_discussion(
+    comment_id: Annotated[int, Path(gt=0)],
+    _: CurrentAdmin,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ApiResponse[AdminCommentDiscussion]:
+    discussion = await CommentService(session, get_settings()).get_admin_discussion(comment_id)
+    return ApiResponse(data=discussion)
 
 
 @router.get(
