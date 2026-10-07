@@ -8,415 +8,69 @@ import {
   Trash2,
 } from 'lucide-vue-next'
 
-import { BlogApiError, useApiClient } from '~/api/client'
-import type {
-  BlogComment,
-  CommenterProfile,
-  PublicCommentThread,
-} from '~/types/comments'
+import { useCommentThread } from '~/composables/useCommentThread'
+import type { BlogComment } from '~/types/comments'
 
 const props = defineProps<{
   postId?: string
   resourceType: 'about' | 'post'
 }>()
 
-const api = useApiClient()
-const route = useRoute()
-const router = useRouter()
-const profile = ref<CommenterProfile | null>(null)
-const thread = ref<PublicCommentThread | null>(null)
-const isLoading = ref(true)
-const isLoadingMore = ref(false)
-const isSubmitting = ref(false)
-const isPreviewing = ref(false)
-const isAuthenticated = ref(false)
-const isLoginEnabled = ref(false)
-const errorMessage = ref('')
-const notice = ref('')
-const body = ref('')
-const isRestoringDraft = ref(true)
-const previewHtml = ref('')
-const showPreview = ref(false)
-const replyingTo = ref<BlogComment | null>(null)
-const editing = ref<BlogComment | null>(null)
-let previewRevision = 0
+const {
+  profile,
+  thread,
+  isLoading,
+  isLoadingMore,
+  isSubmitting,
+  isPreviewing,
+  isAuthenticated,
+  isLoginEnabled,
+  errorMessage,
+  notice,
+  body,
+  previewHtml,
+  showPreview,
+  replyingTo,
+  editing,
+  canParticipate,
+  canSubmit,
+  composerLocked,
+  draftTargetMessage,
+  submissionUnknown,
+  load,
+  loadMore,
+  resetComposer,
+  useAsRoot,
+  togglePreview,
+  submit,
+  toggleLike,
+  removeOwnComment,
+  beginLogin,
+  signOut,
+  acknowledgeSubmission,
+  startReply: chooseReply,
+  startEdit: chooseEdit,
+} = useCommentThread(() => ({
+  resourceType: props.resourceType,
+  postId: props.postId,
+}))
 
-const returnPath = computed(() => route.path)
-const draftKey = computed(() =>
-  props.resourceType === 'about'
-    ? 'comment-draft:about'
-    : `comment-draft:post:${props.postId}`,
-)
-const canParticipate = computed(() =>
-  Boolean(profile.value && !profile.value.isBanned && isLoginEnabled.value),
-)
-
-const readThread = async (cursor?: string) =>
-  props.resourceType === 'about'
-    ? api.getAboutComments(cursor)
-    : api.getPostComments(props.postId ?? '', cursor)
-
-const load = async () => {
-  isLoading.value = true
-  errorMessage.value = ''
-  try {
-    const [session, result] = await Promise.all([
-      api.getCommenterSession(),
-      readThread(),
-    ])
-    profile.value = session.commenter
-    isAuthenticated.value = Boolean(session.commenter)
-    isLoginEnabled.value = session.githubLoginEnabled
-    thread.value = result
-  } catch {
-    errorMessage.value = '评论暂时无法加载，请稍后重试。'
-  } finally {
-    isLoading.value = false
-  }
+const focusComposer = () => {
+  void nextTick(() =>
+    document.querySelector<HTMLTextAreaElement>('#comment-composer')?.focus(),
+  )
 }
-
-const loadMore = async () => {
-  if (!thread.value?.hasMore || !thread.value.nextCursor || isLoadingMore.value)
-    return
-  isLoadingMore.value = true
-  errorMessage.value = ''
-  try {
-    const next = await readThread(thread.value.nextCursor)
-    const commentsById = new Map<string, BlogComment>()
-    for (const comment of [...thread.value.comments, ...next.comments]) {
-      commentsById.set(comment.id, comment)
-    }
-    thread.value = {
-      ...next,
-      comments: [...commentsById.values()].sort((left, right) =>
-        left.id.localeCompare(right.id, undefined, { numeric: true }),
-      ),
-    }
-  } catch {
-    errorMessage.value = '更多评论暂时无法加载，请重试。'
-  } finally {
-    isLoadingMore.value = false
-  }
-}
-
-const currentDraft = () => {
-  if (!import.meta.client) return
-  if (isRestoringDraft.value) return
-  try {
-    localStorage.setItem(
-      draftKey.value,
-      JSON.stringify({
-        body: body.value,
-        editingId: editing.value?.id ?? null,
-        parentId: replyingTo.value?.id ?? null,
-      }),
-    )
-  } catch {
-    // Keep the editor usable when browser storage is disabled.
-  }
-}
-
-watch([body, replyingTo, editing], currentDraft)
-
-const beginLogin = () => {
-  currentDraft()
-  window.location.assign(api.commenterLoginUrl(returnPath.value))
-}
-
-const resetComposer = () => {
-  body.value = ''
-  previewHtml.value = ''
-  showPreview.value = false
-  replyingTo.value = null
-  editing.value = null
-  currentDraft()
-}
-
 const startReply = (comment: BlogComment) => {
-  editing.value = null
-  replyingTo.value = comment
-  body.value = ''
-  showPreview.value = false
-  nextTick(() =>
-    document.querySelector<HTMLTextAreaElement>('#comment-composer')?.focus(),
-  )
+  if (chooseReply(comment)) focusComposer()
 }
-
 const startEdit = (comment: BlogComment) => {
-  replyingTo.value = null
-  editing.value = comment
-  body.value = comment.bodyMarkdown ?? ''
-  showPreview.value = false
-  nextTick(() =>
-    document.querySelector<HTMLTextAreaElement>('#comment-composer')?.focus(),
-  )
+  if (chooseEdit(comment)) focusComposer()
 }
-
-const togglePreview = async () => {
-  showPreview.value = !showPreview.value
-  if (!showPreview.value) return
-  const revision = ++previewRevision
-  isPreviewing.value = true
-  try {
-    previewHtml.value = await api.previewComment(body.value)
-  } catch (error: unknown) {
-    if (revision === previewRevision) {
-      previewHtml.value = ''
-      errorMessage.value = errorText(error)
-    }
-  } finally {
-    if (revision === previewRevision) isPreviewing.value = false
-  }
-}
-
-const submit = async () => {
-  if (!canParticipate.value || !body.value.trim() || isSubmitting.value) return
-  isSubmitting.value = true
-  errorMessage.value = ''
-  notice.value = ''
-  try {
-    const saved = editing.value
-      ? await api.editComment(editing.value.id, body.value)
-      : props.resourceType === 'about'
-        ? await api.createAboutComment(body.value, replyingTo.value?.id)
-        : await api.createPostComment(
-            props.postId ?? '',
-            body.value,
-            replyingTo.value?.id,
-          )
-
-    if (editing.value) {
-      replaceComment(thread.value?.comments ?? [], saved)
-      notice.value = '评论已更新。'
-    } else if (replyingTo.value) {
-      const parent = findComment(
-        thread.value?.comments ?? [],
-        replyingTo.value.id,
-      )
-      if (parent) parent.replies.push(saved)
-      if (thread.value) thread.value.commentCount += 1
-      notice.value = '回复已发布。'
-    } else if (thread.value) {
-      thread.value.comments.push(saved)
-      thread.value.comments.sort((left, right) =>
-        left.id.localeCompare(right.id, undefined, { numeric: true }),
-      )
-      thread.value.commentCount += 1
-      notice.value = '评论已发布。'
-    }
-    resetComposer()
-  } catch (error: unknown) {
-    showCommentError(error)
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-const removeOwnComment = async (comment: BlogComment) => {
-  if (!window.confirm('删除这条评论？有回复的评论会保留“已删除”提示。')) return
-  errorMessage.value = ''
-  try {
-    await api.deleteComment(comment.id)
-    await load()
-    notice.value = '评论已删除。'
-  } catch (error: unknown) {
-    showCommentError(error)
-  }
-}
-
-const toggleLike = async (comment: BlogComment) => {
-  if (!isAuthenticated.value) {
-    beginLogin()
-    return
-  }
-  if (profile.value?.isBanned) {
-    errorMessage.value = '此 GitHub 账号目前不能参与评论。'
-    return
-  }
-  try {
-    const liked = await api.toggleCommentLike(comment.id)
-    comment.likeCount = Math.max(0, comment.likeCount + (liked ? 1 : -1))
-    comment.likedByMe = liked
-  } catch (error: unknown) {
-    showCommentError(error)
-  }
-}
-
-const signOut = async () => {
-  try {
-    await api.logoutCommenter()
-    profile.value = null
-    isAuthenticated.value = false
-    await load()
-    notice.value = '已退出 GitHub 评论登录。'
-  } catch (error: unknown) {
-    showCommentError(error)
-  }
-}
-
-const findComment = (
-  items: BlogComment[],
-  id: string,
-): BlogComment | undefined => {
-  for (const item of items) {
-    if (item.id === id) return item
-    const reply = findComment(item.replies, id)
-    if (reply) return reply
-  }
-  return undefined
-}
-
-const replaceComment = (items: BlogComment[], replacement: BlogComment) => {
-  const existing = findComment(items, replacement.id)
-  if (existing) Object.assign(existing, replacement)
-}
-
-const errorText = (error: unknown) => {
-  if (!(error instanceof BlogApiError))
-    return '操作失败，草稿仍保留在编辑器中。'
-  const messages: Record<string, string> = {
-    commenter_authentication_required:
-      '登录状态已失效，请重新使用 GitHub 登录。',
-    commenter_banned: '此 GitHub 账号目前不能参与评论。',
-    comment_body_too_long: '评论最多 3000 个字符。',
-    comment_link_unsafe: '评论中包含不支持的链接。',
-    comment_media_unsupported: '评论暂不支持图片或嵌入媒体。',
-    comment_rate_limited: '操作太频繁，请稍后再试。',
-    comment_thread_closed: '这条讨论已关闭，暂时不能继续参与。',
-    csrf_invalid: '安全校验已过期，请重试；草稿仍保留。',
-    github_login_unavailable: 'GitHub 评论服务暂不可用。',
-  }
-  return messages[error.code] ?? '操作失败，草稿仍保留在编辑器中。'
-}
-
-const showCommentError = (error: unknown) => {
-  if (
-    error instanceof BlogApiError &&
-    error.code === 'commenter_authentication_required'
-  ) {
-    profile.value = null
-    isAuthenticated.value = false
-  } else if (
-    error instanceof BlogApiError &&
-    error.code === 'commenter_banned'
-  ) {
-    if (profile.value) profile.value.isBanned = true
-  } else if (
-    error instanceof BlogApiError &&
-    error.code === 'github_login_unavailable'
-  ) {
-    isLoginEnabled.value = false
-  }
-  errorMessage.value = errorText(error)
-}
-
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('zh-CN', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
-
-const handleAuthOutcome = async () => {
-  const outcome = route.query.comment_auth
-  if (outcome === 'success') {
-    notice.value = 'GitHub 登录成功，草稿已恢复。'
-    const session = await api.getCommenterSession().catch(() => null)
-    profile.value = session?.commenter ?? null
-    isAuthenticated.value = Boolean(profile.value)
-    isLoginEnabled.value = session?.githubLoginEnabled ?? false
-  } else if (outcome === 'cancelled') {
-    notice.value = '已取消 GitHub 登录，草稿仍保留。'
-  } else if (outcome === 'failed' || outcome === 'state_error') {
-    notice.value = 'GitHub 登录未完成，草稿仍保留。'
-  }
-  if (outcome) {
-    const query = { ...route.query }
-    delete query.comment_auth
-    await router.replace({ path: route.path, query, hash: route.hash })
-  }
-}
-
-const restoreDraftAndLoad = async () => {
-  isRestoringDraft.value = true
-  try {
-    const saved = localStorage.getItem(draftKey.value)
-    if (!saved) {
-      body.value = ''
-      replyingTo.value = null
-      editing.value = null
-    } else {
-      try {
-        const parsed: unknown = JSON.parse(saved)
-        if (typeof parsed === 'object' && parsed !== null && 'body' in parsed) {
-          const draft = parsed as {
-            body?: unknown
-            editingId?: unknown
-            parentId?: unknown
-          }
-          body.value = typeof draft.body === 'string' ? draft.body : ''
-          const editId =
-            typeof draft.editingId === 'string' ? draft.editingId : null
-          const parentId =
-            typeof draft.parentId === 'string' ? draft.parentId : null
-          editing.value = null
-          replyingTo.value = null
-          if (editId) {
-            const comment = findComment(thread.value?.comments ?? [], editId)
-            if (comment?.canEdit) editing.value = comment
-          } else if (parentId) {
-            replyingTo.value =
-              findComment(thread.value?.comments ?? [], parentId) ?? null
-          }
-        } else {
-          body.value = saved
-          replyingTo.value = null
-          editing.value = null
-        }
-      } catch {
-        body.value = saved
-        replyingTo.value = null
-        editing.value = null
-      }
-    }
-  } catch {
-    body.value = ''
-    replyingTo.value = null
-    editing.value = null
-  }
-  await load()
-  try {
-    const saved = localStorage.getItem(draftKey.value)
-    if (saved) {
-      const parsed: unknown = JSON.parse(saved)
-      if (typeof parsed === 'object' && parsed !== null) {
-        const draft = parsed as { editingId?: unknown; parentId?: unknown }
-        if (typeof draft.editingId === 'string') {
-          const comment = findComment(
-            thread.value?.comments ?? [],
-            draft.editingId,
-          )
-          editing.value = comment?.canEdit ? comment : null
-        } else if (typeof draft.parentId === 'string') {
-          replyingTo.value =
-            findComment(thread.value?.comments ?? [], draft.parentId) ?? null
-        }
-      }
-    }
-  } catch {
-    // A damaged draft still leaves its text available in the composer.
-  }
-  isRestoringDraft.value = false
-  currentDraft()
-  await handleAuthOutcome()
-}
-
-onMounted(() => {
-  void restoreDraftAndLoad()
-})
-
-watch(draftKey, () => {
-  if (import.meta.client) void restoreDraftAndLoad()
-})
 </script>
 
 <template>
@@ -476,6 +130,7 @@ watch(draftKey, () => {
               <button
                 class="comment-composer__text-button"
                 type="button"
+                :disabled="composerLocked"
                 @click="signOut"
               >
                 退出
@@ -501,16 +156,54 @@ watch(draftKey, () => {
           <span>{{
             editing ? '正在编辑自己的评论' : `回复 ${replyingTo?.author.name}`
           }}</span>
-          <button type="button" @click="resetComposer">取消</button>
+          <button
+            type="button"
+            :disabled="composerLocked"
+            @click="resetComposer"
+          >
+            取消
+          </button>
         </div>
 
         <label class="sr-only" for="comment-composer">评论内容</label>
+        <div
+          v-if="draftTargetMessage"
+          class="comment-section__notice"
+          role="status"
+        >
+          <p>{{ draftTargetMessage }}</p>
+          <button
+            class="comment-composer__text-button"
+            type="button"
+            :disabled="composerLocked"
+            @click="useAsRoot"
+          >
+            改为独立评论
+          </button>
+        </div>
+        <div
+          v-if="submissionUnknown"
+          class="comment-section__notice"
+          role="status"
+        >
+          <p>
+            上次发布结果尚未确认，正文已保留。请先核对已有评论，避免重复发布。
+          </p>
+          <button
+            class="comment-composer__text-button"
+            type="button"
+            :disabled="composerLocked"
+            @click="acknowledgeSubmission"
+          >
+            已核对，继续编辑
+          </button>
+        </div>
         <textarea
           v-if="!showPreview"
           id="comment-composer"
           v-model="body"
           maxlength="3000"
-          :disabled="!canParticipate"
+          :disabled="!canParticipate || composerLocked"
           :placeholder="
             profile?.isBanned
               ? '此 GitHub 账号目前不能参与评论。'
@@ -538,7 +231,7 @@ watch(draftKey, () => {
             <button
               class="comment-composer__preview-button"
               type="button"
-              :disabled="!body.trim()"
+              :disabled="!body.trim() || composerLocked"
               @click="togglePreview"
             >
               {{ showPreview ? '继续编辑' : '预览' }}
@@ -557,7 +250,7 @@ watch(draftKey, () => {
               v-else
               class="comment-composer__submit"
               type="submit"
-              :disabled="!canParticipate || !body.trim() || isSubmitting"
+              :disabled="!canSubmit"
             >
               <Send :size="15" aria-hidden="true" />
               {{
@@ -652,6 +345,7 @@ watch(draftKey, () => {
               <button
                 v-if="thread.isOpen && comment.state === 'visible'"
                 type="button"
+                :disabled="composerLocked"
                 @click="startReply(comment)"
               >
                 <MessageCircle :size="15" /> 回复
@@ -659,6 +353,7 @@ watch(draftKey, () => {
               <button
                 v-if="comment.canEdit"
                 type="button"
+                :disabled="composerLocked"
                 @click="startEdit(comment)"
               >
                 <Pencil :size="14" /> 编辑
@@ -752,6 +447,7 @@ watch(draftKey, () => {
                     <button
                       v-if="reply.canEdit"
                       type="button"
+                      :disabled="composerLocked"
                       @click="startEdit(reply)"
                     >
                       <Pencil :size="14" /> 编辑

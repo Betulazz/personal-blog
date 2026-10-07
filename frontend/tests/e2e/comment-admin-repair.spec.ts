@@ -2,6 +2,12 @@ import { expect, test, type Page } from '@playwright/test'
 import path from 'node:path'
 import os from 'node:os'
 
+import { mockFixtureMedia } from './support/fixture-media'
+
+test.beforeEach(async ({ page }) => {
+  await mockFixtureMedia(page)
+})
+
 const html =
   '<h1>一级标题</h1><h2>二级标题</h2><ul><li>列表项</li></ul><blockquote><p>引用</p></blockquote><pre><code>' +
   'long_code_'.repeat(100) +

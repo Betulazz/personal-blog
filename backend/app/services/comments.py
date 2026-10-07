@@ -124,23 +124,7 @@ class CommentService:
         )
         comments = [*roots, *replies]
         ids = [comment.id for comment in comments]
-        like_counts: dict[int, int] = {}
-        liked_ids: set[int] = set()
-        if ids:
-            like_rows = await self._session.execute(
-                select(CommentLike.comment_id, func.count(CommentLike.id))
-                .where(CommentLike.comment_id.in_(ids))
-                .group_by(CommentLike.comment_id)
-            )
-            like_counts = {int(comment_id): int(amount) for comment_id, amount in like_rows}
-            if commenter is not None:
-                liked_rows = await self._session.scalars(
-                    select(CommentLike.comment_id).where(
-                        CommentLike.commenter_id == commenter.id,
-                        CommentLike.comment_id.in_(ids),
-                    )
-                )
-                liked_ids = set(liked_rows.all())
+        like_counts, liked_ids = await self._like_state(ids, commenter)
 
         reply_map: dict[int, list[Comment]] = {}
         for reply in replies:
@@ -168,6 +152,29 @@ class CommentService:
             next_cursor=next_cursor,
             has_more=has_more,
         )
+
+    async def _like_state(
+        self, ids: list[int], commenter: Commenter | None
+    ) -> tuple[dict[int, int], set[int]]:
+        like_counts: dict[int, int] = {}
+        liked_ids: set[int] = set()
+        if ids:
+            like_rows = await self._session.execute(
+                select(CommentLike.comment_id, func.count(CommentLike.id))
+                .where(CommentLike.comment_id.in_(ids))
+                .group_by(CommentLike.comment_id)
+            )
+            like_counts = {int(comment_id): int(amount) for comment_id, amount in like_rows}
+            if commenter is not None:
+                liked_rows = await self._session.scalars(
+                    select(CommentLike.comment_id).where(
+                        CommentLike.commenter_id == commenter.id,
+                        CommentLike.comment_id.in_(ids),
+                    )
+                )
+                liked_ids = set(liked_rows.all())
+
+        return like_counts, liked_ids
 
     async def current_commenter_profile(
         self, commenter: Commenter | None
@@ -240,7 +247,33 @@ class CommentService:
         comment.edited_at = datetime.now(UTC).replace(tzinfo=None)
         await self._session.commit()
         await self._session.refresh(comment)
-        return self._public_item(comment, commenter, {}, set())
+        replies = (
+            list(
+                await self._session.scalars(
+                    select(Comment)
+                    .options(selectinload(Comment.commenter))
+                    .where(
+                        Comment.parent_id == comment.id,
+                        Comment.state.in_(VISIBLE_STATES),
+                    )
+                    .order_by(Comment.id.asc())
+                )
+            )
+            if comment.parent_id is None
+            else []
+        )
+        like_counts, liked_ids = await self._like_state(
+            [comment.id, *[reply.id for reply in replies]], commenter
+        )
+        return self._public_item(
+            comment,
+            commenter,
+            like_counts,
+            liked_ids,
+            replies=[
+                self._public_item(reply, commenter, like_counts, liked_ids) for reply in replies
+            ],
+        )
 
     async def delete_own_comment(
         self, comment_id: int, commenter: Commenter, request: Request

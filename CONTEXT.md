@@ -80,3 +80,6 @@ A Comment addressed to a Root Comment within the same Comment Thread. Replies re
 
 **Comment Like**:
 A Commenter's positive response to a Comment, which that Commenter may withdraw.
+
+**Comment Draft**:
+A Commenter's unpublished text intended as a new Root Comment, a Comment Reply, or an edit to an existing Comment. Its intended Comment Thread and reply or edit target remain part of its identity even when that target is temporarily unavailable.

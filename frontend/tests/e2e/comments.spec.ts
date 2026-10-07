@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+import { mockFixtureMedia } from './support/fixture-media'
+
+test.beforeEach(async ({ page }) => {
+  await mockFixtureMedia(page)
+})
+
 test('About and Post comments expose the configured guest state', async ({
   page,
 }, testInfo) => {
