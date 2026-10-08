@@ -1,365 +1,80 @@
 <script setup lang="ts">
-import { useDebounceFn } from '@vueuse/core'
-import { onBeforeRouteLeave } from 'vue-router'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-
-import { BlogApiError, useApiClient } from '~/api/client'
-import AdminPostForm from '~/components/admin/AdminPostForm.vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useApiClient } from '~/api/client'
+import { usePostEditor } from '~/composables/usePostEditor'
 import { useAdminSession } from '~/stores/adminSession'
-import type { AdminPost, AdminPostInput, AdminTaxonomy } from '~/types/admin'
-import {
-  adminPostDraftKey,
-  clearAdminPostDraft,
-  isAdminPostDraftDirty,
-  readAdminPostDraft,
-  saveAdminPostDraft,
-  serializeAdminPostInput,
-} from '~/utils/admin-post-draft'
 import { renderPostMarkdown } from '~/utils/post-markdown'
 
-type AdminPostFormHandle = InstanceType<typeof AdminPostForm>
-
 const props = defineProps<{ postId?: string }>()
-
-const api = useApiClient()
 const session = useAdminSession()
-const post = ref<AdminPost | null>(null)
-const tags = ref<AdminTaxonomy[]>([])
-const isLoading = ref(Boolean(props.postId))
-const isSubmitting = ref(false)
-const errorMessage = ref<string | null>(null)
-const isLoadError = ref(false)
-const isNotFound = ref(false)
-const previewOpen = ref(false)
-const previewSource = ref('')
-const pendingAction = ref<'delete' | 'publish' | 'unpublish' | null>(null)
-const formRef = ref<AdminPostFormHandle | null>(null)
-const currentSnapshot = ref('')
-const baseline = ref('')
-const changeVersion = ref(0)
-const draftCandidate = ref<AdminPostInput | null>(null)
-const recoveryOpen = ref(false)
-const leaveDialogOpen = ref(false)
-const draftCheckPending = ref(false)
-let requestNumber = 0
-let resolveLeave: ((allow: boolean) => void) | null = null
-
-const isDirty = computed(() =>
-  isAdminPostDraftDirty(currentSnapshot.value, baseline.value),
-)
-const pageTitle = computed(() =>
-  props.postId ? '编辑文章 · 后台空间' : '新建文章 · 后台空间',
-)
+const flow = usePostEditor({
+  postId: () => props.postId,
+  authenticated: () =>
+    session.isAuthenticated || session.status === 'refreshing',
+  api: useApiClient(),
+  withSession: (request) => session.withSession(request),
+  storage: () => (import.meta.client ? window.sessionStorage : null),
+  navigate: async (path) => navigateTo(path, { replace: true }),
+})
+const {
+  input,
+  post,
+  tags,
+  isLoading,
+  isSubmitting,
+  editorReady,
+  isDirty,
+  locked,
+  canWrite,
+  errorMessage,
+  notice,
+  isLoadError,
+  isNotFound,
+  previewOpen,
+  previewSource,
+  pendingAction,
+  recoveryOpen,
+  leaveDialogOpen,
+  unknown,
+} = flow
+const acknowledgeOpen = ref(false)
+const acknowledge = () => {
+  flow.acknowledgeUnknown()
+  acknowledgeOpen.value = false
+}
 const previewHtml = computed(() => renderPostMarkdown(previewSource.value))
 const actionCopy = computed(() => {
-  if (pendingAction.value === 'delete') {
+  if (pendingAction.value === 'delete')
     return {
       confirm: '删除文章',
+      title: '确认删除这篇文章？',
       description:
         '这会永久删除文章、标签关联，以及该文章的评论讨论和全部回复与喜欢；删除后无法从后台恢复。',
-      title: '确认删除这篇文章？',
     }
-  }
-  if (pendingAction.value === 'publish') {
+  if (pendingAction.value === 'publish')
     return {
       confirm: '确认发布',
-      description: '发布后文章会出现在公开文章列表中。你仍可以随时撤回。',
       title: '确认发布这篇文章？',
+      description: '发布后文章会出现在公开文章列表中。你仍可以随时撤回。',
     }
-  }
   return {
     confirm: '确认撤回',
-    description: '撤回后文章会回到草稿状态，公开页面将不再展示它。',
     title: '确认撤回这篇文章？',
+    description:
+      '撤回后文章会回到草稿状态，公开页面将不再展示它；当前未保存的内容会保留。',
   }
 })
-
-const draftStorage = () => (import.meta.client ? window.sessionStorage : null)
-
-const draftKey = () => adminPostDraftKey(props.postId)
-
-const friendlyError = (error: unknown, fallback: string) => {
-  if (!(error instanceof BlogApiError)) return fallback
-  if (error.status === 401) {
-    return '会话已过期，请重新登录；未保存的正文已备份，重新打开这篇文章可以恢复。'
-  }
-  const messages: Record<string, string> = {
-    csrf_invalid: '安全校验失败，请刷新页面后重试；当前内容仍保留在编辑器中。',
-    post_already_published: '这篇文章已经发布，无需重复发布。',
-    post_body_required: '发布前请先写入 Markdown 正文。',
-    post_not_found: '这篇文章已经不存在，可能已被删除。',
-    post_not_published: '这篇文章当前不是已发布状态。',
-    post_slug_conflict: '这个 slug 已经被其他文章使用，请换一个。',
-    tag_not_found: '所选标签已经不存在，请重新选择后保存。',
-    validation_error: '请检查表单中的字段格式。',
-  }
-  const knownMessage = messages[error.code]
-  if (knownMessage) return knownMessage
-  if (error.status === 0 || error.status >= 500) {
-    return '后台服务暂时无法响应，当前编辑内容仍保留在表单中。'
-  }
-  return fallback
-}
-
-const snapshotForm = () => {
-  const input = formRef.value?.snapshot()
-  return input ? serializeAdminPostInput(input) : null
-}
-
-const handleFormChange = () => {
-  const next = snapshotForm()
-  if (next === null) return
-  changeVersion.value += 1
-  currentSnapshot.value = next
-}
-
-const handleFormSync = () => {
-  const next = snapshotForm()
-  if (next === null) return
-  currentSnapshot.value = next
-  baseline.value = next
-  changeVersion.value = 0
-  if (draftCheckPending.value) {
-    draftCheckPending.value = false
-    offerDraftRecovery()
-  }
-}
-
-const handleFormCanonical = () => {
-  const next = snapshotForm()
-  if (next === null) return
-  const wasDirty = isAdminPostDraftDirty(currentSnapshot.value, baseline.value)
-  currentSnapshot.value = next
-  if (!wasDirty) baseline.value = next
-}
-
-const persistDraft = () => {
-  const storage = draftStorage()
-  if (!storage) return
-  const input = formRef.value?.snapshot()
-  if (!input) return
-  if (!isDirty.value) {
-    clearAdminPostDraft(storage, draftKey())
-    return
-  }
-  saveAdminPostDraft(storage, draftKey(), input)
-}
-
-const persistDraftDebounced = useDebounceFn(persistDraft, 600)
-const stopDraftWatch = watch(currentSnapshot, () => {
-  persistDraftDebounced()
-})
-
-const offerDraftRecovery = () => {
-  const storage = draftStorage()
-  if (!storage) return
-  const draft = readAdminPostDraft(storage, draftKey())
-  if (!draft) return
-  if (!isAdminPostDraftDirty(serializeAdminPostInput(draft), baseline.value)) {
-    clearAdminPostDraft(storage, draftKey())
-    return
-  }
-  draftCandidate.value = draft
-  recoveryOpen.value = true
-}
-
-const restoreDraft = () => {
-  const draft = draftCandidate.value
-  draftCandidate.value = null
-  recoveryOpen.value = false
-  if (!draft) return
-  formRef.value?.applyInput(draft)
-  void nextTick(() => {
-    currentSnapshot.value = serializeAdminPostInput(draft)
-  })
-}
-
-const discardDraft = () => {
-  const storage = draftStorage()
-  if (storage) clearAdminPostDraft(storage, draftKey())
-  draftCandidate.value = null
-  recoveryOpen.value = false
-}
-
-const load = async () => {
-  if (!session.isAuthenticated) return
-  const currentRequest = ++requestNumber
-  isLoading.value = Boolean(props.postId)
-  draftCheckPending.value = true
-  errorMessage.value = null
-  isLoadError.value = false
-  isNotFound.value = false
-  try {
-    const [loadedTags, loadedPost] = await session.withSession(() =>
-      Promise.all([
-        api.listAdminTags(),
-        props.postId ? api.getAdminPost(props.postId) : Promise.resolve(null),
-      ]),
-    )
-    if (currentRequest !== requestNumber) return
-    tags.value = loadedTags
-    post.value = loadedPost
-    isLoading.value = false
-    if (!props.postId) {
-      await nextTick()
-      handleFormSync()
-    }
-  } catch (error: unknown) {
-    if (currentRequest !== requestNumber) return
-    isLoadError.value = true
-    isNotFound.value =
-      error instanceof BlogApiError && error.code === 'post_not_found'
-    errorMessage.value = friendlyError(
-      error,
-      '文章编辑器暂时无法加载，请稍后重试。',
-    )
-  } finally {
-    if (currentRequest === requestNumber) isLoading.value = false
-  }
-}
-
-const retryLoad = () => {
-  void load()
-}
-
-const save = async (input: AdminPostInput) => {
-  isSubmitting.value = true
-  errorMessage.value = null
-  const versionBefore = changeVersion.value
-  try {
-    const saved = await session.withSession(() =>
-      props.postId
-        ? api.updateAdminPost(props.postId, input)
-        : api.createAdminPost(input),
-    )
-    const storage = draftStorage()
-    if (storage) {
-      clearAdminPostDraft(storage, draftKey())
-      if (!props.postId) clearAdminPostDraft(storage, adminPostDraftKey())
-    }
-    if (!props.postId) {
-      baseline.value = serializeAdminPostInput(input)
-      await navigateTo(`/admin/posts/${saved.id}/edit`, { replace: true })
-      return
-    }
-    if (changeVersion.value === versionBefore) {
-      post.value = saved
-    } else {
-      baseline.value = serializeAdminPostInput(input)
-    }
-  } catch (error: unknown) {
-    errorMessage.value = friendlyError(
-      error,
-      '文章保存失败，请检查字段后重试。',
-    )
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-const preview = async (input: AdminPostInput) => {
-  errorMessage.value = null
-  try {
-    const previewPost = props.postId
-      ? await session.withSession(() =>
-          api.previewAdminPost(props.postId!, input),
-        )
-      : null
-    previewSource.value = previewPost?.body ?? input.body
-    previewOpen.value = true
-  } catch (error: unknown) {
-    errorMessage.value = friendlyError(error, '预览暂时无法生成，请稍后重试。')
-  }
-}
-
-const requestAction = (action: 'delete' | 'publish' | 'unpublish') => {
-  pendingAction.value = action
-}
-
-const confirmAction = async () => {
-  if (!props.postId || !pendingAction.value) return
-  const action = pendingAction.value
-  pendingAction.value = null
-  isSubmitting.value = true
-  errorMessage.value = null
-  const versionBefore = changeVersion.value
-  try {
-    if (action === 'delete') {
-      await session.withSession(() => api.deleteAdminPost(props.postId!))
-      const storage = draftStorage()
-      if (storage) clearAdminPostDraft(storage, draftKey())
-      baseline.value = currentSnapshot.value
-      await navigateTo('/admin/posts')
-      return
-    }
-    const updated = await session.withSession(() =>
-      action === 'publish'
-        ? api.publishAdminPost(props.postId!)
-        : api.unpublishAdminPost(props.postId!),
-    )
-    if (changeVersion.value === versionBefore) {
-      post.value = updated
-    }
-  } catch (error: unknown) {
-    errorMessage.value = friendlyError(
-      error,
-      '状态更新失败，文章内容仍然保留。',
-    )
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-const leaveAfterDiscard = () => {
-  const storage = draftStorage()
-  if (storage) clearAdminPostDraft(storage, draftKey())
-  const resolve = resolveLeave
-  resolveLeave = null
-  leaveDialogOpen.value = false
-  resolve?.(true)
-}
-
-const cancelLeave = () => {
-  const resolve = resolveLeave
-  resolveLeave = null
-  leaveDialogOpen.value = false
-  resolve?.(false)
-}
-
-const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-  if (!isDirty.value) return
-  event.preventDefault()
-  event.returnValue = ''
-}
-
-onBeforeRouteLeave(() => {
-  if (!isDirty.value || !session.isAuthenticated) {
-    return true
-  }
-  return new Promise<boolean>((resolve) => {
-    resolveLeave = resolve
-    leaveDialogOpen.value = true
-  })
-})
-
-onMounted(() => {
-  window.addEventListener('beforeunload', handleBeforeUnload)
-})
-
+onBeforeRouteLeave(() => flow.leave())
+onBeforeRouteUpdate(() => flow.leave())
+onMounted(() => window.addEventListener('beforeunload', flow.beforeUnload))
 onBeforeUnmount(() => {
-  window.removeEventListener('beforeunload', handleBeforeUnload)
-  stopDraftWatch()
+  window.removeEventListener('beforeunload', flow.beforeUnload)
+  flow.dispose()
 })
-
-watch(
-  () => session.status,
-  (status) => {
-    if (status === 'authenticated') void load()
-  },
-  { immediate: true },
-)
-
-useHead(() => ({ title: pageTitle.value }))
+useHead(() => ({
+  title: props.postId ? '编辑文章 · 后台空间' : '新建文章 · 后台空间',
+}))
 </script>
 
 <template>
@@ -386,8 +101,8 @@ useHead(() => ({ title: pageTitle.value }))
           v-if="post.status === 'draft'"
           variant="primary"
           size="small"
-          :disabled="isSubmitting || isLoading"
-          @click="requestAction('publish')"
+          :disabled="!canWrite"
+          @click="flow.requestAction('publish')"
         >
           发布
         </UiButton>
@@ -395,16 +110,16 @@ useHead(() => ({ title: pageTitle.value }))
           v-else
           variant="secondary"
           size="small"
-          :disabled="isSubmitting || isLoading"
-          @click="requestAction('unpublish')"
+          :disabled="!canWrite"
+          @click="flow.requestAction('unpublish')"
         >
           撤回
         </UiButton>
         <UiButton
           variant="danger"
           size="small"
-          :disabled="isSubmitting || isLoading"
-          @click="requestAction('delete')"
+          :disabled="!canWrite"
+          @click="flow.requestAction('delete')"
         >
           删除
         </UiButton>
@@ -417,7 +132,7 @@ useHead(() => ({ title: pageTitle.value }))
       }}</strong>
       <p>{{ errorMessage }}</p>
       <div class="admin-resource-state__actions">
-        <UiButton variant="secondary" @click="retryLoad">重新加载</UiButton>
+        <UiButton variant="secondary" @click="flow.load">重新加载</UiButton>
         <NuxtLink class="admin-resource-state__link" to="/admin/posts"
           >返回文章管理</NuxtLink
         >
@@ -425,20 +140,62 @@ useHead(() => ({ title: pageTitle.value }))
     </div>
     <AdminPostForm
       v-else
-      ref="formRef"
+      :key="postId ?? 'new'"
+      :input="input"
+      :locked="locked"
+      :can-save="canWrite"
+      :editor-ready="editorReady"
       :dirty="isDirty"
       :error-message="errorMessage"
       :is-loading="isLoading"
       :is-submitting="isSubmitting"
       :post="post"
       :tags="tags"
-      @canonical="handleFormCanonical"
-      @change="handleFormChange"
-      @preview="preview"
-      @save="save"
-      @sync="handleFormSync"
+      @canonical="flow.canonical"
+      @change="flow.edit"
+      @preview="flow.preview"
+      @save="flow.save"
     />
 
+    <p v-if="notice" class="admin-resource-state" role="status">{{ notice }}</p>
+    <section
+      v-if="unknown && !isSubmitting"
+      class="admin-resource-state"
+      role="alert"
+      data-testid="post-write-unknown"
+    >
+      <strong>上次操作结果尚未确认</strong>
+      <p>
+        请先核对服务器结果，避免重复操作；当前编辑内容仍保留。新建文章可去文章管理按
+        slug 核对。
+      </p>
+      <div class="admin-resource-state__actions">
+        <UiButton :loading="isSubmitting" @click="flow.reconcile"
+          >核对服务器结果</UiButton
+        >
+        <UiButton
+          variant="secondary"
+          :disabled="isSubmitting"
+          @click="acknowledgeOpen = true"
+          >已核对，允许再次操作</UiButton
+        >
+      </div>
+    </section>
+
+    <UiDialog
+      v-model:open="acknowledgeOpen"
+      title="已核对上次操作？"
+      description="确认你已查看文章管理或服务器内容。解除提醒不会重发上次请求，下一次操作将使用当前表单。"
+    >
+      <template #footer>
+        <UiButton variant="ghost" @click="acknowledgeOpen = false"
+          >取消</UiButton
+        >
+        <UiButton :disabled="isSubmitting" @click="acknowledge"
+          >确认已核对</UiButton
+        >
+      </template>
+    </UiDialog>
     <UiDialog
       v-model:open="previewOpen"
       title="Markdown 预览"
@@ -459,7 +216,7 @@ useHead(() => ({ title: pageTitle.value }))
         <UiButton
           :variant="pendingAction === 'delete' ? 'danger' : 'primary'"
           :loading="isSubmitting"
-          @click="confirmAction"
+          @click="flow.confirmAction"
         >
           {{ actionCopy.confirm }}
         </UiButton>
@@ -470,23 +227,30 @@ useHead(() => ({ title: pageTitle.value }))
       :open="recoveryOpen"
       title="发现未保存的草稿"
       description="上次离开编辑器时还有未保存的改动，已从本地备份中恢复出内容。选择恢复会覆盖当前表单，选择丢弃会删除备份。"
-      @update:open="(open) => !open && discardDraft()"
+      @update:open="(open) => !open && flow.discardDraft()"
     >
       <template #footer>
-        <UiButton variant="ghost" @click="discardDraft">丢弃备份</UiButton>
-        <UiButton variant="primary" @click="restoreDraft">恢复草稿</UiButton>
+        <UiButton variant="ghost" @click="flow.discardDraft">丢弃备份</UiButton>
+        <UiButton variant="primary" @click="flow.restoreDraft"
+          >恢复草稿</UiButton
+        >
       </template>
     </UiDialog>
 
     <UiDialog
       :open="leaveDialogOpen"
       title="离开编辑器？"
-      description="当前有未保存的更改。离开后可以重新打开这篇文章，并从本地备份恢复；选择留下可以继续编辑。"
-      @update:open="(open) => !open && cancelLeave()"
+      description="当前有未保存的内容或待核对的操作。保留备份后可在当前标签页恢复；丢弃会删除备份，继续编辑则留在这里。"
+      @update:open="(open) => !open && flow.finishLeave('stay')"
     >
       <template #footer>
-        <UiButton variant="secondary" @click="cancelLeave">继续编辑</UiButton>
-        <UiButton variant="danger" @click="leaveAfterDiscard">
+        <UiButton variant="secondary" @click="flow.finishLeave('stay')"
+          >继续编辑</UiButton
+        >
+        <UiButton variant="primary" @click="flow.finishLeave('keep')"
+          >保留备份并离开</UiButton
+        >
+        <UiButton variant="danger" @click="flow.finishLeave('discard')">
           放弃更改并离开
         </UiButton>
       </template>

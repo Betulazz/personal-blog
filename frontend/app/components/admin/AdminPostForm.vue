@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { AdminPost, AdminPostInput, AdminTaxonomy } from '~/types/admin'
 
 const props = withDefaults(
   defineProps<{
+    input: AdminPostInput
     dirty?: boolean
     errorMessage?: string | null
     isLoading?: boolean
     isSubmitting?: boolean
+    locked?: boolean
+    canSave?: boolean
+    editorReady?: boolean
     post?: AdminPost | null
     tags?: AdminTaxonomy[]
   }>(),
@@ -15,169 +20,76 @@ const props = withDefaults(
     errorMessage: null,
     isLoading: false,
     isSubmitting: false,
+    locked: false,
+    canSave: false,
+    editorReady: false,
     post: null,
     tags: () => [],
   },
 )
-
 const emit = defineEmits<{
-  canonical: []
-  change: []
-  preview: [value: AdminPostInput]
-  save: [value: AdminPostInput]
-  sync: []
+  canonical: [body: string]
+  change: [value: AdminPostInput]
+  preview: []
+  save: []
 }>()
-
-const form = reactive({
-  body: '',
-  coverAlt: '',
-  coverUrl: '',
-  isPinned: false,
-  slug: '',
-  summary: '',
-  tagIds: [] as string[],
-  title: '',
-})
 const validation = reactive<Record<string, string>>({})
-const markdownEditorReady = ref(false)
-let resolveMarkdownEditorReady: (() => void) | null = null
-const markdownEditorReadyPromise = new Promise<void>((resolve) => {
-  resolveMarkdownEditorReady = resolve
+const patch = (values: Partial<AdminPostInput>) => {
+  if (!props.locked) emit('change', { ...props.input, ...values })
+}
+const field = <K extends keyof AdminPostInput>(key: K) =>
+  computed({
+    get: () => props.input[key],
+    set: (value: AdminPostInput[K]) => patch({ [key]: value }),
+  })
+const title = field('title')
+const slug = field('slug')
+const summary = field('summary')
+const body = field('body')
+const coverUrl = computed({
+  get: () => props.input.cover_url ?? '',
+  set: (value: string) => patch({ cover_url: value }),
 })
-
-let syncing = false
-
-interface PostFormValues {
-  body: string
-  coverAlt: string
-  coverUrl: string
-  isPinned: boolean
-  slug: string
-  summary: string
-  tagIds: string[]
-  title: string
-}
-
-const applyValues = (values: PostFormValues) => {
-  form.body = values.body
-  form.coverAlt = values.coverAlt
-  form.coverUrl = values.coverUrl
-  form.isPinned = values.isPinned
-  form.slug = values.slug
-  form.summary = values.summary
-  form.tagIds = values.tagIds
-  form.title = values.title
-}
-
-const syncPost = (post: AdminPost | null) => {
-  if (!post) return
-  syncing = true
-  applyValues({
-    body: post.body,
-    coverAlt: post.coverAlt ?? '',
-    coverUrl: post.coverUrl ?? '',
-    isPinned: post.isPinned,
-    slug: post.slug,
-    summary: post.summary,
-    tagIds: [...post.tagIds],
-    title: post.title,
-  })
-}
-
-const applyInput = (input: AdminPostInput) => {
-  applyValues({
-    body: input.body,
-    coverAlt: input.cover_alt ?? '',
-    coverUrl: input.cover_url ?? '',
-    isPinned: input.is_pinned ?? false,
-    slug: input.slug,
-    summary: input.summary,
-    tagIds: (input.tag_ids ?? []).map(String),
-    title: input.title,
-  })
-}
-
-watch(
-  () => props.post,
-  async (post) => {
-    if (!post) return
-    syncPost(post)
-    await nextTick()
-    syncing = false
-    emit('sync')
-  },
-  { immediate: true },
-)
-
-watch(
-  form,
-  () => {
-    if (!syncing) emit('change')
-  },
-  { deep: true },
-)
-
-const handleEditorReady = async (markdown: string) => {
-  if (markdown !== form.body) {
-    syncing = true
-    form.body = markdown
-    await nextTick()
-    syncing = false
-    emit('canonical')
-  }
-  markdownEditorReady.value = true
-  resolveMarkdownEditorReady?.()
-  resolveMarkdownEditorReady = null
-}
-
+const coverAlt = computed({
+  get: () => props.input.cover_alt ?? '',
+  set: (value: string) => patch({ cover_alt: value }),
+})
+const isPinned = computed({
+  get: () => props.input.is_pinned ?? false,
+  set: (value: boolean) => patch({ is_pinned: value }),
+})
 const toggleTag = (id: string) => {
-  form.tagIds = form.tagIds.includes(id)
-    ? form.tagIds.filter((tagId) => tagId !== id)
-    : [...form.tagIds, id]
+  const tagIds = props.input.tag_ids ?? []
+  const tagId = Number(id)
+  patch({
+    tag_ids: tagIds.includes(tagId)
+      ? tagIds.filter((value) => value !== tagId)
+      : [...tagIds, tagId],
+  })
 }
-
-const toInput = (): AdminPostInput => ({
-  body: form.body,
-  cover_alt: form.coverAlt.trim() || null,
-  cover_url: form.coverUrl.trim() || null,
-  is_pinned: form.isPinned,
-  slug: form.slug.trim(),
-  summary: form.summary.trim(),
-  tag_ids: form.tagIds.map(Number),
-  title: form.title.trim(),
-})
-
 const validate = () => {
   Object.keys(validation).forEach((key) =>
     Reflect.deleteProperty(validation, key),
   )
-  if (!form.title.trim()) validation.title = '请输入文章标题。'
-  if (!form.slug.trim()) validation.slug = '请输入公开 slug。'
-  else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug.trim())) {
+  if (!title.value.trim()) validation.title = '请输入文章标题。'
+  if (!slug.value.trim()) validation.slug = '请输入公开 slug。'
+  else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.value.trim())) {
     validation.slug = 'slug 只能使用小写字母、数字和连字符。'
   }
   return Object.keys(validation).length === 0
 }
-
-const submit = async () => {
-  if (!markdownEditorReady.value) await markdownEditorReadyPromise
-  if (validate()) emit('save', toInput())
+const submit = () => {
+  if (props.canSave && validate()) emit('save')
 }
-
 const preview = () => {
-  if (validate()) emit('preview', toInput())
+  if (!props.locked && props.editorReady && validate()) emit('preview')
 }
-
-defineExpose({
-  applyInput,
-  snapshot: toInput,
-})
 </script>
 
 <template>
   <form
     class="admin-post-form"
-    :data-markdown-editor-ready="markdownEditorReady ? 'true' : 'false'"
+    :data-markdown-editor-ready="editorReady ? 'true' : 'false'"
     novalidate
     @submit.prevent="submit"
   >
@@ -215,7 +127,8 @@ defineExpose({
       </div>
 
       <UiInput
-        v-model="form.title"
+        v-model="title"
+        :disabled="locked"
         label="标题"
         name="title"
         placeholder="给这篇文章一个清晰的名字"
@@ -223,7 +136,8 @@ defineExpose({
         required
       />
       <UiInput
-        v-model="form.slug"
+        v-model="slug"
+        :disabled="locked"
         label="Slug"
         name="slug"
         description="公开 URL 使用小写字母、数字和连字符。"
@@ -232,7 +146,8 @@ defineExpose({
         required
       />
       <UiTextarea
-        v-model="form.summary"
+        v-model="summary"
+        :disabled="locked"
         label="摘要"
         name="summary"
         description="用于列表、搜索和社交分享的短摘要。"
@@ -248,9 +163,9 @@ defineExpose({
           是持久化核心格式；支持标题、引用、代码、表格、链接和数学公式。
         </p>
         <AdminMarkdownEditor
-          v-model="form.body"
-          :disabled="isSubmitting"
-          @ready="handleEditorReady"
+          v-model="body"
+          :disabled="locked"
+          @ready="emit('canonical', $event)"
         />
       </div>
     </section>
@@ -279,7 +194,8 @@ defineExpose({
             <label v-for="tag in tags" :key="tag.id" class="admin-tag-option">
               <input
                 type="checkbox"
-                :checked="form.tagIds.includes(tag.id)"
+                :disabled="locked"
+                :checked="(input.tag_ids ?? []).includes(Number(tag.id))"
                 :value="tag.id"
                 @change="toggleTag(tag.id)"
               />
@@ -299,13 +215,15 @@ defineExpose({
           </div>
         </div>
         <UiInput
-          v-model="form.coverUrl"
+          v-model="coverUrl"
+          :disabled="locked"
           label="封面 URL"
           name="cover_url"
           type="url"
         />
         <UiInput
-          v-model="form.coverAlt"
+          v-model="coverAlt"
+          :disabled="locked"
           label="封面替代文本"
           name="cover_alt"
         />
@@ -322,7 +240,7 @@ defineExpose({
           </div>
         </div>
         <label class="admin-switch">
-          <input v-model="form.isPinned" type="checkbox" />
+          <input v-model="isPinned" type="checkbox" :disabled="locked" />
           <span>置顶这篇文章</span>
         </label>
       </section>
@@ -334,12 +252,14 @@ defineExpose({
         <UiButton
           type="button"
           variant="secondary"
-          :disabled="isSubmitting"
+          :disabled="locked || !editorReady"
           @click="preview"
         >
           预览
         </UiButton>
-        <UiButton type="submit" :loading="isSubmitting"> 保存草稿 </UiButton>
+        <UiButton type="submit" :loading="isSubmitting" :disabled="!canSave">
+          保存草稿
+        </UiButton>
       </footer>
     </aside>
 

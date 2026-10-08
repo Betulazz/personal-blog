@@ -10,6 +10,7 @@ from app.models.migration_archive import ContentMigrationArchive
 from app.models.music import MusicTrack
 from app.models.portfolio import FriendLink, Project, SiteSettings
 from app.models.post import Post
+from app.site_identity_media import SiteIdentityMediaReferences
 from app.types.media import MediaKind
 
 
@@ -130,32 +131,10 @@ class MediaAssetRepository:
 
         settings = await self._session.scalar(select(SiteSettings))
         if settings is not None:
-            for field in ("avatar_url", "favicon_url"):
-                if _contains_media(getattr(settings, field), key, public_url):
-                    references.append(MediaReference("site_settings", settings.id, field))
-            for entry in settings.background_gallery or []:
-                reference = entry.get("url") if isinstance(entry, dict) else None
-                if isinstance(reference, str) and _contains_media(reference, key, public_url):
-                    references.append(
-                        MediaReference("site_settings", settings.id, "background_gallery")
-                    )
-            about = settings.about if isinstance(settings.about, dict) else {}
-            banner_reference = about.get("banner_url")
-            if isinstance(banner_reference, str) and _contains_media(
-                banner_reference, key, public_url
-            ):
-                references.append(MediaReference("site_settings", settings.id, "about.banner_url"))
-            for index, entry in enumerate(settings.social_links or []):
-                if not isinstance(entry, dict):
-                    continue
-                icon = entry.get("icon")
-                if not isinstance(icon, dict) or icon.get("type") != "media":
-                    continue
-                reference = icon.get("url")
-                if isinstance(reference, str) and _contains_media(reference, key, public_url):
-                    references.append(
-                        MediaReference("site_settings", settings.id, f"social_links[{index}].icon")
-                    )
+            references.extend(
+                MediaReference("site_settings", settings.id, field)
+                for field in SiteIdentityMediaReferences(settings).matching_fields(key=key)
+            )
 
         return references
 

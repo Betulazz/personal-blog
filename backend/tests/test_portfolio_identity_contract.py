@@ -6,6 +6,7 @@ from sqlalchemy import delete
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.media import MediaAsset
 from app.models.portfolio import FriendLink, Project, SiteSettings
 
 
@@ -16,11 +17,23 @@ async def clean_portfolio_identity(
     await isolated_mysql_session.execute(delete(SiteSettings))
     await isolated_mysql_session.execute(delete(FriendLink))
     await isolated_mysql_session.execute(delete(Project))
+    avatar = MediaAsset(
+        key="images/identity-contract/avatar.webp",
+        original_filename="avatar.webp",
+        media_kind="image",
+        content_type="image/webp",
+        size_bytes=256,
+        storage_strategy="local",
+    )
+    isolated_mysql_session.add(avatar)
     await isolated_mysql_session.commit()
     yield
     await isolated_mysql_session.execute(delete(SiteSettings))
     await isolated_mysql_session.execute(delete(FriendLink))
     await isolated_mysql_session.execute(delete(Project))
+    await isolated_mysql_session.execute(
+        delete(MediaAsset).where(MediaAsset.key == "images/identity-contract/avatar.webp")
+    )
     await isolated_mysql_session.commit()
 
 
@@ -215,7 +228,7 @@ async def test_portfolio_and_identity_public_reads_are_ordered_and_safe(
                     }
                 ],
             },
-            "avatar_url": "/uploads/avatar.webp",
+            "avatar_url": "/uploads/images/identity-contract/avatar.webp",
             "favicon_url": "https://example.com/favicon.ico",
             "social_links": [
                 {"label": "GitHub", "href": "https://github.com/example", "kind": "code"}

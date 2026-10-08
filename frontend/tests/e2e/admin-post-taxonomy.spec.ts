@@ -133,7 +133,11 @@ test('admin resource states preserve input and expose safe recovery paths', asyn
   await page.getByLabel('Markdown 正文').fill('网络失败后仍应保留的正文。')
   await page.request.get(`${mockControl}/failure?resource=admin`)
   await page.getByRole('button', { name: '保存草稿' }).click()
-  await expect(page.getByRole('alert')).toContainText('后台服务暂时无法响应')
+  await expect(page.locator('.admin-post-form__error')).toContainText(
+    '操作结果暂时无法确认',
+  )
+  await expect(page.getByTestId('post-write-unknown')).toBeVisible()
+  await expect(page.getByRole('button', { name: '保存草稿' })).toBeDisabled()
   await expect(page.getByLabel('标题', { exact: true })).toHaveValue(
     '仍然保留的标题',
   )

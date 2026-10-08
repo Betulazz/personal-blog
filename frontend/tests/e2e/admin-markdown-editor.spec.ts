@@ -199,7 +199,11 @@ test('validation, preview, and save failure keep editable state intact', async (
 
   await page.request.get(`${mockControl}/failure?resource=admin`)
   await page.getByRole('button', { name: '保存草稿' }).click()
-  await expect(page.getByRole('alert')).toContainText('后台服务暂时无法响应')
+  await expect(page.locator('.admin-post-form__error')).toContainText(
+    '操作结果暂时无法确认',
+  )
+  await expect(page.getByTestId('post-write-unknown')).toBeVisible()
+  await expect(page.getByRole('button', { name: '保存草稿' })).toBeDisabled()
   await expect(editor).toContainText('预览前的正文')
   await expect(page.getByLabel('标题', { exact: true })).toHaveValue(
     '保留状态的草稿',

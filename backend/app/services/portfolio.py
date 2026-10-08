@@ -19,6 +19,7 @@ from app.schemas.portfolio import (
     ProjectUpdateRequest,
     SiteSettingsUpdateRequest,
 )
+from app.site_identity_media import SiteIdentityMediaReferences
 
 
 class ProjectService:
@@ -234,57 +235,9 @@ class SiteSettingsService:
 
     async def update(self, request: SiteSettingsUpdateRequest) -> SiteSettings:
         changes = request.model_dump(exclude_unset=True, mode="json")
-        if request.social_links is not None:
-            for link in request.social_links:
-                icon = link.icon
-                if icon is None or icon.type != "media":
-                    continue
-                asset = await self._media_repository.find_by_key(icon.url.removeprefix("/uploads/"))
-                if (
-                    asset is None
-                    or asset.media_kind != "image"
-                    or not asset.content_type.startswith("image/")
-                ):
-                    raise AppError(
-                        "social_icon_media_asset_invalid",
-                        "Social icons must reference an existing image Media Asset",
-                        422,
-                    )
-        about_update = changes.get("about")
-        banner_url = (
-            about_update.get("banner_url")
-            if isinstance(about_update, dict) and "banner_url" in about_update
-            else None
+        await SiteIdentityMediaReferences(changes).validate_images(
+            self._media_repository.find_by_key
         )
-        if banner_url is not None:
-            asset = await self._media_repository.find_by_key(banner_url.removeprefix("/uploads/"))
-            if (
-                asset is None
-                or asset.media_kind != "image"
-                or not asset.content_type.startswith("image/")
-            ):
-                raise AppError(
-                    "about_banner_media_asset_invalid",
-                    "About banners must reference an existing image Media Asset",
-                    422,
-                )
-        if request.background_gallery is not None:
-            for image in request.background_gallery:
-                if not image.url.startswith("/uploads/"):
-                    continue
-                asset = await self._media_repository.find_by_key(
-                    image.url.removeprefix("/uploads/")
-                )
-                if (
-                    asset is None
-                    or asset.media_kind != "image"
-                    or not asset.content_type.startswith("image/")
-                ):
-                    raise AppError(
-                        "background_media_asset_invalid",
-                        "Background Gallery references must point to an existing image Media Asset",
-                        422,
-                    )
         settings = await self._repository.find()
         if settings is None:
             settings = _default_site_settings()

@@ -5,6 +5,10 @@
 **Post**  
 A formal long-form publication with a title, summary, canonical Markdown body, publication state, tags, and automatically derived reading metadata. A Post is intended to remain useful and discoverable over time and has no Category in the revised domain.
 
+**Post Editing Draft**
+
+An Administrator's unfinished changes intended for one Post, or for a Post that has not yet been created. It is distinct from a saved Post's draft publication state and may contain changes to an already published Post.
+
 **Chatter**  
 A personal note for spontaneous thoughts, ideas, or reflections, less formal than a Post. Chatter requires a body, may have a title, images, and mood, has a first-publication time that survives unpublishing, and has no Tags.
 
@@ -54,6 +58,10 @@ The ordered collection of administrator-selected background images used by the p
 
 **Media Asset**  
 An image or audio object managed by the site and referenced by content or settings. A Media Asset has a stable logical identity independent of its storage provider.
+
+**Site Identity Media Reference**
+
+An image used in the owner's avatar, site favicon, Background Gallery, About banner, or social link icon. A managed reference identifies an image Media Asset; an external image or built-in static image has no managed Media Asset identity.
 
 **Music Track**  
 A NetEase song selected by an Administrator through its song ID for the site's playlist. Its identity is distinct from the temporary playback address and its availability depends on the music provider.
