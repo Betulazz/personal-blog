@@ -55,6 +55,67 @@ const readPostBody = async (page: Page, id: string) => {
   return payload.data.body
 }
 
+test('pastes Markdown as formatted content and saves it across reload', async ({
+  page,
+}) => {
+  await login(page)
+  await page.goto('/admin/posts/new')
+  await page.getByLabel('标题', { exact: true }).fill('粘贴 Markdown')
+  await page.getByLabel('Slug').fill('paste-markdown')
+  const editor = editorFor(page)
+  await editor.click()
+  const source = [
+    '## 粘贴的标题',
+    '',
+    '正文 **粗体** 和 [链接](https://example.com)。',
+    '',
+    '- 第一项',
+    '- 第二项',
+    '',
+    '```ts',
+    'const answer = 42',
+    '```',
+    '',
+    '| 名称 | 值 |',
+    '| --- | --- |',
+    '| 答案 | 42 |',
+  ].join('\n')
+  await editor.evaluate((element, text) => {
+    const clipboard = new DataTransfer()
+    clipboard.setData('text/plain', text)
+    // Code editors commonly include HTML alongside the Markdown source.
+    clipboard.setData('text/html', `<pre>${text}</pre>`)
+    element.dispatchEvent(
+      new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: clipboard,
+      }),
+    )
+  }, source)
+  await expect(editor.locator('h2')).toHaveText('粘贴的标题')
+  await expect(editor.locator('strong')).toHaveText('粗体')
+  await expect(editor.locator('a')).toHaveAttribute(
+    'href',
+    'https://example.com',
+  )
+  await expect(editor.locator('ul li')).toHaveCount(2)
+  await expect(editor.locator('pre code')).toContainText('const answer = 42')
+  await expect(editor.locator('table')).toContainText('答案')
+
+  await page.getByRole('button', { name: '保存草稿' }).click()
+  await expect(page).toHaveURL(/\/admin\/posts\/\d+\/edit$/)
+  const postId = page.url().match(/\/admin\/posts\/(\d+)\/edit$/)?.[1]
+  expect(postId).toBeTruthy()
+  const stored = await readPostBody(page, postId!)
+  expect(stored).toContain('## 粘贴的标题')
+  expect(stored).toContain('**粗体**')
+  expect(stored).toContain('```ts')
+  await page.reload()
+  await expect(editor.locator('h2')).toHaveText('粘贴的标题')
+  await expect(editor.locator('table')).toContainText('答案')
+})
+
 test('editor loads canonical Markdown and preserves it across save and reload', async ({
   page,
 }) => {

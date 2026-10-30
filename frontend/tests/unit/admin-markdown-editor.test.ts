@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   escapeRawHtmlTags,
   inspectMarkdownPolicy,
+  looksLikeMarkdown,
   prepareEditorMarkdown,
   sanitizePastedHtml,
 } from '../../app/utils/admin-markdown-editor-policy'
@@ -125,6 +126,23 @@ describe('admin Markdown editor round trips', () => {
 })
 
 describe('admin Markdown editor safe policy', () => {
+  it('detects Markdown while leaving ordinary pasted text to the editor', () => {
+    for (const source of [
+      '# 标题',
+      '- 列表',
+      '正文 **粗体** 和 *斜体*',
+      '[链接](https://example.com)',
+      '```ts\nconst x = 1\n```',
+      '| 列 | 值 |\n| --- | --- |\n| 一 | 二 |',
+      '公式 $x^2$',
+    ]) {
+      expect(looksLikeMarkdown(source), source).toBe(true)
+    }
+    for (const source of ['普通文字', '#话题', '价格 $20', '2 * 3 = 6']) {
+      expect(looksLikeMarkdown(source), source).toBe(false)
+    }
+  })
+
   it('neutralizes unsafe links instead of storing them', () => {
     const editor = createEditor(
       '[危险](javascript:alert(1)) 与 [数据](data:text/html;base64,PHNjcmlwdD4=)',

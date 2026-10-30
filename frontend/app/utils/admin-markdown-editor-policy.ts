@@ -186,6 +186,17 @@ export const prepareEditorMarkdown = (source: string) =>
     ),
   ).source
 
+// Only intercept text with recognizable Markdown syntax. Ordinary text and
+// rich HTML should continue through ProseMirror's normal paste handling.
+export const looksLikeMarkdown = (source: string): boolean =>
+  /(?:^|\n) {0,3}(?:#{1,6}\s+\S|>\s+\S|(?:[-+*]|\d+[.)])\s+\S|`{3,}|~{3,}|\${2}\s*$)/m.test(
+    source,
+  ) ||
+  /(?:^|\n)\s*\|?.+\|.+\n\s*\|?\s*:?-{3,}/.test(source) ||
+  /!?\[[^\]\n]+\]\([^)\n]+\)|\*\*\S(?:[^\n]*?\S)?\*\*|__\S(?:[^\n]*?\S)?__|(?<![\w*])\*[^*\s\n](?:[^*\n]*?[^*\s\n])?\*(?!\*)|~~\S(?:[^\n]*?\S)?~~|`[^`\n]+`|\$(?!\$)[^$\s\n][^$\n]*\$/.test(
+    source,
+  )
+
 const DROP_WITH_CONTENT = new Set([
   'applet',
   'audio',

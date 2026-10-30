@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 
 import {
   inspectMarkdownPolicy,
+  looksLikeMarkdown,
   prepareEditorMarkdown,
   sanitizePastedHtml,
   type MarkdownPolicyReport,
@@ -74,6 +75,22 @@ const editor = useEditor({
       id: editorId,
     },
     transformPastedHTML: (html) => sanitizePastedHtml(html),
+    handlePaste: (_view, event) => {
+      const currentEditor = editor.value
+      const text = event.clipboardData?.getData('text/plain') ?? ''
+      if (
+        !currentEditor ||
+        currentEditor.isActive('codeBlock') ||
+        currentEditor.isActive('code') ||
+        !looksLikeMarkdown(text)
+      ) {
+        return false
+      }
+
+      return currentEditor.commands.insertContent(prepareEditorMarkdown(text), {
+        contentType: 'markdown',
+      })
+    },
   },
   onCreate: ({ editor: currentEditor }) => {
     void nextTick(() => {
@@ -177,7 +194,7 @@ watch(
     <p :id="helpId" class="admin-markdown-editor__help">
       Markdown
       是持久化格式。支持标题、列表、引用、代码、表格、链接、图片、任务列表与数学公式；
-      原始 HTML 与不安全链接不会被写入正文，粘贴内容会先经过安全过滤。
+      可直接粘贴 Markdown；原始 HTML 与不安全链接不会被写入正文，粘贴内容会先经过安全过滤。
     </p>
 
     <div
