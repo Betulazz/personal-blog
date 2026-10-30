@@ -1,4 +1,5 @@
 import { Node as TiptapNode, type AnyExtension } from '@tiptap/core'
+import { Code } from '@tiptap/extension-code'
 import { Image } from '@tiptap/extension-image'
 import { Link } from '@tiptap/extension-link'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
@@ -133,6 +134,9 @@ const SafeLink = Link.extend({
   },
 })
 
+// Markdown allows inline code inside links and other inline formatting.
+const MarkdownCode = Code.extend({ excludes: '' })
+
 const SafeImage = Image.extend({
   renderMarkdown: (node) => {
     const src = String(node.attrs?.src ?? '')
@@ -143,7 +147,8 @@ const SafeImage = Image.extend({
 })
 
 export const createAdminMarkdownExtensions = (): AnyExtension[] => [
-  StarterKit.configure({ link: false }),
+  StarterKit.configure({ link: false, code: false }),
+  MarkdownCode,
   SafeLink.configure({
     isAllowedUri: (url) => Boolean(url) && isSafeContentUrl(url),
     openOnClick: false,

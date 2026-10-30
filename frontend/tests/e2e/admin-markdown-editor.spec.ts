@@ -68,6 +68,7 @@ test('pastes Markdown as formatted content and saves it across reload', async ({
     '## 粘贴的标题',
     '',
     '正文 **粗体** 和 [链接](https://example.com)。',
+    '行内代码链接 [`/prototype`](https://example.com/prototype)。',
     '',
     '- 第一项',
     '- 第二项',
@@ -95,10 +96,10 @@ test('pastes Markdown as formatted content and saves it across reload', async ({
   }, source)
   await expect(editor.locator('h2')).toHaveText('粘贴的标题')
   await expect(editor.locator('strong')).toHaveText('粗体')
-  await expect(editor.locator('a')).toHaveAttribute(
-    'href',
-    'https://example.com',
-  )
+  await expect(
+    editor.getByRole('link', { name: '链接', exact: true }),
+  ).toHaveAttribute('href', 'https://example.com')
+  await expect(editor.locator('a code')).toHaveText('/prototype')
   await expect(editor.locator('ul li')).toHaveCount(2)
   await expect(editor.locator('pre code')).toContainText('const answer = 42')
   await expect(editor.locator('table')).toContainText('答案')
@@ -110,9 +111,11 @@ test('pastes Markdown as formatted content and saves it across reload', async ({
   const stored = await readPostBody(page, postId!)
   expect(stored).toContain('## 粘贴的标题')
   expect(stored).toContain('**粗体**')
+  expect(stored).toContain('[`/prototype`](https://example.com/prototype)')
   expect(stored).toContain('```ts')
   await page.reload()
   await expect(editor.locator('h2')).toHaveText('粘贴的标题')
+  await expect(editor.locator('a code')).toHaveText('/prototype')
   await expect(editor.locator('table')).toContainText('答案')
 })
 

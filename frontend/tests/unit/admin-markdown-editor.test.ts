@@ -36,6 +36,16 @@ const createEditor = (content: string) => {
 const words = (value: string) => value.match(/[\p{Letter}\p{Number}]+/gu) ?? []
 
 describe('admin Markdown editor round trips', () => {
+  it('round trips a link containing inline code', () => {
+    const source = '[`/prototype`](https://example.com/prototype)'
+    const editor = createEditor('')
+    expect(
+      editor.commands.insertContent(source, { contentType: 'markdown' }),
+    ).toBe(true)
+    expect(editor.getHTML()).toContain('<code>/prototype</code>')
+    expect(editor.getMarkdown()).toBe(source)
+    expect(createEditor(editor.getMarkdown()).getMarkdown()).toBe(source)
+  })
   for (const fixture of markdownRoundTripFixtures) {
     it(`${fixture.name} [${fixture.category}]`, () => {
       const editor = createEditor(fixture.markdown)
